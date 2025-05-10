@@ -1,0 +1,41 @@
+.eleve-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 100px;
+  }
+  
+  h2 {
+    color: #333;
+    margin-bottom: 20px;
+  }
+  
+  .eleve-form {
+    display: flex;
+    flex-direction: column;
+    width: 300px;
+    gap: 15px;
+  }
+  
+  .eleve-form input {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 16px;
+  }
+  
+  .eleve-form button {
+    padding: 12px;
+    background-color: #61dafb;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .eleve-form button:hover {
+    background-color: #21a1f1;
+  }
+  

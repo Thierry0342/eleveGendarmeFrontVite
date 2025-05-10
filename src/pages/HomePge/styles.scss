@@ -1,0 +1,72 @@
+.club_cc{
+    // background-color: red !important;
+    padding: 10px;
+    transition: 0.9s;
+
+    .club_ca{
+        height: 100%;
+        transition: 0.3s;
+        border-radius: 10px;
+        overflow: hidden;
+        // background-color: red;
+        position: relative;
+        border-width: 3px;
+
+        .club_ao{
+            width: 60px;
+            height: 60px;
+            background-color: #1f2937;
+            position: absolute;
+            right: 10px;
+            margin-top: -10px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            
+            .ico{
+                color: white;
+                transition: 1s;
+            }
+        }
+
+        .club_aa{
+            width: 100%;
+            margin-top: 60px;
+            // background-color: orange;
+        }
+    }
+}
+
+.club_cc:hover .club_ca{
+    background-color: #1f2937;
+    color: white;
+}
+
+.club_cc:hover .club_ao{
+    background-color: #ffffff;
+    color: white;
+
+    .ico{
+        color: #32b27e ;
+    }
+}
+.site-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: #1f2937; /* Couleur sombre */
+    color: #ffffff;
+    text-align: center;
+    padding: 15px 10px;
+    z-index: 1000;
+    font-size: 14px;
+    box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.2);
+  }
+  
+  .footer-content p {
+    margin: 5px 0;
+  }
+  
+

@@ -1,0 +1,67 @@
+/* Navbar de base */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #1f2937;
+  padding: 20px 30px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  position: fixed;
+  top: 0;
+  left: 50%;  
+  transform: translateX(-50%); /* Décale de 50% pour centrer parfaitement */
+  z-index: 1000;
+  transition: all 0.9s ease; /* Transition fluide */
+  width: 90%;
+  border-radius: 12px;
+  height: 60px; /* Fixe la hauteur du navbar */
+  margin-top: 10px;
+  
+}
+
+/* Quand on scrolle, le navbar se réduit */
+.navbar.shrink {
+  width: 60%; /* Réduit la largeur */
+  padding: 10px 20px; /* Réduit le padding */
+  background-color: #111827; /* Change la couleur du fond quand réduit */
+  position: fixed;
+  border-radius: 12px;
+}
+
+/* Le logo du navbar */
+.logo a {
+  font-size: 24px;
+  color: #61dafb;
+  text-decoration: none;
+  transition: font-size 0.3s ease;
+}
+
+/* Quand on scrolle, on réduit aussi la taille du logo */
+.navbar.shrink .logo a {
+  font-size: 20px;
+}
+
+/* Les liens du navbar */
+.nav-links {
+  display: flex;
+  gap: 25px;
+  list-style: none;
+  margin: 5px;
+  padding: 5px;
+  align-items: center;
+  
+}
+
+/* Style des liens */
+.nav-links a {
+  color: white;
+  text-decoration: none;
+  font-size: 18px;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+/* Effet au survol des liens */
+.nav-links a:hover {
+  color: #61dafb;
+}
