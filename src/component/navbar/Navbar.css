@@ -65,3 +65,39 @@
 .nav-links a:hover {
   color: #61dafb;
 }
+/* Style du bouton de déconnexion */
+.nav-links .btn-logout {
+  background-color: #ff4d4d;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.nav-links .btn-logout:hover {
+  background-color: #e60000;
+}
+/* Style du bouton de déconnexion avec icône */
+.nav-links .btn-logout {
+  background-color: #ff4d4d;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  display: flex;
+  align-items: center; /* Aligne l'icône et le texte */
+}
+
+.nav-links .btn-logout svg {
+  margin-right: 8px; /* Espacement entre l'icône et le texte */
+}
+
+.nav-links .btn-logout:hover {
+  background-color: #e60000;
+}
+
+

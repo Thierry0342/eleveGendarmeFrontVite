@@ -80,6 +80,7 @@ const HomePage = () => {
       {/* Deuxième ligne de 3 cartes */}
       <div className="row justify-content-center">
         <div className="col-sm-4 col-md-3 club_cc">
+        <Link to="/statistique" style={{ textDecoration: 'none', color: 'inherit' }}>
           <div className="card mb-4 club_ca">
             <div className="card-body">
               <div className="club_ao">
@@ -92,10 +93,11 @@ const HomePage = () => {
               </div>
             </div>
           </div>
+          </Link>
         </div>
   
         <div className="col-sm-4 col-md-3 club_cc">
-        <Link to="/statistique" style={{ textDecoration: 'none', color: 'inherit' }}>
+        
           <div className="card mb-4 club_ca">
             <div className="card-body">
               <div className="club_ao">
@@ -107,7 +109,7 @@ const HomePage = () => {
               </div>
             </div>
           </div>
-          </Link>
+         
         </div>
   
         <div className="col-sm-4 col-md-3 club_cc">

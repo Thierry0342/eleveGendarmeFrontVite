@@ -20,7 +20,12 @@ const userService = {
       return Promise.reject(new Error("ID ou données invalides pour la mise à jour."));
     }
     return axios.put(`${API_URL}/api/user/${id}`, data);
+  },
+  authUser(credentials) {
+    return axios.post(`${API_URL}/api/user/auth`, credentials);
   }
+  
+  
 };
 
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Navbar from './component/navbar/index';
 import HomePage from './pages/HomePge/homePage'; 
 import ElevePage from './pages/ElevePage/ElevePage';
@@ -8,32 +8,43 @@ import CourPage from './pages/CourPage/CourPage';
 import NotFoundPage from './pages/NotFoundPage';
 import AbsencePage from './pages/AbsencePage/absencePage';
 import CadrePage from './pages/cadrePage/cadrePage';
-import ConsultationPage from './pages/consultationPage/consultationPage'
+import ConsultationPage from './pages/consultationPage/consultationPage';
 import StatePage from './pages/StatPage/StatePage';
+import AuthPage from './pages/authPage/authPage';
+import PrivateRoute from '../PrivateRoute'; 
 import '@fortawesome/fontawesome-free/css/all.min.css';
 
-import './index.css'
+import './index.css';
 
+function AppRoutes() {
+  const location = useLocation();
+  const hideNavbar = location.pathname === '/login';
+
+  return (
+    <>
+      {!hideNavbar && <Navbar />}
+      <div style={{ padding: '20px' }}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/eleve" element={<PrivateRoute><ElevePage /></PrivateRoute>} />
+          <Route path="/eleve/listeEleveGendarme"element={<PrivateRoute><ListeElevePge /></PrivateRoute>} />
+          <Route path="/admin/" eelement={<PrivateRoute><CourPage /></PrivateRoute>} />
+          <Route path="/eleve/absence" element={<PrivateRoute><AbsencePage /></PrivateRoute>} />
+          <Route path="/cadre" element={<PrivateRoute><CadrePage /></PrivateRoute>} />
+          <Route path="/eleve/consultation" element={<PrivateRoute><ConsultationPage /></PrivateRoute>} />
+          <Route path="/Statistique"  element={<PrivateRoute><StatePage /></PrivateRoute>} />
+          <Route path="/Login" element={<AuthPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </div>
+    </>
+  );
+}
 
 function App() {
   return (
     <Router>
-      <Navbar />
-      <div style={{ padding: '20px' }}>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/eleve" element={<ElevePage />} />
-          <Route path="/eleve/listeEleveGendarme" element={<ListeElevePge />} />
-          <Route path="/admin/" element={<CourPage />} />
-          <Route path="/eleve/absence" element={<AbsencePage />} />
-          <Route path="/cadre" element={<CadrePage />} />
-          <Route path="/eleve/consultation" element={<ConsultationPage />} />
-          <Route path="/Statistique" element={<StatePage />} />
-
-
-          <Route path="*" element={<NotFoundPage />} /> 
-        </Routes>
-      </div>
+      <AppRoutes />
     </Router>
   );
 }
