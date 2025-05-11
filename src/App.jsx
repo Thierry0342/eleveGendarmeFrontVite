@@ -18,22 +18,24 @@ import './index.css';
 
 function AppRoutes() {
   const location = useLocation();
-  const hideNavbar = location.pathname === '/login';
+  const hideNavbar = location.pathname === '/auth';
+  
+  
 
   return (
     <>
       {!hideNavbar && <Navbar />}
       <div style={{ padding: '20px' }}>
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<PrivateRoute><HomePage /></PrivateRoute>} />
           <Route path="/eleve" element={<PrivateRoute><ElevePage /></PrivateRoute>} />
           <Route path="/eleve/listeEleveGendarme"element={<PrivateRoute><ListeElevePge /></PrivateRoute>} />
-          <Route path="/admin/" eelement={<PrivateRoute><CourPage /></PrivateRoute>} />
+          <Route path="/admin/" element={<PrivateRoute><CourPage /></PrivateRoute>} />
           <Route path="/eleve/absence" element={<PrivateRoute><AbsencePage /></PrivateRoute>} />
           <Route path="/cadre" element={<PrivateRoute><CadrePage /></PrivateRoute>} />
           <Route path="/eleve/consultation" element={<PrivateRoute><ConsultationPage /></PrivateRoute>} />
           <Route path="/Statistique"  element={<PrivateRoute><StatePage /></PrivateRoute>} />
-          <Route path="/Login" element={<AuthPage />} />
+          <Route path="/auth" element={<AuthPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </div>

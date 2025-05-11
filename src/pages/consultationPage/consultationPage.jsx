@@ -3,6 +3,7 @@ import DataTable from "react-data-table-component";
 import consultationService from "../../services/consultation-service";
 import eleveService from "../../services/eleveService";
 import cadreService from "../../services/cadre-service";
+import courService from "../../services/courService";
 import Swal from 'sweetalert2';
 import '../../index.css';
 
@@ -15,7 +16,7 @@ import '../../index.css';
   const [consultations, setConsultations] = useState([]);
   const [isTableVisible, setIsTableVisible] = useState(false);
   const [selectedConsultation, setSelectedConsultation] = useState(null);
-
+  const [coursList,setCoursList] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
   // ajout  eleve et cadre
@@ -39,8 +40,8 @@ import '../../index.css';
  
   //fin 
 
-  const fetchConsultations = () => {
-    consultationService.getAll()
+  const fetchConsultations = (cour2) => {
+    consultationService.getByCour(cour2)
       .then(res => setConsultations(res.data))
       .catch(err => console.error("Erreur chargement consultations :", err));
   };
@@ -93,7 +94,7 @@ import '../../index.css';
       }
  
     
-    fetchConsultations();
+    fetchConsultations(cour2);
     //get cadre , 
   },  [incorporation, cour2,matriculeCadre]);
   
@@ -101,6 +102,31 @@ import '../../index.css';
   const handleChange = e => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
+  //get all cour avant 
+  useEffect(() => {
+    const fetchCours = async () => {
+      try {
+        const res = await courService.getAll();
+        const coursData = res.data;
+  
+        // Trier par valeur décroissante
+        coursData.sort((a, b) => b.cour - a.cour);
+  
+        setCoursList(coursData);
+        //setCoursList2(coursData);
+  
+        // Définir automatiquement le premier cours comme valeur par défaut
+        if (coursData.length > 0) {
+            setCour2(coursData[0].cour); 
+        }
+
+      } catch (err) {
+        console.error("Erreur lors du chargement des cours", err);
+      }
+    };
+  
+    fetchCours();
+  }, []);
 
   //handle save 
   
@@ -245,30 +271,37 @@ import '../../index.css';
     {/* Recherche Élève à gauche */}
     <div className="col-md-6">
       <h5>Recherche Élève</h5>
+      
       <div className="mb-3">
+            <label htmlFor="cour" className="form-label">Cours</label>
+              <select
+                id="cour2"
+                className="form-control border border-primary rounded-3 shadow-sm p-2"
+                value={cour2}
+                onChange={(e) => setCour2(e.target.value)}
+                required
+              >
+                 {coursList.map((item) => (
+                    <option key={item.id} value={item.cour}>
+                      {item.cour}
+                    </option>
+                  ))}
+              </select>
+          </div>
+          <div className="mb-3">
         <label>Numéro d'incorporation</label>
        
 
         <input
           type="text"
-          className= "form-control"
+          className="form-control border border-primary rounded-3 shadow-sm p-2"
           name="numeroIncorporation"
           value={incorporation}
           onChange={(e) => setIncorporation(e.target.value)}
           required
-        />
+/>
 
-      </div>
-      <div className="mb-3">
-        <label>Cours</label>
-        <input
-          type="text"
-          className="form-control"
-          name="cour" 
-          value={cour2}
-          onChange={(e) => setCour2(e.target.value)}
-          required
-        />
+
       </div>
       
     </div>
@@ -280,7 +313,7 @@ import '../../index.css';
       <label>Matricule</label>
         <input
           type="text"
-          className="form-control"
+          className="form-control border border-primary rounded-3 shadow-sm p-2"
           name="matricule"
           value={matriculeCadre}
           onChange={(e) => setMatriculeCadre(e.target.value)}

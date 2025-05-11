@@ -2,17 +2,37 @@ import React, { useEffect, useState } from "react";
 import consultationService from "../../services/consultation-service"; // ajuste le chemin si besoin
 import courService from "../../services/courService";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-
+import DataTable from 'react-data-table-component';
+import "./EvasanModal.css"
+import absenceService from "../../services/absence-service";
 const StatePage = () => {
   const [consultations, setConsultations] = useState([]);
+  const [consultations2, setConsultations2] = useState([]);
   const [joursEscadron, setJoursEscadron] = useState([]);
   const [coursList, setCoursList] = useState([]);
   const [cour, setCour] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-    const [currentPage, setCurrentPage] = useState(1); // Page actuelle
+  const [selectedRow, setSelectedRow] = useState(null);
+  const [listeAbsence,setListeAbsence] = useState([]);
+  const [selectedDate, setSelectedDate] = useState('');
+  const [numIncorp, setNumIncorp] = useState('');
+  //paggination
+  
+  
+  const [currentPage, setCurrentPage] = useState(1); // Page actuelle
   const [itemsPerPage] = useState(5); // Nombre d'éléments par page
 
+  //click row 
+  const handleView = (row) => {
+    setSelectedRow(row);
+  };
+  //close modal 
+  const closeModal = () => {
+    setSelectedRow(null);
+  };
 
+
+ //get consultation
   const fetchConsultations = (selectedCour) => {
 
     if (!selectedCour) {
@@ -26,6 +46,48 @@ const StatePage = () => {
       })
       .catch(err => console.error("Erreur chargement consultations :", err));
   };
+  //get consultation_2
+  const fetchConsultations2 = (selectedCour) => {
+    if (!selectedCour) {
+      console.error("Aucun cours sélectionné.");
+      return;
+    }
+  
+    consultationService.getByCour(selectedCour)
+      .then(res => {
+        const consultationsEvasan = res.data.filter(c => c.status === "EVASAN");
+      //  console.log(consultationsEvasan);
+        setConsultations2(consultationsEvasan); // n'affiche que les EVASAN
+       
+      })
+      .catch(err => console.error("Erreur chargement consultations :", err));
+  };
+  //initialise table consultation
+  const columns = [
+    { name: "Nom et prénom de l'élève", selector: row => row.Eleve?.nom + " " + row.Eleve?.prenom, sortable: true },
+    { name: "Esc", selector: row =>row.Eleve?.escadron, width: "70px", sortable: true, },
+    { name: "Pon", selector: row => row.Eleve?.peloton,width: "70px", },
+    { name: "Date Départ", selector: row => row.dateDepart },
+    {
+      name: "Statut",
+      cell: row => (
+        <span style={{ color: row.status === "EVASAN" ? "RED" : "black", fontWeight: "bold" }}>
+          {row.status}
+        </span>
+      ),
+    },
+    {
+      name: "Actions",
+      cell: row => (
+        <div className="d-flex justify-content-start">
+
+          <button className="btn btn-success btn-sm" onClick={() => handleView(row)}>VIEW</button>
+        </div>
+      ),
+    }
+  ];
+  
+
 
   const calculerJoursEscadron = (data) => {
     const jours = data
@@ -105,18 +167,35 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
 
   useEffect(() => {
     fetchCours();
+    fetchAbsence();
+   
   }, []);
-
+  console.log("abnsence rehetrea  aa",listeAbsence);
   useEffect(() => {
     if (cour){
         fetchConsultations(cour);
+        fetchConsultations2(cour)
 
     }
   }, [cour]);
-  
-    
+  //get all absence 
+  const fetchAbsence =()=> {
+   
+      absenceService.getAll()
+        .then(response => {
+          if (Array.isArray(response.data)) {
+            setListeAbsence(response.data);
+           // console.log("Données mises à jour :", response.absences); // Affiche les nouvelles données dans la console
+          } else {
+            console.error("Données inattendues :", response.data);
+          }
+        })
+        .catch(error => {
+          console.error("Erreur lors du chargement des absence :", error);
+        });
 
-  
+
+  }
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
@@ -130,6 +209,47 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
     }
 }
    
+  //filtre et comptage absence 
+  const filteredAbsences = listeAbsence.filter(abs => {
+    const matchCour = cour ? abs.Eleve?.cour == cour : true;
+    const matchDate = selectedDate ? abs.date === selectedDate : true;
+    const matchIncorp = numIncorp ? abs.Eleve?.numeroIncorporation === numIncorp : true;
+    return matchCour && matchDate && matchIncorp;
+  });
+  
+  
+  const recapMotifs = filteredAbsences.reduce((acc, curr) => {
+    const motif = curr.motif || 'Inconnu';
+    acc[motif] = (acc[motif] || 0) + 1;
+    return acc;
+  }, {});
+ 
+  
+
+
+    // Convertir recapMotifs en tableau
+    const motifData = Object.entries(recapMotifs).map(([motif, count], index) => ({
+      id: index + 1,
+      motif,
+      count,
+    }));
+  const columns2 = [
+    {
+      name: "Motif",
+      selector: row => row.motif,
+      sortable: true,
+    },
+    {
+      name: "Nombre",
+      selector: row => row.count,
+      sortable: true,
+    },
+  ];
+
+    
+
+  
+ 
 
   return (
     <div className="container mt-4">
@@ -406,11 +526,135 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
                         </ResponsiveContainer>
                         </div>
                     </div>
-                    </div>
+                   
+                 
+                  <DataTable
+                    title=" EVACUATION SANITAIRE"
+                    columns={columns}
+                    data={consultations2} // ce sera déjà filtré sur EVASAN
+                    pagination
+                    highlightOnHover
+                    striped
+                    responsive
+                    noDataComponent="Aucune donneé"
+                    customStyles={customStyles}
+                  />
+                  
 
+                  <div className="container mt-4">
+                        <h5>Situation de Prise d'arme</h5>
+                        <form className="row g-3 mb-4">
+                          <div className="col-md-6">
+                            <label className="form-label">Date</label>
+                            <input
+                              type="date"
+                              className="form-control"
+                              value={selectedDate}
+                              onChange={(e) => setSelectedDate(e.target.value)}
+                            />
+                          </div>
+                          <div className="col-md-6">
+                            <label className="form-label">Numéro d'incorporation</label>
+                            <input
+                              type="number"
+                              className="form-control"
+                              value={numIncorp}
+                              onChange={(e) => setNumIncorp(e.target.value)}
+                            />
+                          </div>
+                        </form>
+
+                        <DataTable
+                      
+                          columns={columns2}
+                          data={motifData}
+                          pagination
+                          highlightOnHover
+                          striped
+                          responsive
+                          noDataComponent="Aucune donnée"
+                          customStyles={customStyles}
+                        />
+                      </div>
+
+
+
+
+                  {/* FIN SPA*/}
+                    {/* MODAL ICI – À L'EXTÉRIEUR DU DATATABLE */}
+                    {selectedRow && (
+                      <div className="modal-overlay">
+                        <div className="modal-content">
+                          <h4>INFORMATION EVASAN</h4>
+                          <div className="modal-fields">
+                            <p><strong>Nom:</strong> {selectedRow.Eleve?.nom}</p>
+                            <p><strong>Prénom:</strong> {selectedRow.Eleve?.prenom}</p>
+                            <p><strong>Escadron:</strong> {selectedRow.Eleve?.escadron}</p>
+                            <p><strong>Peloton:</strong> {selectedRow.Eleve?.peloton}</p>
+                            <p><strong>Incorporation:</strong> {selectedRow.Eleve?.numeroIncorporation}</p>
+                            <p><strong>Date Départ:</strong> {selectedRow.dateDepart}</p>
+                            <p><strong>Date Arrivée:</strong> {selectedRow.dateArrive || "-"}</p>
+                            <p><strong>Service Médical:</strong> {selectedRow.service || "-"}</p>
+                            <p><strong>Référé:</strong> {selectedRow.refere}</p>
+                            <p><strong>Nom Cadre:</strong> {selectedRow.Cadre?.nom}</p>
+                            <p><strong>Téléphone Cadre:</strong> {selectedRow.phone}</p>
+                            <p><strong>Status:</strong> {selectedRow.status}</p>
+                          </div>
+                          <button className="btn btn-danger mt-3" onClick={closeModal}>Fermer</button>
                         </div>
-                        </div>
-                    );
-                    };
+                      </div>
+                    )}
+                   </div>
+                  
+    
+              </div>
+              
+              </div>
+              
+              
+            );
+          };
+          const customStyles = {
+            headCells: {
+              style: {
+                backgroundColor: "#0d6efd", // Bleu Bootstrap
+                color: "white",
+                fontWeight: "bold",
+                height:"40px",
+                fontSize: "16px",
+              },
+            },
+            rows: {
+              style: {
+                fontSize: "13px",
+                minHeight: "50px",
+              },
+            },
+            cells: {
+              style: {
+                padding: "px",
+              },
+            },
+            header: {
+              style: {
+                fontSize: "20px",
+                fontWeight: "bold",
+                padding: "10px",
+                color: "#0d6efd",
+              },
+            },
+            pagination: {
+              style: {
+                borderTop: "1px solid #ccc",
+                padding: "10px",
+              },
+            },
+            highlightOnHoverStyle: {
+              backgroundColor: "#f1f1f1",
+              borderBottomColor: "#cccccc",
+              outline: "1px solid #dddddd",
+            },
+          };
+
 
 export default StatePage;

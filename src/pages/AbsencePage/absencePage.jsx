@@ -30,7 +30,7 @@ const SaisieAbsence = () => {
   const [spaDate, setSpaDate] = useState('');
   const [totalI, setTotalI] = useState(0);
   const [totalA,setTotalA] = useState(0);
-  const [spaNumber, setSpaNumber] = useState(1500); // Valeur par défaut
+  const [spaNumber, setSpaNumber] = useState(1499); // Valeur par défaut
 
 
 
@@ -260,7 +260,7 @@ const SaisieAbsence = () => {
   }, {});
   //ppour SPA 
   const handleAfficherIndispo = () => {
-    const motifsI = ["IG", "CONSULTATION", "A REVOIR IG", "REPOS SAN"];
+    const motifsI = ["IG", "CONSULTATION", "A REVOIR IG", "REPOS SAN" , "A REVOIR CHRR"];
     
     const totalIvalue = absenceafficher.filter(abs =>
       motifsI.includes(abs.motif?.toUpperCase()) &&
@@ -536,13 +536,14 @@ const SaisieAbsence = () => {
                 <option value="A REVOIR CHRR">A REVOIR CHRR</option>
                 <option value="A REVOIR IG">A REVOIR IG</option>
                 <option value="AD COM DLI">AD COM DLI</option>
+                <option value="AD COM DQG SPORT">AD COM DQG SPORT</option>
                 <option value="PERMISSION">PERMISSION</option>
                 <option value="SPORT">SPORT</option>
                 <option value="AD MDG">AD MDG</option>
                 <option value="REPOS SANITAIRE">REPOS SANITAIRE</option>
                 <option value="STAGE">STAGE</option>
                 <option value="MISSION">MISSIOPN</option>
-                <option value="AD_CEGN">AD CEGN</option>
+                <option value="AD CEGN">AD CEGN</option>
                 <option value="TOBY FANDRIANA">TOBY FANDRIANA</option>
               </select>
             </div>
@@ -712,8 +713,8 @@ const SaisieAbsence = () => {
 
                                                 <div className="modal-body">
                                                   {/* Formulaire de sélection de date */}
-                                                  <form className="d-flex align-items-center mb-4 gap-3">
-                                                      <label htmlFor="spaDate" className="form-label mb-0">Date :</label>
+                                                  <form className="d-flex align-items-center mb-4 gap-1">
+                                                      <label htmlFor="spaDate" className="form-label mb-0">Date</label>
                                                       <input
                                                         type="date"
                                                         id="spaDate"
@@ -721,7 +722,7 @@ const SaisieAbsence = () => {
                                                         value={spaDate}
                                                         onChange={(e) => setSpaDate(e.target.value)}
                                                       />
-                                                       <label htmlFor="totalEleve" className="form-label mb-0">Réaliser (R) :</label>
+                                                       <label htmlFor="totalEleve" className="form-label mb-0">(R) :</label>
                                                           <input
                                                             type="number"
                                                             id="totalEleve"
@@ -731,7 +732,7 @@ const SaisieAbsence = () => {
                                                           />
 
                                                       <button type="button" className="btn btn-primary" onClick={handleAfficherIndispo}>
-                                                        AFFICHER SPA
+                                                         SPA
                                                       </button>
                                                     </form>
 

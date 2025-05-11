@@ -132,6 +132,7 @@ const HomePage = () => {
 
       <footer className="site-footer">
       <div className="footer-content">
+        
         <p>© 2025 EGNA SIT INFO</p>
         <p>ÉCOLE DE LA GENDARMERIE NATIONALE AMBOSITRA</p>
       </div>
