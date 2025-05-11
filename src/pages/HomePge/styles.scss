@@ -2,6 +2,9 @@
     // background-color: red !important;
     padding: 10px;
     transition: 0.9s;
+    &:hover {
+        transform: scale(1.11); // Zoom léger de la carte entière
+      }
 
     .club_ca{
         height: 100%;

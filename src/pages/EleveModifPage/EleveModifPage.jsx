@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import './style.css';
 import eleveService from '../../services/eleveService';
 
+
 const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave }) => {
   //initie donne
   const [formData, setFormData] = useState({})
@@ -217,7 +218,7 @@ const handleSave = async () => {
 
 
   return (
-    <Modal show={show} onHide={onClose} size="xl" dialogClassName="large-modal" >
+    <Modal show={show} onHide={onClose} size="lg" dialogClassName="large-modal" >
       <Modal.Header closeButton>
         <Modal.Title>Modifier les informations de l'élève</Modal.Title>
       </Modal.Header>
@@ -929,9 +930,7 @@ const handleSave = async () => {
                   />
 </div>
 )}
-
-          
-          
+      
 
         </Form>
       </Modal.Body>

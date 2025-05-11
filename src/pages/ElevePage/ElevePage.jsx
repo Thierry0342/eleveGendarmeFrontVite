@@ -3,6 +3,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import eleveService from '../../services/eleveService';
 import { useNavigate } from 'react-router-dom';
 import courService from '../../services/courService';
+import "./ElevePage.css"
 
 import Swal from 'sweetalert2';
 
@@ -435,7 +436,7 @@ const ElevePage = () => {
         <div className="col">
           {/* Affichage de l'image ou image par défaut */}
           <img
-            src={imagePreview || 'logo192.png'} // Image par défaut si aucune image sélectionnée
+            src={imagePreview || 'images/egna.jpg'} // Image par défaut si aucune image sélectionnée
             alt="Aperçu"
             className="img-thumbnail"
             width="200"
@@ -780,13 +781,24 @@ const ElevePage = () => {
     {/* Niveau d’étude */}
     <div className="mb-3">
       <label className="form-label">Dernière classe suivie</label>
-      <input
-        type="text"
+      <select
         className="form-control"
-        name="niveauEtude"
-        value={formData.niveauEtude}
+        name="niveau"
+        value={formData.niveau}
         onChange={handleChange}
-      />
+      >
+        <option value="">-- Sélectionner le niveau --</option>
+        <option value="BACC">BACC</option>
+        <option value="BACC +1">BACC +1</option>
+        <option value="BACC +2">BACC +2</option>
+        <option value="BACC +3">BACC +3</option>
+        <option value="BACC +4">BACC +4</option>
+        <option value="BACC +5">BACC +5</option>
+        <option value="BACC +6">BACC +6</option>
+        <option value="BACC +7">BACC +7</option>
+        <option value="BACC +8">BACC +8</option>
+      </select>
+
     </div>
 
  {/* Diplômes obtenus (checkbox) */}

@@ -124,7 +124,7 @@ const HomePage = () => {
                 <p>Règles et consignes de discipline</p>
               </div>
             </div>
-          </div>4
+          </div>
           </Link>
         </div>
       </div>

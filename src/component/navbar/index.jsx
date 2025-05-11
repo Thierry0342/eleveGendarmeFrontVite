@@ -57,7 +57,7 @@ const Navbar = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      navigate('/auth');  // Redirige vers la page de connexion si pas de token
+      navigate('/auth', { replace: true });
     }
   }, []);  // Ne se lance qu'une fois au chargement
   return (

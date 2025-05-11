@@ -1,18 +1,23 @@
+// PrivateRoute.jsx
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const PrivateRoute = ({ children }) => {
+const PrivateRoute = ({ children, allowedRoles }) => {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
+  const user = JSON.parse(localStorage.getItem('user'));
 
   useEffect(() => {
-    // Si pas de token, redirige vers la page de login
-    if (!token) {
-      navigate('/Login');
+    if (!token || !user || (allowedRoles && !allowedRoles.includes(user.type))) {
+      navigate('/auth');
     }
-  }, [token, navigate]);
+  }, [token, user, allowedRoles, navigate]);
 
-  return token ? children : null; // Si token existe, on affiche les enfants, sinon rien
+  if (!token || !user || (allowedRoles && !allowedRoles.includes(user.type))) {
+    return null;
+  }
+
+  return children;
 };
 
 export default PrivateRoute;

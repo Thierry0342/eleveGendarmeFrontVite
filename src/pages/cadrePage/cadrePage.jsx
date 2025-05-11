@@ -29,25 +29,64 @@ const CadreFormBootstrap = () => {
   };
   //affiche SPA 
   const toggleSPA = () => setShowSPA(!showSPA);
-  const handleChangeSPA = (e) => {
+   // Fonction de changement pour tous les champs
+   const handleChangeSPA = (e) => {
     const { name, value } = e.target;
     const newForm = { ...formSPA, [name]: value };
-
-    // Auto-remplir si matricule trouvé
-    if (name === "matricule") {
-      const found = cadres.find((c) => c.matricule === value);
-      if (found) {
-        newForm.nom = found.nom;
-        newForm.prenom = found.prenom;
-        newForm.grade = found.grade;
-        newForm.service = found.service;
+  
+    if (name === "matricule" || name === "prenom") {
+      // Si tu changes un des champs (matricule ou prénom), on réinitialise les autres champs associés
+      if (!newForm.matricule && !newForm.prenom) {
+        newForm.nom = "";
+        newForm.grade = "";
+        newForm.service = "";
       }
     }
-
+  
     setFormSPA(newForm);
   };
+  
+  
 
+  useEffect(() => {
+    const inputMatricule = typeof formSPA.matricule === 'string' ? formSPA.matricule.trim().toLowerCase() : '';
+const inputPrenom = typeof formSPA.prenom === 'string' ? formSPA.prenom.trim().toLowerCase() : '';
 
+    
+  
+    const found = cadres.find((c) => {
+      const mat = String(c.matricule || "").trim().toLowerCase();
+      const prenom = String(c.prenom || "").trim().toLowerCase();
+  
+      // Recherche par matricule ou prénom
+      return mat === inputMatricule || prenom === inputPrenom;
+    });
+  
+    if (found) {
+      // Si une correspondance est trouvée, remplir tous les champs
+      setFormSPA((prev) => ({
+        ...prev,
+        nom: found.nom || "",
+        prenom: found.prenom || "",
+        grade: found.grade || "",
+        service: found.service || "",
+        matricule: found.matricule || prev.matricule,  // Mise à jour du matricule si nécessaire
+      }));
+    } else if (!inputMatricule && !inputPrenom) {
+      // Si aucun des deux champs n'est rempli, réinitialiser les autres champs
+      setFormSPA((prev) => ({
+        ...prev,
+        nom: "",
+        prenom: "",
+        grade: "",
+        service: "",
+        matricule: "",
+      }));
+    }
+  }, [formSPA.matricule, formSPA.prenom, cadres]);
+  
+  
+  
 
   const handleAddCadre = async () => {
     if (formData.nom && formData.prenom && formData.grade && formData.service) {
@@ -73,7 +112,7 @@ useEffect(() => {
     try {
       const response = await cadreService.getAll();
       setCadres(response.data); // C'est la seule chose utile ici
-      console.log(response.data);
+     // console.log(response.data);
     } catch (error) {
       console.error('Erreur de chargement des cadres', error);
     }
@@ -269,90 +308,90 @@ useEffect(() => {
                         
                     />                         
 
-        </div>
-        
-      </div>
-      <button
-        className="btn btn-secondary"
-        style={{
-          position: "fixed",
-          bottom: "20px",
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 999,
-        }}
-        onClick={toggleSPA}
-      >
-        SPA
-      </button>
-      {showSPA && (
-        <div className="container mt-4 border-top pt-4 bg-light">
-          <div className="row">
-            <div className="col-md-5">
-              <h4>Formulaire SPA</h4>
-              <div className="mb-3">
-                <label className="form-label">Matricule</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  name="matricule"
-                  value={formSPA.matricule}
-                  onChange={handleChangeSPA}
-                  placeholder="Entrez le matricule"
-                />
-              </div>
-              <div className="mb-3">
-                <label className="form-label">Nom</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  name="nom"
-                  value={formSPA.nom}
-                  onChange={handleChangeSPA}
-                />
-              </div>
-              <div className="mb-3">
-                <label className="form-label">Prénom</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  name="prenom"
-                  value={formSPA.prenom}
-                  onChange={handleChangeSPA}
-                />
-              </div>
-              <div className="mb-3">
-                <label className="form-label">Grade</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  name="grade"
-                  value={formSPA.grade}
-                  onChange={handleChangeSPA}
-                />
-              </div>
-              <div className="mb-3">
-                <label className="form-label">Service</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  name="service"
-                  value={formSPA.service}
-                  onChange={handleChangeSPA}
-                />
-              </div>
-              <button className="btn btn-primary">Soumettre</button>
-            </div>
-          </div>
-        </div>
-      )}
-  
-      
-    </div>
-    
-  );
-  
-};
+                          </div>
+                          
+                        </div>
+                        <button
+                          className="btn btn-secondary"
+                          style={{
+                            position: "fixed",
+                            bottom: "20px",
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            zIndex: 999,
+                          }}
+                          onClick={toggleSPA}
+                        >
+                          SPA
+                        </button>
+                        {showSPA && (
+                          <div className="container mt-4 border-top pt-4 bg-light">
+                            <div className="row">
+                              <div className="col-md-5">
+                                <h4>Formulaire SPA</h4>
+                                <div className="mb-3">
+                                  <label className="form-label">Matricule</label>
+                                  <input
+                                    type="text"
+                                    className="form-control"
+                                    name="matricule"
+                                    value={formSPA.matricule}
+                                    onChange={handleChangeSPA}
+                                    placeholder="Entrez le matricule"
+                                  />
+                                </div>
+                                <div className="mb-3">
+                                  <label className="form-label">Nom</label>
+                                  <input
+                                    type="text"
+                                    className="form-control"
+                                    name="nom"
+                                    value={formSPA.nom}
+                                    onChange={handleChangeSPA}
+                                  />
+                                </div>
+                                <div className="mb-3">
+                                  <label className="form-label">Prénom</label>
+                                  <input
+                                    type="text"
+                                    className="form-control"
+                                    name="prenom"
+                                    value={formSPA.prenom}
+                                    onChange={handleChangeSPA}
+                                  />
+                                </div>
+                                <div className="mb-3">
+                                  <label className="form-label">Grade</label>
+                                  <input
+                                    type="text"
+                                    className="form-control"
+                                    name="grade"
+                                    value={formSPA.grade}
+                                    onChange={handleChangeSPA}
+                                  />
+                                </div>
+                                <div className="mb-3">
+                                  <label className="form-label">Service</label>
+                                  <input
+                                    type="text"
+                                    className="form-control"
+                                    name="service"
+                                    value={formSPA.service}
+                                    onChange={handleChangeSPA}
+                                  />
+                                </div>
+                                <button className="btn btn-primary">Soumettre</button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                    
+                        
+                      </div>
+                      
+                    );
+                    
+                  };
 
         const customStyles = {
             headCells: {

@@ -694,7 +694,7 @@ const SaisieAbsence = () => {
                                           <div className="modal fade show d-block" tabIndex="-1" role="dialog" 
                                             style={{
                                               display: "block",
-                                              position: "fixed",
+                      
                                               top: 0,
                                               left: 0,
                                               width: "100vw",
@@ -702,8 +702,10 @@ const SaisieAbsence = () => {
                                               backgroundColor: "rgba(0,0,0,0.4)",
                                               backdropFilter: "blur(2px)",
                                               zIndex: 1050,
+                                              
                                             }}
                                           >
+                                            
                                             <div className="modal-dialog modal-lg">
                                               <div className="modal-content">
                                                 <div className="modal-header">

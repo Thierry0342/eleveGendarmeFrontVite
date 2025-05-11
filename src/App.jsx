@@ -11,6 +11,7 @@ import CadrePage from './pages/cadrePage/cadrePage';
 import ConsultationPage from './pages/consultationPage/consultationPage';
 import StatePage from './pages/StatPage/StatePage';
 import AuthPage from './pages/authPage/authPage';
+import DiverPage from './pages/DiverPage/DiverPage';
 import PrivateRoute from '../PrivateRoute'; 
 import '@fortawesome/fontawesome-free/css/all.min.css';
 
@@ -35,6 +36,7 @@ function AppRoutes() {
           <Route path="/cadre" element={<PrivateRoute><CadrePage /></PrivateRoute>} />
           <Route path="/eleve/consultation" element={<PrivateRoute><ConsultationPage /></PrivateRoute>} />
           <Route path="/Statistique"  element={<PrivateRoute><StatePage /></PrivateRoute>} />
+          <Route path="/eleves/diplome"  element={<PrivateRoute><DiverPage /></PrivateRoute>} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

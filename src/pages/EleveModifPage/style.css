@@ -1,4 +1,9 @@
-.large-modal .modal-dialog {
-    max-width: 95%;
-    margin: auto;
-  }
+body {
+  overflow-x: hidden; /* Pour éviter les débordements horizontaux */
+}
+
+.modal-dialog {
+  max-width: 80% !important; /* Ou ajustez selon vos besoins */
+  margin: 0 auto;
+  width: auto !important; /* Forcer la largeur automatique */
+}

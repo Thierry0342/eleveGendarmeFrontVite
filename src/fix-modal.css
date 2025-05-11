@@ -1,0 +1,16 @@
+.modal-dialog {
+    max-width:4000px !important;            /* Large mais pas trop */
+    width: 800px !important;                /* S'étend mais reste fluide */
+    margin: 0 !important;                 /* Supprime les marges par défaut */
+    position: fixed !important;          /* Position fixe pour couvrir tout l'écran */
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important; /* Centre parfaitement */
+    z-index: 1055 !important;            /* Au-dessus de l’overlay */
+  }
+  
+  .modal-content {
+    width: 100% !important;
+    border-radius: 8px;
+  }
+  
