@@ -1,0 +1,34 @@
+.filter-section-title {
+  font-size: 1.3rem;
+  font-weight: bold;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #dee2e6;
+  padding-bottom: 5px;
+  color: #212529;
+  letter-spacing: 0.5px;
+}
+
+/* Carte de filtre générale */
+.card-filter {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  border-radius: 16px;
+  border: 1px solid #ccc;
+  background-color: white;
+}
+
+.card-filter:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+/* Carte sélectionnée (niveau d’étude) */
+.card-selected {
+  border: 2px solid #0d6efd !important;
+  background-color: #e9f2ff !important;
+}
+
+/* Carte sélectionnée pour religion si besoin */
+.card-selected-religion {
+  border: 2px solid #198754 !important;
+  background-color: #e6f7ed !important;
+}
