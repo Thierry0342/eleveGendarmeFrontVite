@@ -8,6 +8,7 @@ const CadreFormBootstrap = () => {
   const [cadres, setCadres] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [showSPA, setShowSPA] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [formSPA, setFormSPA] = useState({
     matricule: "",
     nom: "",
@@ -45,6 +46,12 @@ const CadreFormBootstrap = () => {
   
     setFormSPA(newForm);
   };
+  //filtre table 
+  const filteredCadres = cadres.filter((cadre) =>
+    Object.values(cadre).some((val) =>
+      String(val).toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  );
   
   
 
@@ -173,6 +180,7 @@ useEffect(() => {
     { name: 'Nom', selector: row => row.nom, sortable: true },
     { name: 'Prénom', selector: row => row.prenom, sortable: true },
     { name: 'Grade', selector: row => row.grade, sortable: true },
+    { name: 'Matricule', selector: row => row.matricule, sortable: true },
     { name: 'Service', selector: row => row.service, sortable: true },
     {
       name: 'Actions',
@@ -238,7 +246,7 @@ useEffect(() => {
                 onChange={handleChange}
               >
                 <option value="">-- SÉLECTIONNEZ LE SERVICE --</option>
-                {["1ER ESCADRON", "2EME ESCADRON", "3EME ESCADRON", "4EME ESCADRON", "5EME ESCADRON", "6EME ESCADRON", "7EME ESCADRON", "8EME ESCADRON", "9EME ESCADRON", "10EME ESCADRON", "SIT INFO", "SE", "COUR A", "COUR B", "MATR", "SM", "INFRA"].map((s) => (
+                {["1ER ESCADRON", "2EME ESCADRON", "3EME ESCADRON", "4EME ESCADRON", "5EME ESCADRON", "6EME ESCADRON", "7EME ESCADRON", "8EME ESCADRON", "9EME ESCADRON", "10EME ESCADRON", "CAB", "DI", "COUR A", "COUR B", "MATR", "SM", "INFRA","PIF","SED","SRH","PEDA","SSL","TELECOM","ARM","PDS","INFO","SE"].map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
@@ -263,9 +271,20 @@ useEffect(() => {
             <h4 className="card-title text-primary mb-3">
               <i className="fa fa-users me-2"></i>Liste des Cadres
             </h4>
+            
+        {/* Barre de recherche */}
+        <div className="mb-3">
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Rechercher un cadre..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
             <DataTable
               columns={columns}
-              data={cadres}
+              data={filteredCadres}
               pagination
               highlightOnHover
               striped

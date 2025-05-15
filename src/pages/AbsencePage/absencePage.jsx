@@ -3,6 +3,7 @@ import Swal from 'sweetalert2';
 import eleveService from '../../services/eleveService';
 import courService from '../../services/courService';
 import absenceService from '../../services/absence-service';
+import spaspecialeService from'../../services/spaSpeciale-service';
 import DataTable from 'react-data-table-component';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -28,15 +29,16 @@ const user = JSON.parse(localStorage.getItem('user'));
   const [showTable, setShowTable] = useState(false);
   const [showModal, setShowModal] = useState(false);
   //pour spa
+  const [spaSpeciale,setSpaSpeciale]=useState([]);
   const [spaDate, setSpaDate] = useState('');
   const [totalI, setTotalI] = useState(0);
   const [totalA,setTotalA] = useState(0);
   const [spaNumber, setSpaNumber] = useState(1499); // Valeur par défaut
-
-
-
-  
-
+   //pagination spa
+   const [pageAbsence, setPageAbsence] = useState(1);
+   const [pageSpa, setPageSpa] = useState(1);
+   const ITEMS_PER_PAGE = 5;
+   
   //ajout cour automatique
   useEffect(() => {
     const fetchCours = async () => {
@@ -113,6 +115,29 @@ const user = JSON.parse(localStorage.getItem('user'));
     return () => clearInterval(intervalId);
   
   }, []);
+  //get spaSpeciale 
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      spaspecialeService.getAll()
+        .then(response => {
+          if (Array.isArray(response.data)) {
+            setSpaSpeciale(response.data);
+            //console.log("Données mises à jour :", response.data); // Affiche les nouvelles données dans la console
+          } else {
+            console.error("Données inattendues :", response.data);
+          }
+        })
+        .catch(error => {
+          console.error("Erreur lors du chargement  :", error);
+        });
+    }, 1000); // Appeler toutes les 1 secondes (1000 ms)
+  
+    // Nettoyer l'intervalle lorsque le composant est démonté
+    return () => clearInterval(intervalId);
+  
+  }, []);
+
+
   //inserer dans un tableau react
  //console.log("absence veee",absences)
   const columns = [
@@ -275,7 +300,10 @@ const user = JSON.parse(localStorage.getItem('user'));
   //ppour SPA 
   const handleAfficherIndispo = () => {
     const motifsI = ["IG", "CONSULTATION", "A REVOIR IG", "REPOS SAN" , "A REVOIR CHRR","DONNEUR DE SANG"];
-    
+    // ISO pour comparaison de dates
+  const spaDateISO = new Date(spaDate).toISOString().slice(0, 10);
+
+
     const totalIvalue = absenceafficher.filter(abs =>
       motifsI.includes(abs.motif?.toUpperCase()) &&
       abs.date === spaDate && cour===cour
@@ -285,10 +313,40 @@ const user = JSON.parse(localStorage.getItem('user'));
       !motifsI.includes(abs.motif?.toUpperCase()) &&
       abs.date === spaDate
     ).length;
+
+    // Prendre en compte les SPA spéciales
+  const spaSpecialesDuJour = spaSpeciale.filter(spa => spa.date?.slice(0, 10) === spaDateISO);
+  const totalASpeciale = spaSpecialesDuJour.reduce((total, spa) => total + (spa.nombre || 0), 0);
+
+  // totalA ajusté
+  const totalAwithSpecial = totalAvalue + totalASpeciale;
+   
   
     setTotalI(totalIvalue);
-    setTotalA(totalAvalue);
+    setTotalA(totalAwithSpecial);
   };
+  //pagination tableau
+   // Pagination pour tableau Absences par Motif
+   const absenceMotifsArray = Object.entries(absencesParIncorporationEtMotif)
+   .flatMap(([inc, motifs]) =>
+     Object.entries(motifs).map(([motif, count]) => ({ motif, count }))
+   );
+   const totalAbsencePages = Math.ceil(absenceMotifsArray.length / ITEMS_PER_PAGE);
+   const paginatedAbsences = absenceMotifsArray.slice(
+   (pageAbsence - 1) * ITEMS_PER_PAGE,
+   pageAbsence * ITEMS_PER_PAGE
+   );
+
+   // Pagination pour tableau Spa Spéciale
+   const spaFiltered = filter.date
+   ? spaSpeciale.filter(spa => spa.date?.slice(0, 10) === filter.date)
+   : spaSpeciale;
+   const totalSpaPages = Math.ceil(spaFiltered.length / ITEMS_PER_PAGE);
+   const paginatedSpa = spaFiltered.slice(
+   (pageSpa - 1) * ITEMS_PER_PAGE,
+   pageSpa * ITEMS_PER_PAGE
+   );
+
   // -----------------------------------------------
   ///En pdf 
   const handleExportPDF = () => {
@@ -315,10 +373,35 @@ const user = JSON.parse(localStorage.getItem('user'));
       doc.text(`Situation de Prise d'Arme du ${filter.cour} CFEG du ${formattedDate} `, 90, 55);
   
       // Tableau résumé
+      //pour SPA speciale 
+     // const spaDateObj = new Date(spaDate);
+
+      // 1. Convert spaDate en date ISO (AAAA-MM-JJ)
+      const spaDateISO = new Date(spaDate).toISOString().slice(0, 10);
+      // Trouver les entrées spaSpéciale correspondant à la date
+      const spaSpecialesDuJour = spaSpeciale.filter(spa => {
+        return spa.date?.slice(0, 10) === spaDateISO;
+      });
+      // Si une correspondance existe, ajouter le nombre à totalA
+        const totalAjoutSpaSpeciale = spaSpecialesDuJour.reduce((total, spa) => {
+        return total + (spa.nombre || 0);
+       }, 0);
+
+      //  Calculer le nouveau totalA
+       const totalASpeciale = totalA 
+
+ 
+
+
       autoTable(doc, {
         startY: 60,
         head: [['R', 'A', 'P', 'I', 'S']],
-        body: [[spaNumber, totalA, spaNumber - totalA, totalI, (spaNumber - totalA) - totalI]],
+        body: [[ 
+          spaNumber,
+          totalASpeciale,
+          spaNumber - totalASpeciale,
+          totalI,
+          (spaNumber - totalASpeciale) - totalI]],
         theme: 'grid',
         tableWidth: 100,
         margin: { left: doc.internal.pageSize.getWidth() - 120 },
@@ -346,6 +429,17 @@ const user = JSON.parse(localStorage.getItem('user'));
       let bodyDetails = [];
   
       // Ajout des autres motifs avant les motifs spécifiques
+      //ajout spaSpeciale
+      spaSpecialesDuJour.forEach(spa => {
+        // Titre avec le motif et nombre
+        bodyDetails.push([
+          `${spa.motif.toUpperCase()} : ${spa.nombre}`,
+          '', '', '', '', ''
+        ]);
+      
+       
+      });
+      
       Object.entries(groupedMotifs).forEach(([motif, absences]) => {
         if (!specificMotifs.includes(motif)) {
           // Ligne de total pour le motif
@@ -415,6 +509,9 @@ const user = JSON.parse(localStorage.getItem('user'));
           
         },
       });
+      //final
+     
+      
       const finalY = doc.lastAutoTable.finalY; 
       doc.setFontSize(12);
       doc.text("DESTINATAIRES", 5 , finalY + 10);
@@ -440,277 +537,278 @@ const handleResetFilter = () => {
 };
 
   
-  return (
-    <div className="container mt-5">
-    <h2 className="text-center text-uppercase fw-bold text-primary mb-4" style={{ letterSpacing: "2px" }}>
-      Saisie des Absences - Élève Gendarme
-    </h2>
-    <hr className="mx-auto" style={{ width: "100px", borderTop: "3px solid #0d6efd" }} />
-  
-      <br></br>
-      <div className="row">
-        {/* Formulaire à gauche */}
-        <div className="col-md-4">
-  <form onSubmit={handleSubmit} className="p-4 bg-light rounded shadow-sm">
-    {/* Sélection du cours */}
-    <div className="mb-3">
-      <label htmlFor="cour2" className="form-label d-flex align-items-center">
-        <i className="fas fa-book me-2"></i>Cours
-      </label>
-      <select
-        id="cour2"
-        className="form-select border-0 shadow-sm"
-        value={cour2}
-        onChange={(e) => setCour2(e.target.value)}
-        required
-      >
-        {coursList2.map((item) => (
-          <option key={item.id} value={item.cour}>
-            {item.cour}
-          </option>
-        ))}
-      </select>
-    </div>
+              return (
+                <div className="container mt-5">
+                <h2 className="text-center text-uppercase fw-bold text-primary mb-4" style={{ letterSpacing: "2px" }}>
+                  Saisie des Absences - Élève Gendarme
+                </h2>
+                <hr className="mx-auto" style={{ width: "100px", borderTop: "3px solid #0d6efd" }} />
+              
+                  <br></br>
+                  <div className="row">
+                    {/* Formulaire à gauche */}
+                    <div className="col-md-4">
+              <form onSubmit={handleSubmit} className="p-4 bg-light rounded shadow-sm">
+                {/* Sélection du cours */}
+                <div className="mb-3">
+                  <label htmlFor="cour2" className="form-label d-flex align-items-center">
+                    <i className="fas fa-book me-2"></i>Cours
+                  </label>
+                  <select
+                    id="cour2"
+                    className="form-select border-0 shadow-sm"
+                    value={cour2}
+                    onChange={(e) => setCour2(e.target.value)}
+                    required
+                  >
+                    {coursList2.map((item) => (
+                      <option key={item.id} value={item.cour}>
+                        {item.cour}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-    {/* Saisie du numéro d'incorporation */}
-    <div className="mb-3">
-      <label htmlFor="incorporation" className="form-label d-flex align-items-center">
-        <i className="fas fa-id-badge me-2"></i>Numéro d'Incorporation
-      </label>
-      <input
-        id="incorporation"
-        type="text"
-        className="form-control border-0 shadow-sm"
-        value={incorporation}
-        onChange={(e) => setIncorporation(e.target.value)}
-        required
-      />
-    </div>
+                {/* Saisie du numéro d'incorporation */}
+                <div className="mb-3">
+                  <label htmlFor="incorporation" className="form-label d-flex align-items-center">
+                    <i className="fas fa-id-badge me-2"></i>Numéro d'Incorporation
+                  </label>
+                  <input
+                    id="incorporation"
+                    type="text"
+                    className="form-control border-0 shadow-sm"
+                    value={incorporation}
+                    onChange={(e) => setIncorporation(e.target.value)}
+                    required
+                  />
+                </div>
 
-    {/* Affichage automatique des informations de l'élève */}
-    {eleveData && Object.keys(eleveData).length > 0 && (
-      <>
-        <div className="mb-3">
-          <label htmlFor="nom" className="form-label d-flex align-items-center">
-            <i className="fas fa-user me-2"></i>Nom
-          </label>
-          <input
-            id="nom"
-            type="text"
-            className="form-control"
-            value={eleveData.eleve.nom || ''}
-            disabled
-          />
-        </div>
-
-        <div className="mb-3">
-          <label htmlFor="prenom" className="form-label d-flex align-items-center">
-            <i className="fas fa-user-tag me-2"></i>Prénom
-          </label>
-          <input
-            id="prenom"
-            type="text"
-            className="form-control"
-            value={eleveData.eleve.prenom || ''}
-            disabled
-          />
-        </div>
-
-        <div className="mb-3">
-          <label htmlFor="matricule" className="form-label d-flex align-items-center">
-            <i className="fas fa-clipboard-list me-2"></i>Matricule
-          </label>
-          <input
-            id="matricule"
-            type="text"
-            className="form-control"
-            value={eleveData.eleve.matricule || ''}
-            disabled
-          />
-        </div>
-
-        <div className="mb-3">
-          <label htmlFor="escadron" className="form-label d-flex align-items-center">
-            <i className="fas fa-shield-alt me-2"></i>Escadron
-          </label>
-          <input
-            id="escadron"
-            type="text"
-            className="form-control"
-            value={eleveData.eleve.escadron || ''}
-            disabled
-          />
-        </div>
-
-        <div className="mb-3">
-          <label htmlFor="peloton" className="form-label d-flex align-items-center">
-            <i className="fas fa-users me-2"></i>Peloton
-          </label>
-          <input
-            id="peloton"
-            type="text"
-            className="form-control"
-            value={eleveData.eleve.peloton || ''}
-            disabled
-          />
-        </div>
-
-        <div className="mb-3">
-          <label htmlFor="dateNaissance" className="form-label d-flex align-items-center">
-            <i className="fas fa-calendar-alt me-2"></i>Date de naissance
-          </label>
-          <input
-            type="date"
-            className="form-control"
-            name="dateNaissance"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-        </div>
-
-        {/* Sélection du motif */}
-        <div className="mb-3">
-          <label htmlFor="motif" className="form-label d-flex align-items-center">
-            <i className="fas fa-list-alt me-2"></i>Motif
-          </label>
-          <select
-            id="motif"
-            className="form-select border-0 shadow-sm"
-            value={motif}
-            onChange={(e) => setMotif(e.target.value)}
-            required
-          >
-            <option value="">Sélectionner un motif</option>
-            <option value="IG">ADMIS IG</option>
-            <option value="CHRR">ADMIS CHRR</option>
-            <option value="EVASAN">EVASAN</option>
-            <option value="CONSULTATION">CONSULTATION</option>
-            <option value="DONNEUR DE SANG">DONNEUR DE SANG</option>
-            <option value="A REVOIR CHRR">A REVOIR CHRR</option>
-            <option value="A REVOIR IG">A REVOIR IG</option>
-            <option value="AD COM DLI">AD COM DLI</option>
-            <option value="AD COM DQG SPORT">AD COM DQG SPORT</option>
-            <option value="PERMISSION">PERMISSION</option>
-            <option value="VATOVORY">VATOVORY</option>
-            <option value="SPORT">SPORT</option>
-            <option value="AD MDG">AD MDG</option>
-            <option value="REPOS SANITAIRE">REPOS SANITAIRE</option>
-            <option value="STAGE">STAGE</option>
-            <option value="MISSION">MISSION</option>
-            <option value="MISSION TANA">MISSION TANA</option>
-            <option value="AD CEGN">AD CEGN</option>
-            <option value="TOBY FANDRIANA">TOBY FANDRIANA</option>
-          </select>
-          
-        </div>
-
-        <div className="text-center">
-          <button type="submit" className="btn btn-success w-100 shadow-sm">
-            <i className="fas fa-save me-2"></i>Enregistrer Absence
-          </button>
-        </div>
-      </>
-    )}
-  </form>
-</div>
-
-
-
-        {/* Tableau des absences à droite */}
-                  <div className="col-md-8 mx-auto">
-                  <h3 className="text-center mb-4 fw-bold text-primary">📋 Liste des Absence</h3>
-
-            
-                    {/* Card pour le formulaire de recherche */}
-                    <div className="card shadow-sm">
-                      <div className="card-body">
-                        <form className="mb-4">
-                          <div className="row">
-                            {/* Sélecteur de Cours */}
-                            <div className="col-md-4 mb-3">
-                              
-                              <select
-                                className="form-select"
-                                name="cour"
-                                value={filter.cour}
-                                onChange={handleFilterChange}
-                              >
-                                {coursList.map((c) => (
-                                  <option key={c.id} value={c.cour}>
-                                    {c.cour}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            {/* Sélecteur d'Escadron */}
-                            <div className="col-md-4 mb-3">
-                           
-                              <select
-                                className="form-select"
-                                name="escadron"
-                                value={filter.escadron}
-                                onChange={handleFilterChange}
-                              >
-                                <option value="">Escadron</option>
-                                {[...Array(10)].map((_, i) => (
-                                  <option key={i + 1} value={i + 1}>{i + 1}</option>
-                                ))}
-                              </select>
-                            </div>
-
-                            {/* Sélecteur de Peloton */}
-                            <div className="col-md-4 mb-3">
-                             
-                              <select
-                                className="form-select"
-                                name="peloton"
-                                value={filter.peloton}
-                                onChange={handleFilterChange}
-                              >
-                                <option value="">Peloton</option>
-                                {[1, 2, 3].map(p => (
-                                  <option key={p} value={p}>{p}</option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-
-                          {/* Recherche par nom ou prénom */}
-                          <div className="row mt-3">
-                            <div className="col-md-8 mb-3">
-                            
-                              <input
-                                type="text"
-                                className="form-control"
-                                placeholder="Rechercher par nom, prénom ou incorporation"
-                                name="search"
-                                value={filter.search}
-                                onChange={handleFilterChange}
-                              />
-                            </div>
-
-                            {/* Sélecteur de Date */}
-                            <div className="col-md-4 mb-3">
-                             
-                              <input
-                                type="date"
-                                className="form-control"
-                                name="date"
-                                value={filter.date}
-                                onChange={handleFilterChange}
-                              />
-                            </div>
-                          </div>
-                          <div className="d-flex justify-content-center mt-4">
-                           <button type="button" className="btn btn-outline-secondary px-4 py-2 rounded-pill shadow-sm"    onClick={handleResetFilter}>               
-                           🔁 Réinitialiser la recherche
-                        </button>
-                          </div>
-
-                        </form>
-                      </div>
+                {/* Affichage automatique des informations de l'élève */}
+                {eleveData && Object.keys(eleveData).length > 0 && (
+                  <>
+                    <div className="mb-3">
+                      <label htmlFor="nom" className="form-label d-flex align-items-center">
+                        <i className="fas fa-user me-2"></i>Nom
+                      </label>
+                      <input
+                        id="nom"
+                        type="text"
+                        className="form-control"
+                        value={eleveData.eleve.nom || ''}
+                        disabled
+                      />
                     </div>
+
+                    <div className="mb-3">
+                      <label htmlFor="prenom" className="form-label d-flex align-items-center">
+                        <i className="fas fa-user-tag me-2"></i>Prénom
+                      </label>
+                      <input
+                        id="prenom"
+                        type="text"
+                        className="form-control"
+                        value={eleveData.eleve.prenom || ''}
+                        disabled
+                      />
+                    </div>
+
+                    <div className="mb-3">
+                      <label htmlFor="matricule" className="form-label d-flex align-items-center">
+                        <i className="fas fa-clipboard-list me-2"></i>Matricule
+                      </label>
+                      <input
+                        id="matricule"
+                        type="text"
+                        className="form-control"
+                        value={eleveData.eleve.matricule || ''}
+                        disabled
+                      />
+                    </div>
+
+                    <div className="mb-3">
+                      <label htmlFor="escadron" className="form-label d-flex align-items-center">
+                        <i className="fas fa-shield-alt me-2"></i>Escadron
+                      </label>
+                      <input
+                        id="escadron"
+                        type="text"
+                        className="form-control"
+                        value={eleveData.eleve.escadron || ''}
+                        disabled
+                      />
+                    </div>
+
+                    <div className="mb-3">
+                      <label htmlFor="peloton" className="form-label d-flex align-items-center">
+                        <i className="fas fa-users me-2"></i>Peloton
+                      </label>
+                      <input
+                        id="peloton"
+                        type="text"
+                        className="form-control"
+                        value={eleveData.eleve.peloton || ''}
+                        disabled
+                      />
+                    </div>
+
+                    <div className="mb-3">
+                      <label htmlFor="dateNaissance" className="form-label d-flex align-items-center">
+                        <i className="fas fa-calendar-alt me-2"></i>Date de naissance
+                      </label>
+                      <input
+                        type="date"
+                        className="form-control"
+                        name="dateNaissance"
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Sélection du motif */}
+                    <div className="mb-3">
+                      <label htmlFor="motif" className="form-label d-flex align-items-center">
+                        <i className="fas fa-list-alt me-2"></i>Motif
+                      </label>
+                      <select
+                        id="motif"
+                        className="form-select border-0 shadow-sm"
+                        value={motif}
+                        onChange={(e) => setMotif(e.target.value)}
+                        required
+                      >
+                        <option value="">Sélectionner un motif</option>
+                        <option value="IG">ADMIS IG</option>
+                        <option value="CHRR">ADMIS CHRR</option>
+                        <option value="EVASAN">EVASAN</option>
+                        <option value="CONSULTATION">CONSULTATION</option>
+                        <option value="DONNEUR DE SANG">DONNEUR DE SANG</option>
+                        <option value="A REVOIR CHRR">A REVOIR CHRR</option>
+                        <option value="A REVOIR IG">A REVOIR IG</option>
+                        <option value="AD COM DLI">AD COM DLI</option>
+                        <option value="AD COM DQG SPORT">AD COM DQG SPORT</option>
+                        <option value="PERMISSION">PERMISSION</option>
+                        <option value="VATOVORY">VATOVORY</option>
+                        <option value="SPORT">SPORT</option>
+                        <option value="AD MDG">AD MDG</option>
+                        <option value="REPOS SANITAIRE">REPOS SANITAIRE</option>
+                        <option value="STAGE">STAGE</option>
+                        <option value="MISSION">MISSION</option>
+                        <option value="MISSION TANA">MISSION TANA</option>
+                        <option value="AD CEGN">AD CEGN</option>
+                        <option value="TOBY FANDRIANA">TOBY FANDRIANA</option>
+                        <option value="DEFILE TANA">DEFILE TANA</option>
+                        <option value="DEFILE AMBOSITRA">DEFILE AMBOSITRA</option>
+                        <option value="S.O">S.O</option>
+                      </select>
+                      
+                    </div>
+
+                    <div className="text-center">
+                      <button type="submit" className="btn btn-success w-100 shadow-sm">
+                        <i className="fas fa-save me-2"></i>Enregistrer Absence
+                      </button>
+                    </div>
+                  </>
+                )}
+              </form>
+            </div>
+
+
+
+                    {/* Tableau des absences à droite */}
+                              <div className="col-md-8 mx-auto">
+                              <h3 className="text-center mb-4 fw-bold text-primary">📋 Liste des Absence</h3>                
+                                {/* Card pour le formulaire de recherche */}
+                                <div className="card shadow-sm">
+                                  <div className="card-body">
+                                    <form className="mb-4">
+                                      <div className="row">
+                                        {/* Sélecteur de Cours */}
+                                        <div className="col-md-4 mb-3">
+                                          
+                                          <select
+                                            className="form-select"
+                                            name="cour"
+                                            value={filter.cour}
+                                            onChange={handleFilterChange}
+                                          >
+                                            {coursList.map((c) => (
+                                              <option key={c.id} value={c.cour}>
+                                                {c.cour}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </div>
+
+                                        {/* Sélecteur d'Escadron */}
+                                        <div className="col-md-4 mb-3">
+                                      
+                                          <select
+                                            className="form-select"
+                                            name="escadron"
+                                            value={filter.escadron}
+                                            onChange={handleFilterChange}
+                                          >
+                                            <option value="">Escadron</option>
+                                            {[...Array(10)].map((_, i) => (
+                                              <option key={i + 1} value={i + 1}>{i + 1}</option>
+                                            ))}
+                                          </select>
+                                        </div>
+
+                                        {/* Sélecteur de Peloton */}
+                                        <div className="col-md-4 mb-3">
+                                        
+                                          <select
+                                            className="form-select"
+                                            name="peloton"
+                                            value={filter.peloton}
+                                            onChange={handleFilterChange}
+                                          >
+                                            <option value="">Peloton</option>
+                                            {[1, 2, 3].map(p => (
+                                              <option key={p} value={p}>{p}</option>
+                                            ))}
+                                          </select>
+                                        </div>
+                                      </div>
+
+                                      {/* Recherche par nom ou prénom */}
+                                      <div className="row mt-3">
+                                        <div className="col-md-8 mb-3">
+                                        
+                                          <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="Rechercher par nom, prénom ou incorporation"
+                                            name="search"
+                                            value={filter.search}
+                                            onChange={handleFilterChange}
+                                          />
+                                        </div>
+
+                                        {/* Sélecteur de Date */}
+                                        <div className="col-md-4 mb-3">
+                                        
+                                          <input
+                                            type="date"
+                                            className="form-control"
+                                            name="date"
+                                            value={filter.date}
+                                            onChange={handleFilterChange}
+                                          />
+                                        </div>
+                                      </div>
+                                      <div className="d-flex justify-content-center mt-4">
+                                      <button type="button" className="btn btn-outline-secondary px-4 py-2 rounded-pill shadow-sm"    onClick={handleResetFilter}>               
+                                      🔁 Réinitialiser la recherche
+                                    </button>
+                                      </div>
+
+                                    </form>
+                                  </div>
+                               </div>
 
                                         <br></br>                                                                 
                                           <DataTable
@@ -729,48 +827,115 @@ const handleResetFilter = () => {
                                               className="btn btn-outline-primary w-100 w-md-auto"
                                               onClick={() => setShowTable(prev => !prev)}
                                             >
-                                              {showTable ? " 📝 Masquer le résumé des absences" : " 📝 Afficher le résumé des absences"}
+                                              {showTable ? " 📝 Masquer le résumé " : " 📝 Afficher le résumé"}
                                             </button>
-
+                                          
                                             <button
                                               className="btn btn-outline-success w-100 w-md-auto"
                                               onClick={() => setShowModal(true)}
                                             >
                                               ⚔️ Situation de Prise d'Arme (SPA)
                                             </button>
+                                            <button
+                                              className="btn btn-outline-success w-100 w-md-auto"
+                                              
+                                            >
+                                              ⚔️ SPA SPECIALE
+                                            </button>
+
 
                                           </div>
                                 
 
-                                            {showTable && (
-                                              <div className="mt-4">
-                                                <h5 className="text-center mb-3">Absences par Élève et Motif</h5>
-                                                <table className="table table-bordered table-striped table-sm text-center">
-                                                  <thead className="table-dark">
-                                                    <tr>
-                                                      <th>Motif</th>
-                                                      <th>Nombre d'absences</th>
-                                                    </tr>
-                                                  </thead>
-                                                  <tbody>
-                                                    {Object.entries(absencesParIncorporationEtMotif).map(([inc, motifs]) =>
-                                                      Object.entries(motifs).map(([motif, count]) => (
-                                                        <tr key={`${inc}-${motif}`}>
-                                                          <td>{motif}</td>
-                                                          <td><span className="badge bg-primary">{count}</span></td>
-                                                        </tr>
-                                                      ))
-                                                    )}
-                                                  </tbody>
-                                                </table>
+                                          {showTable && (
+                                          <div className="mt-4">
 
-                                                {/* Total global des absences */}
-                                                <div className="text-end mt-2">
-                                                  <strong>Total :</strong> {absenceafficher.length} absences enregistrées
-                                                </div>
+                                            {/* ==== TABLEAU ABSENCES ==== */}
+                                            <h5 className="text-center mb-3">Absences par Élève et Motif</h5>
+                                            <table className="table table-bordered table-striped table-sm text-center">
+                                              <thead className="table-dark">
+                                                <tr>
+                                                  <th>Motif</th>
+                                                  <th>Nombre d'absences</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody>
+                                                {paginatedAbsences.map((entry, index) => (
+                                                  <tr key={index}>
+                                                    <td>{entry.motif}</td>
+                                                    <td><span className="badge bg-primary">{entry.count}</span></td>
+                                                  </tr>
+                                                ))}
+                                              </tbody>
+                                            </table>
+                                            <div className="d-flex justify-content-between align-items-center mb-3">
+                                              <div><strong>Total :</strong> {absenceafficher.length} absences enregistrées</div>
+                                              <div>
+                                                <button
+                                                  className="btn btn-sm btn-outline-secondary me-2"
+                                                  disabled={pageAbsence === 1}
+                                                  onClick={() => setPageAbsence(p => p - 1)}
+                                                >
+                                                  ◀ Précédent
+                                                </button>
+                                                <button
+                                                  className="btn btn-sm btn-outline-secondary"
+                                                  disabled={pageAbsence === totalAbsencePages}
+                                                  onClick={() => setPageAbsence(p => p + 1)}
+                                                >
+                                                  Suivant ▶
+                                                </button>
                                               </div>
-                                            )}
-                                    
+                                            </div>
+
+                                            {/* ==== TABLEAU MOTIF SPECIAL ==== */}
+                                            <h5 className="text-center mb-3">
+                                              {filter.date ? `Motifs Spéciaux du ${filter.date}` : "Tous les Motifs Spéciaux"}
+                                            </h5>
+                                            <table className="table table-bordered table-striped table-sm text-center">
+                                              <thead className="table-warning">
+                                                <tr>
+                                                  <th>Motif</th>
+                                                  <th>Nombre</th>
+                                                  <th>Date</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody>
+                                                {paginatedSpa.map((spa, index) => (
+                                                  <tr key={index}>
+                                                    <td>{spa.motif} <span className="badge bg-info">[Spécial]</span></td>
+                                                    <td><span className="badge bg-warning">{spa.nombre}</span></td>
+                                                    <td>{spa.date}</td>
+                                                  </tr>
+                                                ))}
+                                                {filter.date && spaFiltered.length === 0 && (
+                                                  <tr>
+                                                    <td colSpan="3">Aucun motif spécial pour cette date</td>
+                                                  </tr>
+                                                )}
+                                              </tbody>
+                                            </table>
+                                            <div className="d-flex justify-content-end mb-3">
+                                              <button
+                                                className="btn btn-sm btn-outline-secondary me-2"
+                                                disabled={pageSpa === 1}
+                                                onClick={() => setPageSpa(p => p - 1)}
+                                              >
+                                                ◀ Précédent
+                                              </button>
+                                              <button
+                                                className="btn btn-sm btn-outline-secondary"
+                                                disabled={pageSpa === totalSpaPages}
+                                                onClick={() => setPageSpa(p => p + 1)}
+                                              >
+                                                Suivant ▶
+                                              </button>
+                                            </div>
+                                          </div>
+                                        )}
+
+
+
                                         </div>
                                       </div>
                                       {showModal && (

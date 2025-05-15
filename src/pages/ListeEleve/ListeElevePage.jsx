@@ -175,10 +175,11 @@ const columns = [
 
   return (
     <div className="container mt-5">
-      <h2 className="text-center fw-bold mb-4">
-      <i className="fa fa-users me-2 text-primary"></i>
-         Liste des Élèves Gendarmes
-        </h2>
+      <h1 className="text-center fw-bold mb-4">
+      --<i className="fa fa-users me-2 text-primary"></i>
+        Liste des Élèves Gendarmes --
+            
+        </h1>
       <div className="row justify-content-center mb-5">
         <div className="col-md-6">
           <div className="row g-2">

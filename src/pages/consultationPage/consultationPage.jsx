@@ -5,8 +5,7 @@ import eleveService from "../../services/eleveService";
 import cadreService from "../../services/cadre-service";
 import courService from "../../services/courService";
 import Swal from 'sweetalert2';
-import '../../index.css';
-
+import './index.css'
 
 
   const ConsultationPage = () => {
@@ -37,6 +36,7 @@ import '../../index.css';
     // Fonction pour ouvrir le modal avec les données de la consultation
   const handleEdit = (consultation) => {
     setSelectedConsultation(consultation);
+    //console.log(selectedConsultation)
     setShowModal(true);
   };
 
@@ -190,6 +190,8 @@ import '../../index.css';
     consultationService.update(selectedConsultation.id, {
       dateArrive: selectedConsultation.dateArrive,
       status: selectedConsultation.status,
+      phone : selectedConsultation.phone,
+      service : selectedConsultation.service,
       // Ajoute ici d'autres champs à envoyer si nécessaire
     })
     .then(() => {
@@ -201,7 +203,7 @@ import '../../index.css';
         text: 'Consultation mise à jour',
         showConfirmButton: false,
         timerProgressBar: true,
-      });
+      })
       window.location.reload();
       setShowModal(false);  // Ferme le modal
     })
@@ -631,9 +633,6 @@ import '../../index.css';
                 </div>
               </>
             )}
-
-
-      
                       {showModal && selectedConsultation && (
                     <div
                       className="modal fade show d-flex align-items-center justify-content-center"
@@ -668,6 +667,32 @@ import '../../index.css';
                                 className="form-control"
                                 value={selectedConsultation.id}
                                 readOnly
+                              />
+                            </div>
+                            <div className="mb-3">
+                              <label>Phone cadre</label>
+                              <input
+                              type="number"
+                                className="form-control"
+                                value={selectedConsultation.phone}
+                                onChange={(e) => setSelectedConsultation({
+                                  ...selectedConsultation,
+                                  phone: e.target.value
+                                })}
+                                
+                              />
+                            </div>
+                            <div className="mb-3">
+                              <label>Service Medicale</label>
+                              <input
+                              
+                                className="form-control"
+                                value={selectedConsultation.service}
+                                onChange={(e) => setSelectedConsultation({
+                                  ...selectedConsultation,
+                                  service: e.target.value
+                                })}
+                                
                               />
                             </div>
 

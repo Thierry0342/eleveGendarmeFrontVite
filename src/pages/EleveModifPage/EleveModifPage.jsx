@@ -3,6 +3,10 @@ import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 import React, { useState, useEffect } from 'react';
 import './style.css';
 import eleveService from '../../services/eleveService';
+import Swal from 'sweetalert2';
+import { toast } from 'react-toastify';
+
+
 
 const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave }) => {
   //initie donne
@@ -30,7 +34,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave }) => {
       
       
       };
-console.log("dsdsdsdsdsdsdsdsdd",eleve.Conjointe )
+//console.log("dsdsdsdsdsdsdsdsdd",eleve.Conjointe )
       // Mapping des sports en true
       if (eleve.Sport) {
         const sportMapping = {
@@ -51,7 +55,7 @@ console.log("dsdsdsdsdsdsdsdsdd",eleve.Conjointe )
           baseData.sports = selectedSports;
       }
 
-     console.log("basedata ve ee",baseData);
+    // console.log("basedata ve ee",baseData);
    
 
       return baseData;
@@ -297,19 +301,40 @@ const handleSave = async () => {
     }
 
     // Appel du service avec les bonnes données
-    console.log("FormData avant envoi : ", formDataToSend);
+    //console.log("FormData avant envoi : ", formDataToSend);
     const response = await eleveService.put(eleve.id, formDataToSend);
     onClose();
     
     
     if (response.status === 200) {
-      console.log("Élève mis à jour avec succès :", response.data);
-      // 
+      Swal.fire({
+        icon: 'success',
+        title: 'Succès',
+        text: 'Élève mis à jour avec succès !',
+        timer: 2000,
+        showConfirmButton: false,
+      });
+  
+      toast.success('Élève mis à jour avec succès !');
     } else {
-      console.error("Erreur lors de la mise à jour de l'élève");
+      Swal.fire({
+        icon: 'error',
+        title: 'Erreur',
+        text: "Erreur lors de la mise à jour de l'élève.",
+      });
+  
+      toast.error("Erreur lors de la mise à jour de l'élève.");
     }
   } catch (error) {
     console.error("Erreur serveur :", error);
+  
+    Swal.fire({
+      icon: 'error',
+      title: 'Erreur Serveur',
+      text: 'Une erreur s’est produite sur le serveur.',
+    });
+  
+    toast.error('Erreur serveur lors de la mise à jour.');
   }
 };
 
@@ -788,7 +813,7 @@ const handleSave = async () => {
                   type="text"
                   name="famille.conjointe.nom"
                   className="form-control"
-                  value={formData.conjointe.nom}
+                  value={formData.famille.conjointe.nom}
                   onChange={handleChange}
                   placeholder="Nom et Prénom de la conjointe"
                 />
@@ -798,7 +823,7 @@ const handleSave = async () => {
                 <label className="form-label">Téléphone</label>
                 <input
                   type="text"
-                  name="Conjointe.phone"
+                  name="famille.conjointe.phone"
                   className="form-control"
                   value={formData.famille.conjointe.phone}
                   onChange={handleChange}
@@ -810,9 +835,9 @@ const handleSave = async () => {
                 <label className="form-label">Adresse</label>
                 <input
                   type="text"
-                  name="Conjointe.adresse"
+                  name="famille.conjointe.adresse"
                   className="form-control"
-                  value={formData.Conjointe.adresse}
+                  value={formData.famille.conjointe.adresse}
                   onChange={handleChange}
                   placeholder="Adresse"
                 />
@@ -826,9 +851,9 @@ const handleSave = async () => {
                 <label className="form-label">Nom et Prénom pére</label>
                 <input
                   type="text"
-                  name="Pere.nom"
+                  name="famille.pere.nom"
                   className="form-control"
-                  value={formData.Pere.nom}
+                  value={formData.famille.pere.nom}
                   onChange={handleChange}
                   placeholder="Nom et Prénom pére"
                 />
@@ -838,9 +863,9 @@ const handleSave = async () => {
                 <label className="form-label">Téléphone</label>
                 <input
                   type="text"
-                  name="Pere.phone"
+                  name="famille.pere.phone"
                   className="form-control"
-                  value={formData.Pere.phone}
+                  value={formData.famille.pere.phone}
                   onChange={handleChange}
                   placeholder="Téléphone"
                 />
@@ -850,9 +875,9 @@ const handleSave = async () => {
                 <label className="form-label">Adresse</label>
                 <input
                   type="text"
-                  name="Pere.adresse"
+                  name="famille.pere.adresse"
                   className="form-control"
-                  value={formData.Pere.adresse}
+                  value={formData.famille.pere.adresse}
                   onChange={handleChange}
                   placeholder="Adresse"
                 />
@@ -866,9 +891,9 @@ const handleSave = async () => {
                 <label className="form-label">Nom et Prénom mére</label>
                 <input
                   type="text"
-                  name="Mere.nom"
+                  name="famille.mere.nom"
                   className="form-control"
-                  value={formData.Mere.nom}
+                  value={formData.famille.mere.nom}
                   onChange={handleChange}
                   placeholder="Nom et Prénom mere"
                 />
@@ -878,9 +903,9 @@ const handleSave = async () => {
                 <label className="form-label">Téléphone</label>
                 <input
                   type="text"
-                  name="Mere.phone"
+                  name="famille.mere.phone"
                   className="form-control"
-                  value={formData.Mere.phone}
+                  value={formData.famille.mere.phone}
                   onChange={handleChange}
                   placeholder="Téléphone"
                 />
@@ -890,9 +915,9 @@ const handleSave = async () => {
                 <label className="form-label">Adresse</label>
                 <input
                   type="text"
-                  name="Mere.adresse"
+                  name="famille.mere.adresse"
                   className="form-control"
-                  value={formData.Mere.adresse}
+                  value={formData.famille.mere.adresse}
                   onChange={handleChange}
                   placeholder="Adresse"
                 />
@@ -904,9 +929,9 @@ const handleSave = async () => {
                 <label className="form-label">A prevenir en cas d'accident</label>
                 <input
                   type="text"
-                  name="Accident.nom"
+                  name="famille.accident.nom"
                   className="form-control"
-                  value={formData.Accident.nom}
+                  value={formData.famille.accident.nom}
                   onChange={handleChange}
                   placeholder="Nom "
                 />
@@ -916,9 +941,9 @@ const handleSave = async () => {
                 <label className="form-label">Téléphone</label>
                 <input
                   type="text"
-                  name="Accident.phone"
+                  name="famille.accident.phone"
                   className="form-control"
-                  value={formData.Accident.phone}
+                  value={formData.famille.accident.phone}
                   onChange={handleChange}
                   placeholder="Téléphone"
                 />
@@ -928,9 +953,9 @@ const handleSave = async () => {
                 <label className="form-label">Adresse</label>
                 <input
                   type="text"
-                  name="Accident.adresse"
+                  name="famille.accident.adresse"
                   className="form-control"
-                  value={formData.Accident.adresse}
+                  value={formData.famille.accident.adresse}
                   onChange={handleChange}
                   placeholder="Adresse"
                 />
