@@ -18,6 +18,9 @@ import '../../index.css';
   const [selectedConsultation, setSelectedConsultation] = useState(null);
   const [coursList,setCoursList] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [searchNom, setSearchNom] = useState("");
+  const [searchDate, setSearchDate] = useState("");
+
   const [selectedRow, setSelectedRow] = useState(null);
   // ajout  eleve et cadre
   const [eleveData, setEleveData] = useState({});
@@ -85,18 +88,7 @@ import '../../index.css';
         console.error('Erreur lors de la récupération des données:', err);
     }
   };
-  useEffect(() => {
-    if (incorporation && cour2) {
-        fetchEleveData(incorporation, cour2);  // Passe à la fonction fetchEleveData
-      }
-   if(matriculeCadre){
-        fetchCadreData(matriculeCadre);
-      }
  
-    
-    fetchConsultations(cour2);
-    //get cadre , 
-  },  [incorporation, cour2,matriculeCadre]);
   
   //handle chanhge 
   const handleChange = e => {
@@ -104,6 +96,7 @@ import '../../index.css';
   };
   //get all cour avant 
   useEffect(() => {
+    
     const fetchCours = async () => {
       try {
         const res = await courService.getAll();
@@ -127,6 +120,19 @@ import '../../index.css';
   
     fetchCours();
   }, []);
+  useEffect(() => {
+    
+    if (incorporation && cour2) {
+        fetchEleveData(incorporation, cour2);  // Passe à la fonction fetchEleveData
+      }
+   if(matriculeCadre){
+        fetchCadreData(matriculeCadre);
+      }
+ 
+    
+    fetchConsultations(cour2);
+    //get cadre , 
+  },  [incorporation, cour2,matriculeCadre]);
 
   //handle save 
   
@@ -196,7 +202,7 @@ import '../../index.css';
         showConfirmButton: false,
         timerProgressBar: true,
       });
-      fetchConsultations(); // Recharge la liste
+      window.location.reload();
       setShowModal(false);  // Ferme le modal
     })
     .catch((err) => {
@@ -213,7 +219,7 @@ import '../../index.css';
   const handleDelete = async (id) => {
     if (window.confirm("Voulez-vous vraiment supprimer cette consultation ?")) {
       await consultationService.delete(id);
-      fetchConsultations(); // Refresh
+      window.location.reload();
     }
   };
   //serach eleve par inco
@@ -230,13 +236,23 @@ import '../../index.css';
     { name: "Date Arrivée", selector: row => row.dateArrive || "-" },
     { name: "Service Médical", selector: row => row.service || "-" },
     { name: "Référé", selector: row => row.refere },
-    { name: "status", cell: row => (
-        <span style={{ color: "green", fontWeight: "bold" }}>
-          {row.status}
-        </span>
-      ),
-      
+    {
+      name: "Status",
+      cell: row => {
+        let color = "black";
+        if (row.status === "Escadron") color = "green";
+        else if (row.status === "IG") color = "orange";
+        else if (row.status === "EVASAN") color = "red";
+    
+        return (
+          <span style={{ color, fontWeight: "bold", textTransform: "uppercase" }}>
+            {row.status}
+          </span>
+        );
+      },
+      sortable: true,
     },
+    
     {
       name: "Actions",
       cell: row => (
@@ -262,6 +278,15 @@ import '../../index.css';
     
     
   ];
+  //filtre donne avant affichage dans le tableau 
+  const filteredConsultations = consultations.filter((item) => {
+    const nomComplet = `${item.Eleve?.nom || ""} ${item.Eleve?.prenom || ""}`.toLowerCase();
+    const dateMatch = searchDate === "" || item.dateDepart?.startsWith(searchDate);
+    const nomMatch = nomComplet.includes(searchNom.toLowerCase());
+  
+    return nomMatch && dateMatch;
+  });
+  
 
   return (
 <div className="container py-4">
@@ -272,37 +297,45 @@ import '../../index.css';
     <div className="col-md-6">
       <h5>Recherche Élève</h5>
       
-      <div className="mb-3">
-            <label htmlFor="cour" className="form-label">Cours</label>
-              <select
-                id="cour2"
-                className="form-control border border-primary rounded-3 shadow-sm p-2"
-                value={cour2}
-                onChange={(e) => setCour2(e.target.value)}
-                required
-              >
-                 {coursList.map((item) => (
+         <div className="mb-3">
+              <label htmlFor="cour" className="form-label">Cours</label>
+              <div className="input-group">
+                <span className="input-group-text">
+                  <i className="fas fa-graduation-cap text-primary"></i>
+                </span>
+                <select
+                  id="cour2"
+                  className="form-control border border-primary rounded-3 shadow-sm p-2"
+                  value={cour2}
+                  onChange={(e) => setCour2(e.target.value)}
+                  required
+                >
+                  {coursList.map((item) => (
                     <option key={item.id} value={item.cour}>
                       {item.cour}
                     </option>
                   ))}
-              </select>
-          </div>
+                </select>
+              </div>
+            </div>
+
           <div className="mb-3">
-        <label>Numéro d'incorporation</label>
-       
+            <label>Numéro d'incorporation</label>
+            <div className="input-group">
+              <span className="input-group-text bg-white border border-primary rounded-start-3">
+                <i className="fas fa-id-card text-primary"></i> {/* Icône */}
+              </span>
+              <input
+                type="text"
+                className="form-control border border-primary rounded-end-3 shadow-sm p-2"
+                name="numeroIncorporation"
+                value={incorporation}
+                onChange={(e) => setIncorporation(e.target.value)}
+                required
+              />
+            </div>
+          </div>
 
-        <input
-          type="text"
-          className="form-control border border-primary rounded-3 shadow-sm p-2"
-          name="numeroIncorporation"
-          value={incorporation}
-          onChange={(e) => setIncorporation(e.target.value)}
-          required
-/>
-
-
-      </div>
       
     </div>
 
@@ -310,16 +343,22 @@ import '../../index.css';
     <div className="col-md-6">
       <h5>Cadre Responsable</h5>
       <div className="mb-3">
-      <label>Matricule</label>
-        <input
-          type="text"
-          className="form-control border border-primary rounded-3 shadow-sm p-2"
-          name="matricule"
-          value={matriculeCadre}
-          onChange={(e) => setMatriculeCadre(e.target.value)}
-          required
-        />
-      </div>
+          <label>Matricule</label>
+          <div className="input-group">
+            <span className="input-group-text">
+              <i className="fas fa-id-card text-primary"></i> {/* Icône "matricule" */}
+            </span>
+            <input
+              type="text"
+              className="form-control border border-primary rounded-3 shadow-sm p-2"
+              name="matricule"
+              value={matriculeCadre}
+              onChange={(e) => setMatriculeCadre(e.target.value)}
+              required
+            />
+          </div>
+        </div>
+
     </div>
   </div>
 
@@ -398,244 +437,304 @@ import '../../index.css';
 )}
 
   {/* Formulaire principal en dessous */}
-  <div className="mt-4">
-    <h5>Informations de la Consultation</h5>
-    <div className="row">
-      <div className="col-md-6 mb-3">
-        <label>Date de départ</label>
-        <input
-          type="date"
-          className="form-control"
-          name="dateDepart"
-          value={formData.dateDepart}
-          onChange={handleChange}
-          required
-        />
+      <div className="mt-4">
+        <h5>Informations de la Consultation</h5>
+        <div className="row">
+          <div className="col-md-6 mb-3">
+            <label>Date de départ</label>
+            <div className="input-group">
+              <span className="input-group-text"><i className="fas fa-calendar-alt"></i></span>
+              <input
+                type="date"
+                className="form-control"
+                name="dateDepart"
+                value={formData.dateDepart}
+                onChange={handleChange}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="col-md-6 mb-3">
+            <label>Référé</label>
+            <div className="input-group">
+              <span className="input-group-text"><i className="fas fa-user-md"></i></span>
+              <input
+                type="text"
+                className="form-control"
+                name="refere"
+                value={formData.refere}
+                onChange={handleChange}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="col-md-6 mb-3">
+            <label>Service</label>
+            <div className="input-group">
+              <span className="input-group-text"><i className="fas fa-hospital"></i></span>
+              <input
+                type="text"
+                className="form-control"
+                name="service"
+                value={formData.service}
+                onChange={handleChange}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="col-md-6 mb-3">
+            <label>Référence Message</label>
+            <div className="input-group">
+              <span className="input-group-text"><i className="fas fa-envelope-open-text"></i></span>
+              <input
+                type="text"
+                className="form-control"
+                name="refMessage"
+                value={formData.refMessage}
+                onChange={handleChange}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="col-md-6 mb-3">
+            <label>Téléphone</label>
+            <div className="input-group">
+              <span className="input-group-text"><i className="fas fa-phone"></i></span>
+              <input
+                type="text"
+                className="form-control"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                required
+              />
+            </div>
+          </div>
+        </div>
+        </div>
+
+        <div className="mt-4 d-flex justify-content-center">
+            <button
+              className="btn btn-success d-flex align-items-center justify-content-center gap-2 px-4 py-2 rounded-3 shadow"
+              onClick={handleSave}
+            >
+              <i className="fas fa-save"></i>
+              Enregistrer
+            </button>
+          </div>
+
       </div>
-
-     
-
-      <div className="col-md-6 mb-3">
-        <label>Référé</label>
-        <input
-          type="text"
-          className="form-control"
-          name="refere"
-          value={formData.refere}
-          onChange={handleChange}
-          required
-        />
-      </div>
-
-      <div className="col-md-6 mb-3">
-        <label>Service</label>
-        <input
-          type="text"
-          className="form-control"
-          name="service"
-          value={formData.service}
-          onChange={handleChange}
-          required
-        />
-      </div>
-
-      <div className="col-md-6 mb-3">
-        <label>Référence Message</label>
-        <input
-          type="text"
-          className="form-control"
-          name="refMessage"
-          value={formData.refMessage}
-          onChange={handleChange}
-          required
-        />
-      </div>
-
-      <div className="col-md-6 mb-3">
-        <label>Téléphone</label>
-        <input
-          type="text"
-          className="form-control"
-          name="phone"
-          value={formData.phone}
-          onChange={handleChange}
-          required
-        />
-      </div>
-    </div>
-
-    <div className="mt-4 text-center">
-      <button className="btn btn-success" onClick={handleSave}>Enregistrer</button>
-    </div>
-  </div>
-</div>
 
     
         
         {/*commence ici le tableau*/}
-      <h2 className="text-2xl font-bold mb-4">EVACUATION SANITAIRE</h2>
-      
-      {/* Bouton pour afficher/masquer la table */}
-      <button 
-  onClick={() => setIsTableVisible(!isTableVisible)} 
-  className="btn btn-primary mb-3"
->
-  {isTableVisible ? "Masquer la Liste" : "Afficher la Liste"}
-</button>
+        <h2 className="text-3xl font-semibold mb-4 text-center text-primary">
+              EVACUATION SANITAIRE
+            </h2>
 
-{isTableVisible && (
-  <>
-    {/* Statistiques des consultations */}
-     {/* Tableau des consultations */}
-     <DataTable
-      columns={columns}
-      data={consultations}
-      pagination
-      highlightOnHover
-      responsive
-      striped
-      noDataComponent="Aucune consultation trouvée"
-    />
-    <div className="row mb-4">
-      <div className="col-md-3">
-        <div className="card text-white bg-primary mb-3">
-          <div className="card-body">
-            <h5 className="card-title">Total consultations</h5>
-            <p className="card-text fs-4">{consultations.length}</p>
-          </div>
-        </div>
-      </div>
+            {/* Bouton afficher/masquer */}
+            <div className="text-center mb-4">
+              <button
+                onClick={() => setIsTableVisible(!isTableVisible)}
+                className="btn btn-outline-primary px-4 py-2 shadow rounded-pill"
+              >
+                <i className={`fas ${isTableVisible ? "fa-eye-slash" : "fa-eye"} me-2`}></i>
+                {isTableVisible ? "Masquer la Liste" : "Afficher la Liste"}
+              </button>
+            </div>
+            
 
-      <div className="col-md-3">
-        <div className="card text-white bg-success mb-3">
-          <div className="card-body">
-            <h5 className="card-title">Admis IG</h5>
-            <p className="card-text fs-4">
-              {consultations.filter(c => c.status === "IG").length}
-            </p>
-          </div>
-        </div>
-      </div>
+            {isTableVisible && (
+              <>
+              <div className="row g-3 mb-4 bg-light p-3 rounded-4 shadow-sm border">
+                  <div className="col-md-6 position-relative">
+                    <label className="form-label fw-bold">🔍 Rechercher par nom</label>
+                    <input
+                      type="text"
+                      className="form-control border-primary rounded-3 shadow-sm ps-4"
+                      placeholder="Nom ou prénom de l'élève"
+                      value={searchNom}
+                      onChange={(e) => setSearchNom(e.target.value)}
+                    />
+                    <i className="bi bi-person position-absolute top-50 start-0 translate-middle-y ms-2 text-primary"></i>
+                  </div>
 
-      <div className="col-md-3">
-        <div className="card text-white bg-warning mb-3">
-          <div className="card-body">
-            <h5 className="card-title">Escadron</h5>
-            <p className="card-text fs-4">
-              {consultations.filter(c => c.status === "Escadron").length}
-            </p>
-          </div>
-        </div>
-      </div>
+                  <div className="col-md-6 position-relative">
+                    <label className="form-label fw-bold">📅 Filtrer par date de départ</label>
+                    <input
+                      type="date"
+                      className="form-control border-primary rounded-3 shadow-sm ps-4"
+                      value={searchDate}
+                      onChange={(e) => setSearchDate(e.target.value)}
+                    />
+                    <i className="bi bi-calendar-event position-absolute top-50 start-0 translate-middle-y ms-2 text-primary"></i>
+                  </div>
+                </div>
 
-     
-    </div>
 
-   
-  </>
-)}
+                {/* Tableau des consultations */}
+                <div className="card shadow-sm mb-4 p-3 border rounded-3">
+                  <DataTable
+                    columns={columns}
+                    data={filteredConsultations}
+                    pagination
+                    highlightOnHover
+                    responsive
+                    striped
+                    paginationRowsPerPageOptions={[5, 10, 15]}
+                    noDataComponent="Aucune consultation trouvée"
+                  />
+                </div>
 
-      
-     {showModal && selectedConsultation && (
-  <div
-    className="modal fade show d-flex align-items-center justify-content-center"
-    tabIndex="-1"
-    style={{
-      display: "block",
-      position: "fixed",
-      top: 0,
-      left: 0,
-      width: "100vw",
-      height: "100vh",
-      backgroundColor: "rgba(0,0,0,0.4)",
-      backdropFilter: "blur(2px)",
-      zIndex: 1050,
-    }}
-  >
-    <div className="modal-dialog modal-dialog-centered modal-lg">
-      <div className="modal-content shadow-lg border-0">
-        <div className="modal-header bg-primary text-white">
-          <h5 className="modal-title">Modifier la consultation</h5>
-          <button
-            type="button"
-            className="btn-close btn-close-white"
-            onClick={handleCloseModal}
-          ></button>
-        </div>
+                {/* Cartes de statistiques */}
+                <div className="row mb-4 text-center">
+                  <div className="col-md-4 mb-3">
+                    <div className="card shadow-sm border-start border-4 border-primary">
+                      <div className="card-body">
+                        <h5 className="card-title text-primary">
+                          <i className="fas fa-notes-medical me-2"></i>Total consultations
+                        </h5>
+                        <p className="card-text fs-4 fw-bold">{consultations.length}</p>
+                      </div>
+                    </div>
+                  </div>
 
-        <div className="modal-body">
-          <div className="mb-3">
-            <label>ID</label>
-            <input
-              className="form-control"
-              value={selectedConsultation.id}
-              readOnly
-            />
-          </div>
+                  <div className="col-md-4 mb-3">
+                    <div className="card shadow-sm border-start border-4 border-success">
+                      <div className="card-body">
+                        <h5 className="card-title text-success">
+                          <i className="fas fa-user-check me-2"></i>Admis IG
+                        </h5>
+                        <p className="card-text fs-4 fw-bold">
+                          {consultations.filter(c => c.status === "IG").length}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
-          <div className="mb-3">
-            <label>Date Arrivée</label>
-            <input
-              type="date"
-              className="form-control"
-              value={selectedConsultation.dateArrive || ''}
-              onChange={(e) => setSelectedConsultation({
-                ...selectedConsultation,
-                dateArrive: e.target.value
-              })}
-            />
-          </div>
+                  <div className="col-md-4 mb-3">
+                    <div className="card shadow-sm border-start border-4 border-warning">
+                      <div className="card-body">
+                        <h5 className="card-title text-warning">
+                          <i className="fas fa-shield-alt me-2"></i>Escadron
+                        </h5>
+                        <p className="card-text fs-4 fw-bold">
+                          {consultations.filter(c => c.status === "Escadron").length}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
 
-          <div className="mb-3">
-            <label>Status</label>
-            <select
-              className="form-select"
-              value={selectedConsultation.status || ''}
-              onChange={(e) => {
-                const value = e.target.value;
-                setSelectedConsultation({
-                  ...selectedConsultation,
-                  status: value,
-                  customStatus: value === "Autre" ? "" : null
-                });
-              }}
-            >
-              <option value="IG">Admis IG</option>
-              <option value="Escadron">Escadron</option>
-              
-            </select>
-          </div>
-
-       
-        </div>
-
-        <div className="modal-footer">
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={handleCloseModal}
-          >
-            Annuler
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={handleModif}
-          >
-            Sauvegarder
-          </button>
-
-        </div>
-      </div>
-    </div>
-  </div>
-)}
 
       
-         
+                      {showModal && selectedConsultation && (
+                    <div
+                      className="modal fade show d-flex align-items-center justify-content-center"
+                      tabIndex="-1"
+                      style={{
+                        display: "block",
+                        position: "fixed",
+                        top: 0,
+                        left: 0,
+                        width: "100vw",
+                        height: "100vh",
+                        backgroundColor: "rgba(0,0,0,0.4)",
+                        backdropFilter: "blur(2px)",
+                        zIndex: 1050,
+                      }}
+                    >
+                      <div className="modal-dialog modal-dialog-centered modal-lg">
+                        <div className="modal-content shadow-lg border-0">
+                          <div className="modal-header bg-primary text-white">
+                            <h5 className="modal-title">Modifier la consultation</h5>
+                            <button
+                              type="button"
+                              className="btn-close btn-close-white"
+                              onClick={handleCloseModal}
+                            ></button>
+                          </div>
 
-    </div>
-  );
-};
+                          <div className="modal-body">
+                            <div className="mb-3">
+                              <label>ID</label>
+                              <input
+                                className="form-control"
+                                value={selectedConsultation.id}
+                                readOnly
+                              />
+                            </div>
+
+                            <div className="mb-3">
+                              <label>Date Arrivée</label>
+                              <input
+                                type="date"
+                                className="form-control"
+                                value={selectedConsultation.dateArrive || ''}
+                                onChange={(e) => setSelectedConsultation({
+                                  ...selectedConsultation,
+                                  dateArrive: e.target.value
+                                })}
+                              />
+                            </div>
+
+                            <div className="mb-3">
+                              <label>Status</label>
+                              <select
+                                className="form-select"
+                                value={selectedConsultation.status || ''}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  setSelectedConsultation({
+                                    ...selectedConsultation,
+                                    status: value,
+                                    customStatus: value === "Autre" ? "" : null
+                                  });
+                                }}
+                              >
+                                <option value="IG">Admis IG</option>
+                                <option value="Escadron">Escadron</option>
+                                <option value="EVASAN">EVASAN</option>
+                                
+                              </select>
+                            </div>
+
+                        
+                          </div>
+
+                          <div className="modal-footer">
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              onClick={handleCloseModal}
+                            >
+                              Annuler
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-primary"
+                              onClick={handleModif}
+                            >
+                              Sauvegarder
+                            </button>
+
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                        
+                          
+
+                      </div>
+                    );
+                  };
 
 export default ConsultationPage;

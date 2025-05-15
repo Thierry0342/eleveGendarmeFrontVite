@@ -12,7 +12,9 @@ import ConsultationPage from './pages/consultationPage/consultationPage';
 import StatePage from './pages/StatPage/StatePage';
 import AuthPage from './pages/authPage/authPage';
 import DiverPage from './pages/DiverPage/DiverPage';
+
 import PrivateRoute from '../PrivateRoute'; 
+
 import '@fortawesome/fontawesome-free/css/all.min.css';
 
 import './index.css';
@@ -28,15 +30,16 @@ function AppRoutes() {
       {!hideNavbar && <Navbar />}
       <div style={{ padding: '20px' }}>
         <Routes>
-          <Route path="/" element={<PrivateRoute><HomePage /></PrivateRoute>} />
-          <Route path="/eleve" element={<PrivateRoute><ElevePage /></PrivateRoute>} />
-          <Route path="/eleve/listeEleveGendarme"element={<PrivateRoute><ListeElevePge /></PrivateRoute>} />
-          <Route path="/admin/" element={<PrivateRoute><CourPage /></PrivateRoute>} />
-          <Route path="/eleve/absence" element={<PrivateRoute><AbsencePage /></PrivateRoute>} />
-          <Route path="/cadre" element={<PrivateRoute><CadrePage /></PrivateRoute>} />
-          <Route path="/eleve/consultation" element={<PrivateRoute><ConsultationPage /></PrivateRoute>} />
-          <Route path="/Statistique"  element={<PrivateRoute><StatePage /></PrivateRoute>} />
-          <Route path="/eleves/diplome"  element={<PrivateRoute><DiverPage /></PrivateRoute>} />
+          <Route path="/" element={<PrivateRoute allowedRoles={['admin','user','saisie']}><HomePage /></PrivateRoute>} />
+          <Route path="/eleve" element={<PrivateRoute allowedRoles={['admin']}><ElevePage /></PrivateRoute>} />
+          <Route path="/eleve/listeEleveGendarme"element={<PrivateRoute allowedRoles={['admin','user','saisie']}> <ListeElevePge /></PrivateRoute>} />
+          <Route path="/admin/" element={<PrivateRoute allowedRoles={['admin','user','saisie']}><CourPage /></PrivateRoute>} />
+          <Route path="/eleve/absence" element={<PrivateRoute allowedRoles={['saisie','admin','user']}><AbsencePage /></PrivateRoute>} />
+          <Route path="/cadre" element={<PrivateRoute allowedRoles={['admin']} ><CadrePage /></PrivateRoute>} />
+          <Route path="/eleve/consultation" element={<PrivateRoute allowedRoles={['admin']}><ConsultationPage /></PrivateRoute>} />
+          <Route path="/Statistique"  element={<PrivateRoute allowedRoles={['user','admin']}><StatePage /></PrivateRoute>} />
+          <Route path="/eleves/diplome"  element={<PrivateRoute allowedRoles={['admin','user']}><DiverPage /></PrivateRoute>} />
+    
           <Route path="/auth" element={<AuthPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

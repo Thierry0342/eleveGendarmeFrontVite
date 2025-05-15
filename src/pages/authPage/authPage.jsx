@@ -34,6 +34,7 @@ const LoginPage = () => {
         }, 3000);  // 3000ms = 3 secondes
       }
     } catch (err) {
+      console.log(err);
       toast.error(err.response?.data?.error || "Erreur de connexion");
     } finally {
       setIsLoading(false);  // Cache l'indicateur de chargement après la requête

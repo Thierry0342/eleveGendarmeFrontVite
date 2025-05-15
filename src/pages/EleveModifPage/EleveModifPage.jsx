@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import './style.css';
 import eleveService from '../../services/eleveService';
 
-
 const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave }) => {
   //initie donne
   const [formData, setFormData] = useState({})
@@ -18,28 +17,41 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave }) => {
   if (eleve) {
     // Initialisation de base
     setFormData(prev => {
-      const baseData = { ...eleve };
-
+      const baseData = { ...eleve , 
+        famille: {
+          conjointe: eleve.Conjointe ?? {},
+          mere: eleve.Mere ?? {},
+          pere: eleve.Pere ?? {},
+          accident: eleve.Accident ?? {},
+          enfants: eleve.Enfants ?? [],       
+          frere: eleve.Freres ?? [],          
+          soeur: eleve.Soeurs ?? [],         
+        },
+      
+      
+      };
+console.log("dsdsdsdsdsdsdsdsdd",eleve.Conjointe )
       // Mapping des sports en true
       if (eleve.Sport) {
         const sportMapping = {
           Football: "Football",
           Basketball: "Basketball",
-          Volley_ball: "Volley-ball",
-          Athletisme: "Athlétisme",
+          Volley_ball: "Volley_ball",
+          Athletisme: "Athletisme",
           Tennis: "Tennis",
-          ArtsMartiaux: "arts martiaux",
+          ArtsMartiaux: "ArtsMartiaux",
           Autre: "Autre",
         };
 
+        
         const selectedSports = Object.entries(sportMapping)
-          .filter(([key]) => eleve.Sport[key])
-          .map(([_, label]) => label);
+    .filter(([key]) => eleve.Sport[key])
+    .map(([key]) => sportMapping[key]); // on ajoute le label
 
-         
-        baseData.sports = selectedSports;
+          baseData.sports = selectedSports;
       }
-      console.log("basedata ve ee",baseData);
+
+     console.log("basedata ve ee",baseData);
    
 
       return baseData;
@@ -78,16 +90,94 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave }) => {
   
   // Fonction pour mettre à jour les valeurs de téléphone
   const handlePhoneChange = (e, phoneKey) => {
-    const newValue = e.target.value.replace(/\D/g, '').slice(0, 11); // Autorise seulement les chiffres, max 11 caractères
-    onChange({
-      ...eleve,
-      eleveTelephone: {
-        ...eleve.eleveTelephone,
-        [phoneKey]: newValue
-      }
-    });
-    
+    const newValue = e.target.value.replace(/\D/g, '').slice(0, 11);
+    setFormData(prev => ({
+      ...prev,
+      [phoneKey]: newValue
+    }));
   };
+  //ajout et suprresion methode
+   //suprime formulaire efant 
+   const supprimerEnfant = (index) => {
+    setFormData((prevState) => {
+      const enfants = [...prevState.famille.enfants];
+      enfants.splice(index, 1); // Supprime l'enfant à l'index donné
+
+      return {
+        ...prevState,
+        famille: {
+          ...prevState.famille,
+          enfants,
+        },
+      };
+    });
+  };
+  // fomulaire soeur et frere
+  ///// ajouter nouveau efant e
+  const ajouterEnfant = () => {
+    setFormData((prev) => ({
+      ...prev,
+      famille: {
+        ...prev.famille,
+        enfants: [...prev.famille.enfants, { nom: '', prenom: '', dateNaissance: '', sexe: '' }],
+      },
+    }));
+  };
+  // Fonction pour ajouter un frère
+  const ajouterFrere = () => {
+    setFormData((prev) => ({
+      ...prev,
+      famille: {
+        ...prev.famille,
+        frere: [...prev.famille.frere, { nom: '', }],
+      },
+    }));
+  };
+  //suprim
+
+  // Fonction pour ajouter une soeur
+  const ajouterSoeur = () => {
+    setFormData((prev) => ({
+      ...prev,
+      famille: {
+        ...prev.famille,
+        soeur: [...prev.famille.soeur, { nom: '' }],
+      },
+    }));
+  };
+  //suprim
+  // Fonction pour supprimer un frère
+  const supprimerFrere = (index) => {
+    setFormData((prevState) => {
+      const frere = [...prevState.famille.frere];
+      frere.splice(index, 1); // Supprime l'enfant à l'index donné
+
+      return {
+        ...prevState,
+        famille: {
+          ...prevState.famille,
+          frere,
+        },
+      };
+    });
+  };
+  // Fonction pour supprimer une soeur
+  const supprimerSoeur = (index) => {
+    setFormData((prevState) => {
+      const soeur = [...prevState.famille.soeur];
+      soeur.splice(index, 1); // Supprime l'enfant à l'index donné
+
+      return {
+        ...prevState,
+        famille: {
+          ...prevState.famille,
+          soeur,
+        },
+      };
+    });
+  };
+  
+  
 
 
 
@@ -157,6 +247,17 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave }) => {
         }
       }));
     }
+    else if (name.startsWith('Filiere.')) {
+      const [section, field] = name.split('.');
+      setFormData(prev => ({
+        ...prev,
+        [section]: {
+          ...(prev[section] || {}),
+          [field]: value,
+        }
+      }));
+    }
+    
      
     else {
       setFormData(prevState => ({
@@ -182,7 +283,7 @@ const handleSave = async () => {
     for (const key in formData) {
       if (key !== "image" && formData[key] !== undefined && formData[key] !== null) {
         // Pour les objets complexes
-        if (["famille", "diplomes", "sports","filiere"].includes(key)) {
+        if (["famille", "Diplome", "sports","Filiere","Pointure"].includes(key)) {
           formDataToSend.append(key, JSON.stringify(formData[key]));
         } else {
           formDataToSend.append(key, formData[key]);
@@ -203,7 +304,7 @@ const handleSave = async () => {
     
     if (response.status === 200) {
       console.log("Élève mis à jour avec succès :", response.data);
-      // Tu peux fermer le modal ou rafraîchir la liste
+      // 
     } else {
       console.error("Erreur lors de la mise à jour de l'élève");
     }
@@ -404,15 +505,16 @@ const handleSave = async () => {
                 {/* Téléphone */}
                 <div className="d-flex gap-3 mb-3">
                   {['telephone1', 'telephone2', 'telephone3'].map((phoneKey, index) => (
-                    <input
-                      key={index}
-                      type="text"
-                      className="form-control"
-                      placeholder={`Téléphone ${index + 1}`}
-                      maxLength="11"
-                      value={eleve[phoneKey]}
-                      onChange={(e) => handlePhoneChange(e, phoneKey)}
-                    />
+                   <input
+                   key={index}
+                   type="text"
+                   className="form-control"
+                   placeholder={`Téléphone ${index + 1}`}
+                   maxLength="11"
+                   value={formData[phoneKey] || ''}
+                   onChange={(e) => handlePhoneChange(e, phoneKey)}
+                 />
+                 
                   ))}
                 </div>
 
@@ -423,48 +525,48 @@ const handleSave = async () => {
             </div>
             {/* card milie commence ici*/ }
             <div className="col-md-5">
-  <div className="card shadow-lg border rounded p-3">
-    <h5 className="card-title mb-3">Informations supplémentaires</h5>
+        <div className="card shadow-lg border rounded p-3">
+          <h5 className="card-title mb-3">Informations supplémentaires</h5>
 
-    {/* Spécialité ou aptitude */}
-    <div className="mb-3">
-      <label className="form-label">Spécialité ou aptitude particulière</label>
-      <input
-        type="text"
-        className="form-control"
-        name="SpecialisteAptitude"
-        value={formData.SpecialisteAptitude}
-        onChange={handleChange}
-      />
-    </div>
+          {/* Spécialité ou aptitude */}
+          <div className="mb-3">
+            <label className="form-label">Spécialité ou aptitude particulière</label>
+            <input
+              type="text"
+              className="form-control"
+              name="SpecialisteAptitude"
+              value={formData.SpecialisteAptitude}
+              onChange={handleChange}
+            />
+          </div>
 
-    {/* Sports pratiqués (checkbox) */}
-    <div className="mb-3">
-  <label className="form-label">Sport(s) pratiqué(s)</label>
-  <div className="d-flex flex-wrap gap-3">
-    {["Football", "Basketball", "Volley-ball", "Athlétisme", "Tennis","arts martiaux", "Autre"].map((sport) => (
-      <div className="form-check form-check-inline" key={sport}>
-        <input
-          className="form-check-input"
-          type="checkbox"
-          name="sports"
-          value={sport}
-          checked={formData.sports?.includes(sport)}
-          onChange={(e) => {
-            const checked = e.target.checked;
-            const value = e.target.value;
-            setFormData((prev) => {
-              const sports = new Set(prev.sports || []);
-              checked ? sports.add(value) : sports.delete(value);
-              return { ...prev, sports: Array.from(sports) };
-            });
-          }}
-        />
-        <label className="form-check-label">{sport}</label>
+          {/* Sports pratiqués (checkbox) */}
+          <div className="mb-3">
+        <label className="form-label">Sport(s) pratiqué(s)</label>
+        <div className="d-flex flex-wrap gap-3">
+          {["Football", "Basketball", "Volley_ball", "Athletisme", "Tennis","ArtsMartiaux", "Autre"].map((sport) => (
+            <div className="form-check form-check-inline" key={sport}>
+              <input
+                className="form-check-input"
+                type="checkbox"
+                name="sports"
+                value={sport}
+                checked={formData.sports?.includes(sport)}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  const value = e.target.value;
+                  setFormData((prev) => {
+                    const sports = new Set(prev.sports || []);
+                    checked ? sports.add(value) : sports.delete(value);
+                    return { ...prev, sports: Array.from(sports) };
+                  });
+                }}
+              />
+              <label className="form-check-label">{sport}</label>
+            </div>
+          ))}
+        </div>
       </div>
-    ))}
-  </div>
-</div>
 
 
     {/* Religion (radio) */}
@@ -563,20 +665,16 @@ const handleSave = async () => {
     <div className="mb-3" key={key}>
       <label className="form-label">Filière pour {key.replace(/([A-Z])/g, ' $1').trim()}</label>
       <input
-        type="text"
-        className="form-control"
-        name={`filiere${key}`} // Ex : filiereMasterOne
-        value={formData.Filiere[`filiere${key}`] || ""}
-        onChange={(e) =>
-          setFormData((prev) => ({
-            ...prev,
-            [`Filiere.filiere${key}`]: e.target.value,
-          }))
-        }
-      />
-    </div>
-  )
-)}
+          type="text"
+          className="form-control"
+          name={`Filiere.filiere${key}`} // ⚠ Ajoute "Filiere." ici
+          value={formData.Filiere?.[`filiere${key}`] || ""}
+          onChange={handleChange}
+        />
+
+            </div>
+          )
+        )}
 
 
 <div className="mb-3">
@@ -688,9 +786,9 @@ const handleSave = async () => {
                 <label className="form-label">Nom et Prénom Conjointe</label>
                 <input
                   type="text"
-                  name="Conjointe.nom"
+                  name="famille.conjointe.nom"
                   className="form-control"
-                  value={formData.Conjointe.nom}
+                  value={formData.conjointe.nom}
                   onChange={handleChange}
                   placeholder="Nom et Prénom de la conjointe"
                 />
@@ -702,7 +800,7 @@ const handleSave = async () => {
                   type="text"
                   name="Conjointe.phone"
                   className="form-control"
-                  value={formData.Conjointe.phone}
+                  value={formData.famille.conjointe.phone}
                   onChange={handleChange}
                   placeholder="Téléphone"
                 />
@@ -838,59 +936,100 @@ const handleSave = async () => {
                 />
               </div>
             </div>
-            {formData.Enfants.map((enfant, index) => (
+            {formData.famille.enfants.map((enfant, index) => (
               <div key={index} className="row mb-5 align-items-end">
                 <div className="col-md-3">
                   <label className="form-label">Nom enfant {index + 1}</label>
                   <input
                     type="text"
-                    name="Enfants.nom"
+                    name="famille.enfants.nom"
                     className="form-control"
                     value={enfant.nom}
-                    onChange={(e) => handleChange(e, index)}
+                    onChange={(e) => handleChange(e, index, "enfants")}
                     placeholder="Nom"
                   />
                 </div>
               
-               
+                <div className="col-md-3 text-end">
+                  <button
+                    type="button"
+                    className="btn btn-outline-danger mt-4"
+                    onClick={() => supprimerEnfant(index)}
+                    title="Supprimer cet enfant"
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
             ))}
 
-           
+            {/* btn ajout formulaire enfant*/}
+            <button type="button" className="btn btn-primary mb-3" onClick={ajouterEnfant}>
+              ENFANT
+            </button>
+
             <div className="row mb-4">
               {/* Formulaire Frère */}
-              {formData.Freres.map((frere, index) => (
+              {formData.famille.frere.map((frere, index) => (
                 <div key={index} className="col-md-6">
                   <label className="form-label">Nom Frère {index + 1}</label>
                   <input
                     type="text"
-                    name={`Freres[${index}].nom`}
+                    name={`famille.frere[${index}].nom`}
                     className="form-control"
                     value={frere.nom}
                     onChange={(e) => handleChange(e, index, "frere")}
                     placeholder="Nom du frère"
                   />
-                  
+                  <div className="text-end">
+                    <button
+                      type="button"
+                      className="btn btn-outline-danger mt-2"
+                      onClick={() => supprimerFrere(index)}
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
               ))}
-              
+              <button
+                type="button"
+                className="btn btn-outline-primary mt-4"
+                onClick={ajouterFrere}
+              >
+                FORMULAIRE FRERE
+              </button>
 
               {/* Formulaire Soeur */}
-              {formData.Soeurs.map((soeur, index) => (
+              {formData.famille.soeur.map((soeur, index) => (
                 <div key={index} className="col-md-6">
                   <label className="form-label">Nom Soeur {index + 1}</label>
                   <input
                     type="text"
-                    name={`Soeurs[${index}].nom`}
+                    name={`famille.soeur[${index}].nom`}
                     className="form-control"
                     value={soeur.nom}
                     onChange={(e) => handleChange(e, index, "soeur")}
                     placeholder="Nom du soeur"
                   />
-                  
+                  <div className="text-end">
+                    <button
+                      type="button"
+                      className="btn btn-outline-danger mt-2"
+                      onClick={() => supprimerSoeur(index)}
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
               ))}
-              
+              <button
+                type="button"
+                className="btn btn-outline-primary mt-3"
+                onClick={ajouterSoeur}
+              >
+                FORMULAIRE SOEUR
+              </button>
             </div>
 
 
@@ -900,7 +1039,10 @@ const handleSave = async () => {
 
         )}
 
-          </div>
+            
+
+            {/*fin famille */}
+             </div>
           {/*fin car */}
           {showFullImage && (
                 <div
@@ -930,7 +1072,9 @@ const handleSave = async () => {
                   />
 </div>
 )}
-      
+
+          
+          
 
         </Form>
       </Modal.Body>

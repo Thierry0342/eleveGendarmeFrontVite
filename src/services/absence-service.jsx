@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_URL } from "../config/root/modules";
+import axiosInstance from './axios-instance';
 const absenceService = {
   // Obtenir 
   getAll() {
@@ -8,12 +9,12 @@ const absenceService = {
 
   // Créer un 
   post(data) {
-    return axios.post(API_URL + "/api/absence", data);
+    return axiosInstance.post(API_URL + "/api/absence", data);
   },
 
   // Supprimer 
   delete(id) {
-    return axios.delete(`${API_URL}/api/absence/${id}`);
+    return axiosInstance.delete(`${API_URL}/api/absence/${id}`);
   },
 
 };

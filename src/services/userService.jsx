@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_URL } from "../config/root/modules";
+import axiosInstance from './axios-instance';
 const userService = {
   // Obtenir tous les user
   getAll() {
@@ -8,18 +9,18 @@ const userService = {
 
   // Créer un nouveau user
   post(userData) {
-    return axios.post(API_URL + "/api/user", userData);
+    return axiosInstance.post(API_URL + "/api/user", userData);
   },
 
   // Supprimer un user
   delete(id) {
-    return axios.delete(`${API_URL}/api/user/${id}`);
+    return axiosInstance.delete(`${API_URL}/api/user/${id}`);
   },
   update(id, data) {
     if (!id || !data || !data.username || !data.type) {
       return Promise.reject(new Error("ID ou données invalides pour la mise à jour."));
     }
-    return axios.put(`${API_URL}/api/user/${id}`, data);
+    return axiosInstance.put(`${API_URL}/api/user/${id}`, data);
   },
   authUser(credentials) {
     return axios.post(`${API_URL}/api/user/auth`, credentials);

@@ -10,7 +10,7 @@ import { Icon } from 'lucide-react';
 
 const HomePage = () => {
   return (
-    <div style={{ marginLeft: "50px", marginTop: "100px" }}>
+    <div style={{ marginLeft: "50px", marginTop: "100px" , }}>
       {/* Première ligne de 3 cartes */}
       <div className="row justify-content-center">
         <div className="col-sm-4 col-md-3 club_cc">
@@ -97,7 +97,7 @@ const HomePage = () => {
         </div>
   
         <div className="col-sm-4 col-md-3 club_cc">
-        
+        <Link to="/eleves/diplome" style={{ textDecoration: 'none', color: 'inherit' }}>
           <div className="card mb-4 club_ca">
             <div className="card-body">
               <div className="club_ao">
@@ -109,7 +109,7 @@ const HomePage = () => {
               </div>
             </div>
           </div>
-         
+          </Link>
         </div>
   
         <div className="col-sm-4 col-md-3 club_cc">
@@ -131,12 +131,13 @@ const HomePage = () => {
 
 
       <footer className="site-footer">
+      <span className="footer-left"> <h7>T.R</h7></span>
       <div className="footer-content">
-        
         <p>© 2025 EGNA SIT INFO</p>
         <p>ÉCOLE DE LA GENDARMERIE NATIONALE AMBOSITRA</p>
       </div>
     </footer>
+
 
     
     </div>

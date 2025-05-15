@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_URL } from "../config/root/modules";
+import axiosInstance from './axios-instance';
 const courService = {
   // Obtenir tous les cours
   getAll() {
@@ -8,12 +9,12 @@ const courService = {
 
   // Créer un nouveau cours
   post(courData) {
-    return axios.post(API_URL + "/api/cour", courData);
+    return axiosInstance.post(API_URL + "/api/cour", courData);
   },
 
   // Supprimer un cours
   delete(id) {
-    return axios.delete(`${API_URL}/api/cour/${id}`);
+    return axiosInstance.delete(`${API_URL}/api/cour/${id}`);
   },
 };
 

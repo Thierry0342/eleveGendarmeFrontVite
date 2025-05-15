@@ -7,11 +7,12 @@ import DataTable from 'react-data-table-component';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
+import './style.css'
+const user = JSON.parse(localStorage.getItem('user'));
 
 
-const SaisieAbsence = () => {
 
-
+  const SaisieAbsence = () => {
 
   const [incorporation, setIncorporation] = useState('');
   const [eleveData, setEleveData] = useState({});
@@ -116,20 +117,33 @@ const SaisieAbsence = () => {
  //console.log("absence veee",absences)
   const columns = [
     { name: 'Nom', selector: row => row.Eleve.nom, sortable: true },
-    { name: 'Prénom', selector: row => row.Eleve.prenom, sortable: true },
-    { name: 'Escadron', selector: row => row.Eleve.escadron, sortable :true},
-    { name: 'Peloton', selector: row => row.Eleve.peloton },
+    { name: 'Prénom', selector: row => row.Eleve.prenom,  sortable: true },
+    { name: 'Escadron', selector: row => row.Eleve.escadron, maxwidth: '2px',sortable :true},
+    { name: 'Peloton', selector: row => row.Eleve.peloton,maxwidth: '100px',},
     { name: 'Incorporation', selector: row => row.Eleve.numeroIncorporation },
-    { name: 'Cours', selector: row => row.Eleve.cour },
     { name: 'Date', selector: row => row.date },
-    { name: 'Motifs', selector: row => row.motif ,sortable :true},
+    {
+      name: 'Motifs',
+      selector: row => row.motif,
+      sortable: true,
+      cell: row => (
+        <span style={{ color: 'goldenrod', fontWeight: 'bold' }}>
+          {row.motif}
+        </span>
+      )
+    },
+    
     {
       name: 'Actions',
       cell: row => (
-        <>
+        <>{ user?.type === 'admin' &&(
           <button className="btn btn-danger btn-sm" onClick={() => handleDelete(row.id)}>
             Delete
           </button>
+
+          )}
+
+          
         </>
       )
     }
@@ -260,7 +274,7 @@ const SaisieAbsence = () => {
   }, {});
   //ppour SPA 
   const handleAfficherIndispo = () => {
-    const motifsI = ["IG", "CONSULTATION", "A REVOIR IG", "REPOS SAN" , "A REVOIR CHRR"];
+    const motifsI = ["IG", "CONSULTATION", "A REVOIR IG", "REPOS SAN" , "A REVOIR CHRR","DONNEUR DE SANG"];
     
     const totalIvalue = absenceafficher.filter(abs =>
       motifsI.includes(abs.motif?.toUpperCase()) &&
@@ -414,329 +428,408 @@ const SaisieAbsence = () => {
       alert("Une erreur est survenue lors de la génération du PDF.");
     }
   };
+//set filter o
+const handleResetFilter = () => {
+  setFilter({
+    cour: "",
+    escadron: "",
+    peloton: "",
+    search: "",
+    date: "",
+  });
+};
+
   
   return (
     <div className="container mt-5">
-      <h2 className="text-center mb-4">SAISIE ABSENCE ELEVE GENDARME</h2>
-      <br></br>
+    <h2 className="text-center text-uppercase fw-bold text-primary mb-4" style={{ letterSpacing: "2px" }}>
+      Saisie des Absences - Élève Gendarme
+    </h2>
+    <hr className="mx-auto" style={{ width: "100px", borderTop: "3px solid #0d6efd" }} />
+  
       <br></br>
       <div className="row">
         {/* Formulaire à gauche */}
         <div className="col-md-4">
-          <form onSubmit={handleSubmit}>
-            {/* Sélection du cours */}
-            <div className="mb-3">
-              <label htmlFor="cour" className="form-label">Cours</label>
-              <select
-                id="cour2"
-                className="form-select"
-                value={cour2}
-                onChange={(e) => setCour2(e.target.value)}
-                required
-              >
-                 {coursList2.map((item) => (
-                    <option key={item.id} value={item.cour}>
-                      {item.cour}
-                    </option>
-                  ))}
-              </select>
-            </div>
+  <form onSubmit={handleSubmit} className="p-4 bg-light rounded shadow-sm">
+    {/* Sélection du cours */}
+    <div className="mb-3">
+      <label htmlFor="cour2" className="form-label d-flex align-items-center">
+        <i className="fas fa-book me-2"></i>Cours
+      </label>
+      <select
+        id="cour2"
+        className="form-select border-0 shadow-sm"
+        value={cour2}
+        onChange={(e) => setCour2(e.target.value)}
+        required
+      >
+        {coursList2.map((item) => (
+          <option key={item.id} value={item.cour}>
+            {item.cour}
+          </option>
+        ))}
+      </select>
+    </div>
 
-            {/* Saisie du numéro d'incorporation */}
-            <div className="mb-3">
-              <label htmlFor="incorporation" className="form-label">Numéro d'Incorporation</label>
-              <input
-                id="incorporation"
-                type="text"
-                className="form-control"
-                value={incorporation}
-                onChange={(e) => setIncorporation(e.target.value)}
-                required
-              />
-            </div>
-        
-           
-             
+    {/* Saisie du numéro d'incorporation */}
+    <div className="mb-3">
+      <label htmlFor="incorporation" className="form-label d-flex align-items-center">
+        <i className="fas fa-id-badge me-2"></i>Numéro d'Incorporation
+      </label>
+      <input
+        id="incorporation"
+        type="text"
+        className="form-control border-0 shadow-sm"
+        value={incorporation}
+        onChange={(e) => setIncorporation(e.target.value)}
+        required
+      />
+    </div>
 
-            {/* Affichage automatique des informations de l'élève */}
-            {eleveData && Object.keys(eleveData).length > 0 && (
-              <>
-                <div className="mb-3">
-                  <label htmlFor="nom" className="form-label">Nom</label>
-                  <input
-                    id="nom"
-                    type="text"
-                    className="form-control"
-                    value={eleveData.eleve.nom || ''}
-                    disabled
-                  />
-                </div>
-
-                <div className="mb-3">
-                  <label htmlFor="prenom" className="form-label">Prénom</label>
-                  <input
-                    id="prenom"
-                    type="text"
-                    className="form-control"
-                    value={eleveData.eleve.prenom || ''}
-                    disabled
-                  />
-                </div>
-
-                <div className="mb-3">
-                  <label htmlFor="matricule" className="form-label">Matricule</label>
-                  <input
-                    id="matricule"
-                    type="text"
-                    className="form-control"
-                    value={eleveData.eleve.matricule || ''}
-                    disabled
-                  />
-                </div>
-
-                <div className="mb-3">
-                  <label htmlFor="escadron" className="form-label">Escadron</label>
-                  <input
-                    id="escadron"
-                    type="text"
-                    className="form-control"
-                    value={eleveData.eleve.escadron || ''}
-                    disabled
-                  />
-                </div>
-
-                <div className="mb-3">
-                  <label htmlFor="peloton" className="form-label">Peloton</label>
-                  <input
-                    id="peloton"
-                    type="text"
-                    className="form-control"
-                    value={eleveData.eleve.peloton || ''}
-                    disabled
-                  />
-                </div>
-                <div className="col">
-                <input type="date" className="form-control" name="dateNaissance" value={date}   onChange={(e) => setDate(e.target.value)} />
-              </div>
-                 {/* Sélection du motif */}
-            <div className="mb-3">
-              <label htmlFor="motif" className="form-label">Motif</label>
-              <select
-                id="motif"
-                className="form-select"
-                value={motif}
-                onChange={(e) => setMotif(e.target.value)}
-                required
-              >
-                <option value="">Sélectionner un motif</option>
-                <option value="IG">ADMIS IG</option>
-                <option value="CHRR">ADMIS CHRR</option>
-                <option value="EVASAN">EVASAN</option>
-                <option value="CONSULTATION">CONSULTATION</option>
-                <option value="A REVOIR CHRR">A REVOIR CHRR</option>
-                <option value="A REVOIR IG">A REVOIR IG</option>
-                <option value="AD COM DLI">AD COM DLI</option>
-                <option value="AD COM DQG SPORT">AD COM DQG SPORT</option>
-                <option value="PERMISSION">PERMISSION</option>
-                <option value="SPORT">SPORT</option>
-                <option value="AD MDG">AD MDG</option>
-                <option value="REPOS SANITAIRE">REPOS SANITAIRE</option>
-                <option value="STAGE">STAGE</option>
-                <option value="MISSION">MISSIOPN</option>
-                <option value="AD CEGN">AD CEGN</option>
-                <option value="TOBY FANDRIANA">TOBY FANDRIANA</option>
-              </select>
-            </div>
-            
-
-            <div className="text-center">
-              <button type="submit" className="btn btn-primary">Enregistrer Absence</button>
-            </div>
-              </>
-            )}
-
-           
-          </form>
+    {/* Affichage automatique des informations de l'élève */}
+    {eleveData && Object.keys(eleveData).length > 0 && (
+      <>
+        <div className="mb-3">
+          <label htmlFor="nom" className="form-label d-flex align-items-center">
+            <i className="fas fa-user me-2"></i>Nom
+          </label>
+          <input
+            id="nom"
+            type="text"
+            className="form-control"
+            value={eleveData.eleve.nom || ''}
+            disabled
+          />
         </div>
 
+        <div className="mb-3">
+          <label htmlFor="prenom" className="form-label d-flex align-items-center">
+            <i className="fas fa-user-tag me-2"></i>Prénom
+          </label>
+          <input
+            id="prenom"
+            type="text"
+            className="form-control"
+            value={eleveData.eleve.prenom || ''}
+            disabled
+          />
+        </div>
+
+        <div className="mb-3">
+          <label htmlFor="matricule" className="form-label d-flex align-items-center">
+            <i className="fas fa-clipboard-list me-2"></i>Matricule
+          </label>
+          <input
+            id="matricule"
+            type="text"
+            className="form-control"
+            value={eleveData.eleve.matricule || ''}
+            disabled
+          />
+        </div>
+
+        <div className="mb-3">
+          <label htmlFor="escadron" className="form-label d-flex align-items-center">
+            <i className="fas fa-shield-alt me-2"></i>Escadron
+          </label>
+          <input
+            id="escadron"
+            type="text"
+            className="form-control"
+            value={eleveData.eleve.escadron || ''}
+            disabled
+          />
+        </div>
+
+        <div className="mb-3">
+          <label htmlFor="peloton" className="form-label d-flex align-items-center">
+            <i className="fas fa-users me-2"></i>Peloton
+          </label>
+          <input
+            id="peloton"
+            type="text"
+            className="form-control"
+            value={eleveData.eleve.peloton || ''}
+            disabled
+          />
+        </div>
+
+        <div className="mb-3">
+          <label htmlFor="dateNaissance" className="form-label d-flex align-items-center">
+            <i className="fas fa-calendar-alt me-2"></i>Date de naissance
+          </label>
+          <input
+            type="date"
+            className="form-control"
+            name="dateNaissance"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </div>
+
+        {/* Sélection du motif */}
+        <div className="mb-3">
+          <label htmlFor="motif" className="form-label d-flex align-items-center">
+            <i className="fas fa-list-alt me-2"></i>Motif
+          </label>
+          <select
+            id="motif"
+            className="form-select border-0 shadow-sm"
+            value={motif}
+            onChange={(e) => setMotif(e.target.value)}
+            required
+          >
+            <option value="">Sélectionner un motif</option>
+            <option value="IG">ADMIS IG</option>
+            <option value="CHRR">ADMIS CHRR</option>
+            <option value="EVASAN">EVASAN</option>
+            <option value="CONSULTATION">CONSULTATION</option>
+            <option value="DONNEUR DE SANG">DONNEUR DE SANG</option>
+            <option value="A REVOIR CHRR">A REVOIR CHRR</option>
+            <option value="A REVOIR IG">A REVOIR IG</option>
+            <option value="AD COM DLI">AD COM DLI</option>
+            <option value="AD COM DQG SPORT">AD COM DQG SPORT</option>
+            <option value="PERMISSION">PERMISSION</option>
+            <option value="VATOVORY">VATOVORY</option>
+            <option value="SPORT">SPORT</option>
+            <option value="AD MDG">AD MDG</option>
+            <option value="REPOS SANITAIRE">REPOS SANITAIRE</option>
+            <option value="STAGE">STAGE</option>
+            <option value="MISSION">MISSION</option>
+            <option value="MISSION TANA">MISSION TANA</option>
+            <option value="AD CEGN">AD CEGN</option>
+            <option value="TOBY FANDRIANA">TOBY FANDRIANA</option>
+          </select>
+          
+        </div>
+
+        <div className="text-center">
+          <button type="submit" className="btn btn-success w-100 shadow-sm">
+            <i className="fas fa-save me-2"></i>Enregistrer Absence
+          </button>
+        </div>
+      </>
+    )}
+  </form>
+</div>
+
+
+
         {/* Tableau des absences à droite */}
-        <div className="col-md-8 mx-auto">
-        <h3 className="text-center">Liste des Absences</h3>
-          <form className="mb-4">
-                      <div className="row">
-                        <div className='col-md-4'>
-                          <select
-                            className="form-select"
-                            name="cour"
-                            value={filter.cour}
-                            onChange={handleFilterChange}
-                          >
-                            {coursList.map((c) => (
-                              <option key={c.id} value={c.cour}>
-                                {c.cour}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                  <div className="col-md-8 mx-auto">
+                  <h3 className="text-center mb-4 fw-bold text-primary">📋 Liste des Absence</h3>
 
-                        <div className='col-md-4'>
-                          <select
-                            className="form-select"
-                            name="escadron"
-                            value={filter.escadron}
-                            onChange={handleFilterChange}
-                          >
-                            <option value="">Escadron</option>
-                            {[...Array(10)].map((_, i) => (
-                              <option key={i + 1} value={i + 1}>{i + 1}</option>
-                            ))}
-                          </select>
-                        </div>
+            
+                    {/* Card pour le formulaire de recherche */}
+                    <div className="card shadow-sm">
+                      <div className="card-body">
+                        <form className="mb-4">
+                          <div className="row">
+                            {/* Sélecteur de Cours */}
+                            <div className="col-md-4 mb-3">
+                              
+                              <select
+                                className="form-select"
+                                name="cour"
+                                value={filter.cour}
+                                onChange={handleFilterChange}
+                              >
+                                {coursList.map((c) => (
+                                  <option key={c.id} value={c.cour}>
+                                    {c.cour}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
 
-                        <div className='col-md-4'>
-                          <select
-                            className="form-select"
-                            name="peloton"
-                            value={filter.peloton}
-                            onChange={handleFilterChange}
-                          >
-                            <option value="">Peloton</option>
-                            {[1, 2, 3].map(p => (
-                              <option key={p} value={p}>{p}</option>
-                            ))}
-                          </select>
-                        </div>
+                            {/* Sélecteur d'Escadron */}
+                            <div className="col-md-4 mb-3">
+                           
+                              <select
+                                className="form-select"
+                                name="escadron"
+                                value={filter.escadron}
+                                onChange={handleFilterChange}
+                              >
+                                <option value="">Escadron</option>
+                                {[...Array(10)].map((_, i) => (
+                                  <option key={i + 1} value={i + 1}>{i + 1}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Sélecteur de Peloton */}
+                            <div className="col-md-4 mb-3">
+                             
+                              <select
+                                className="form-select"
+                                name="peloton"
+                                value={filter.peloton}
+                                onChange={handleFilterChange}
+                              >
+                                <option value="">Peloton</option>
+                                {[1, 2, 3].map(p => (
+                                  <option key={p} value={p}>{p}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Recherche par nom ou prénom */}
+                          <div className="row mt-3">
+                            <div className="col-md-8 mb-3">
+                            
+                              <input
+                                type="text"
+                                className="form-control"
+                                placeholder="Rechercher par nom, prénom ou incorporation"
+                                name="search"
+                                value={filter.search}
+                                onChange={handleFilterChange}
+                              />
+                            </div>
+
+                            {/* Sélecteur de Date */}
+                            <div className="col-md-4 mb-3">
+                             
+                              <input
+                                type="date"
+                                className="form-control"
+                                name="date"
+                                value={filter.date}
+                                onChange={handleFilterChange}
+                              />
+                            </div>
+                          </div>
+                          <div className="d-flex justify-content-center mt-4">
+                           <button type="button" className="btn btn-outline-secondary px-4 py-2 rounded-pill shadow-sm"    onClick={handleResetFilter}>               
+                           🔁 Réinitialiser la recherche
+                        </button>
+                          </div>
+
+                        </form>
                       </div>
-                    </form>
-                   
-                    <div className="row mt-3">
-                              <div className="col-md-8">
-                                <input
-                                  type="text"
-                                  className="form-control"
-                                  placeholder="Rechercher par nom, prénom ou incorporation"
-                                  name="search"
-                                  value={filter.search}
-                                  onChange={handleFilterChange}
-                                />
-                              </div>
-                              <div className="col-md-4">
-                                <input
-                                  type="date"
-                                  className="form-control"
-                                  name="date"
-                                  value={filter.date}
-                                  onChange={handleFilterChange}
-                                />
-                              </div>
+                    </div>
 
+                                        <br></br>                                                                 
+                                          <DataTable
+                                              columns={columns}
+                                              data={absenceafficher}
+                                              pagination
+                                              paginationPerPage={50}
+                                              paginationRowsPerPageOptions={[10,20,50, 100]}
+                                              highlightOnHover
+                                              striped
+                                              noDataComponent="Aucun élève à afficher"
+                                              customStyles={customStyles}
+                                            />
+                                         <div className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 my-4">
+                                            <button
+                                              className="btn btn-outline-primary w-100 w-md-auto"
+                                              onClick={() => setShowTable(prev => !prev)}
+                                            >
+                                              {showTable ? " 📝 Masquer le résumé des absences" : " 📝 Afficher le résumé des absences"}
+                                            </button>
 
-                      
-                                  </div>
-                                  <br></br>                                                                 
-                                    <DataTable
-                                        columns={columns}
-                                        data={absenceafficher}
-                                        pagination
-                                        paginationPerPage={50}
-                                        paginationRowsPerPageOptions={[10,20,50, 100]}
-                                        highlightOnHover
-                                        striped
-                                        noDataComponent="Aucun élève à afficher"
-                                        customStyles={customStyles}
-                                      />
-                                    <div className="d-flex justify-content-end gap-5 my-3">
-                                        <button
-                                          className="btn btn-info"
-                                          onClick={() => setShowTable(prev => !prev)}
-                                        >
-                                          {showTable ? "Masquer le résumé des absences" : "Afficher le résumé des absences"}
-                                        </button>
+                                            <button
+                                              className="btn btn-outline-success w-100 w-md-auto"
+                                              onClick={() => setShowModal(true)}
+                                            >
+                                              ⚔️ Situation de Prise d'Arme (SPA)
+                                            </button>
 
-                                        <button className="btn btn-info" onClick={() => setShowModal(true)}>
-                                          SPA
-                                        </button>
-                                      </div>                                   
-
-                                      {showTable && (
-                                        <div className="mt-4">
-                                          <h5 className="text-center mb-3">Absences par Élève et Motif</h5>
-                                          <table className="table table-bordered table-striped table-sm text-center">
-                                            <thead className="table-dark">
-                                              <tr>
-                                                <th>Motif</th>
-                                                <th>Nombre d'absences</th>
-                                              </tr>
-                                            </thead>
-                                            <tbody>
-                                              {Object.entries(absencesParIncorporationEtMotif).map(([inc, motifs]) =>
-                                                Object.entries(motifs).map(([motif, count]) => (
-                                                  <tr key={`${inc}-${motif}`}>
-                                                    <td>{motif}</td>
-                                                    <td><span className="badge bg-primary">{count}</span></td>
-                                                  </tr>
-                                                ))
-                                              )}
-                                            </tbody>
-                                          </table>
-
-                                          {/* Total global des absences */}
-                                          <div className="text-end mt-2">
-                                            <strong>Total :</strong> {absenceafficher.length} absences enregistrées
                                           </div>
+                                
+
+                                            {showTable && (
+                                              <div className="mt-4">
+                                                <h5 className="text-center mb-3">Absences par Élève et Motif</h5>
+                                                <table className="table table-bordered table-striped table-sm text-center">
+                                                  <thead className="table-dark">
+                                                    <tr>
+                                                      <th>Motif</th>
+                                                      <th>Nombre d'absences</th>
+                                                    </tr>
+                                                  </thead>
+                                                  <tbody>
+                                                    {Object.entries(absencesParIncorporationEtMotif).map(([inc, motifs]) =>
+                                                      Object.entries(motifs).map(([motif, count]) => (
+                                                        <tr key={`${inc}-${motif}`}>
+                                                          <td>{motif}</td>
+                                                          <td><span className="badge bg-primary">{count}</span></td>
+                                                        </tr>
+                                                      ))
+                                                    )}
+                                                  </tbody>
+                                                </table>
+
+                                                {/* Total global des absences */}
+                                                <div className="text-end mt-2">
+                                                  <strong>Total :</strong> {absenceafficher.length} absences enregistrées
+                                                </div>
+                                              </div>
+                                            )}
+                                    
                                         </div>
-                                      )}
-                               
-                                  </div>
-                                </div>
-                                {showModal && (
+                                      </div>
+                                      {showModal && (
                                         <>
-                                          <div className="modal fade show d-block" tabIndex="-1" role="dialog" 
-                                            style={{
-                                              display: "block",
-                      
-                                              top: 0,
-                                              left: 0,
-                                              width: "100vw",
-                                              height: "100vh",
-                                              backgroundColor: "rgba(0,0,0,0.4)",
-                                              backdropFilter: "blur(2px)",
-                                              zIndex: 1050,
-                                              
-                                            }}
-                                          >
-                                            
-                                            <div className="modal-dialog modal-lg">
+                                          {/* Overlay backdrop */}
+                                          <div className="custom-modal-overlay">
+                                            <div className="modal-dialog custom-modal-dialog" role="document">
                                               <div className="modal-content">
                                                 <div className="modal-header">
-                                                  <h5 className="modal-title">Situation de Prise d'Arme </h5>
+                                                
+                                                <div className="modal-header justify-content-center">
+                                                <h5 className="modal-title text-center fw-bold fs-4 w-100">
+                                                  🪖 Situation de Prise d'Arme
+                                                </h5>
+                                             
+
+                                                    <br></br>
+                                                    <br></br>
+                                                  </div>
+
                                                   <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
                                                 </div>
-
+                                                   <br></br>
+                                                    
                                                 <div className="modal-body">
                                                   {/* Formulaire de sélection de date */}
-                                                  <form className="d-flex align-items-center mb-4 gap-1">
-                                                      <label htmlFor="spaDate" className="form-label mb-0">Date</label>
-                                                      <input
-                                                        type="date"
-                                                        id="spaDate"
-                                                        className="form-control w-auto"
-                                                        value={spaDate}
-                                                        onChange={(e) => setSpaDate(e.target.value)}
-                                                      />
-                                                       <label htmlFor="totalEleve" className="form-label mb-0">(R) :</label>
-                                                          <input
-                                                            type="number"
-                                                            id="totalEleve"
-                                                            className="form-control w-auto"
-                                                            value={spaNumber}
-                                                            onChange={(e) => setSpaNumber(Number(e.target.value))}
-                                                          />
+                                                  <form className="row g-3 align-items-end mb-4">
+                                                  <div className="col-md-4">
+                                                    <label htmlFor="spaDate" className="form-label">Date</label>
+                                                    <input
+                                                      type="date"
+                                                      id="spaDate"
+                                                      className="form-control"
+                                                      value={spaDate}
+                                                      onChange={(e) => setSpaDate(e.target.value)}
+                                                    />
+                                                  </div>
 
-                                                      <button type="button" className="btn btn-primary" onClick={handleAfficherIndispo}>
-                                                         SPA
-                                                      </button>
-                                                    </form>
+                                                  <div className="col-md-3">
+                                                    <label htmlFor="totalEleve" className="form-label">Effectif réalisé (R)</label>
+                                                    <input
+                                                      type="number"
+                                                      id="totalEleve"
+                                                      className="form-control"
+                                                      value={spaNumber}
+                                                      onChange={(e) => setSpaNumber(Number(e.target.value))}
+                                                    />
+                                                  </div>
+
+                                                  <div className="col-md-3 d-flex align-items-end">
+                                                    <button
+                                                      type="button"
+                                                      className="btn btn-success w-100"
+                                                      onClick={handleAfficherIndispo}
+                                                    >
+                                                      🪖 Afficher SPA
+                                                    </button>
+                                                  </div>
+                                                </form>
 
 
                                                   {/* Tableau SPA */}
@@ -753,10 +846,10 @@ const SaisieAbsence = () => {
                                                     <tbody>
                                                       <tr>
                                                         <td><span className="badge bg-info">{spaNumber}</span></td>
-                                                        <td><span className="badge bg-warning">{totalA}</span></td>    {/* I : motifs médicaux */}
-                                                        <td><span className="badge bg-info">{spaNumber-totalA}</span></td>
-                                                        <td><span className="badge bg-warning">{totalI}</span></td> {/* A : autres motifs */}
-                                                        <td><span className="badge bg-info">{(spaNumber-totalA)-totalI}</span></td>
+                                                        <td><span className="badge bg-warning">{totalA}</span></td>
+                                                        <td><span className="badge bg-info">{spaNumber - totalA}</span></td>
+                                                        <td><span className="badge bg-warning">{totalI}</span></td>
+                                                        <td><span className="badge bg-info">{(spaNumber - totalA) - totalI}</span></td>
                                                       </tr>
                                                     </tbody>
                                                   </table>
@@ -765,41 +858,36 @@ const SaisieAbsence = () => {
                                                 <div className="modal-footer d-flex justify-content-between">
                                                   <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Fermer</button>
                                                   <button className="btn btn-success" onClick={handleExportPDF}>IMPRIMER</button>
-
                                                 </div>
                                               </div>
                                             </div>
-
-                                            {/* Overlay backdrop */}
-                                            
                                           </div>
                                         </>
                                       )}
 
-
-                            </div>
-                            );
-                            
-                          };
-                          const customStyles = {
-                            headCells: {
-                              style: {
-                                fontSize: '14px', // Taille du texte des en-têtes
-                                fontWeight: 'bold',
-                              },
-                            },
-                            cells: {
-                              style: {
-                                fontSize: '14px', // Taille du texte des cellules
-                              },
-                            },
-                            stripedStyle: {
-                              style: {
-                                backgroundColor: '#f2f2f2', // Lignes paires (striped)
-                              },
-                            }
-                          };
-                          //show modal SPA 
-                        
+                                                                        </div>
+                                  );
+                                  
+                                };
+                                const customStyles = {
+                                  headCells: {
+                                    style: {
+                                      fontSize: '14px', // Taille du texte des en-têtes
+                                      fontWeight: 'bold',
+                                    },
+                                  },
+                                  cells: {
+                                    style: {
+                                      fontSize: '14px', // Taille du texte des cellules
+                                    },
+                                  },
+                                  stripedStyle: {
+                                    style: {
+                                      backgroundColor: '#f2f2f2', // Lignes paires (striped)
+                                    },
+                                  }
+                                };
+                                //show modal SPA 
+                              
                           
 export default SaisieAbsence;

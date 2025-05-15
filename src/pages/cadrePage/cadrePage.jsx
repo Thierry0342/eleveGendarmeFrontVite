@@ -193,224 +193,112 @@ useEffect(() => {
 
 
   return (
-    <div className="container mt-4">
-      <div className="row">
-        {/* Formulaire à gauche */}
-        <div className="col-md-5">
-          <h4>Ajouter un Cadre</h4>
-          <div className="mb-3">
-            <label className="form-label">Matricule</label>
-            <input
-              type="number"
-              className="form-control"
-              name="matricule"
-              value={formData.matricule}
-              onChange={handleChange}
-              placeholder="Matricule"
-            />
-          </div>
-          <div className="mb-3">
-            <label className="form-label">Nom</label>
-            <input
-              type="text"
-              className="form-control"
-              name="nom"
-              value={formData.nom}
-              onChange={handleChange}
-              placeholder="Entrez le nom"
-            />
-          </div>
-          <div className="mb-3">
-            <label className="form-label">Prénom</label>
-            <input
-              type="text"
-              className="form-control"
-              name="prenom"
-              value={formData.prenom}
-              onChange={handleChange}
-              placeholder="Entrez le prénom"
-            />
-          </div>
-          <div className="mb-3">
-            <label className="form-label">Grade</label>
-            <select
-                className="form-control"
+    <div className="container py-4">
+    <div className="row g-4">
+      {/* Formulaire à gauche */}
+      <div className="col-md-5">
+        <div className="card shadow-sm border-0">
+          <div className="card-body">
+            <h4 className="card-title text-primary mb-4">
+              <i className="fa fa-user-plus me-2"></i>Ajouter un Cadre
+            </h4>
+
+            {['matricule', 'nom', 'prenom'].map((field) => (
+              <div className="mb-3" key={field}>
+                <input
+                  type={field === 'matricule' ? 'number' : 'text'}
+                  className="form-control form-control-lg"
+                  name={field}
+                  value={formData[field]}
+                  onChange={handleChange}
+                  placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+                />
+              </div>
+            ))}
+
+            <div className="mb-3">
+              <select
+                className="form-select form-select-lg"
                 name="grade"
                 value={formData.grade}
                 onChange={handleChange}
-                >
+              >
                 <option value="">-- SÉLECTIONNEZ LE GRADE --</option>
-                <option value="GST">GST</option>
-                <option value="G2C">G2C</option>
-                <option value="G1C">G1C</option>
-                <option value="GHC">GHC</option>
-                <option value="GP2C">GP2C</option>
-                <option value="GP1C">GP1C</option>
-                <option value="GPHC">GPHC</option>
-                <option value="GPCE">GPCE</option>
-                <option value="LIEUTENANT">LIEUTENANT</option>
-                <option value="CAPITAINE">CAPITAINE</option>
-                <option value="CHEF D'ESCADRON">CHEF D'ESCADRON</option>
-                <option value="LIEUTENANT-COLONEL">LIEUTENANT-COLONEL</option>
-                <option value="COLONEL">COLONEL</option>
-                <option value="GÉNÉRAL DE BRIGADE">GÉNÉRAL DE BRIGADE</option>
-                <option value="GÉNÉRAL DE DIVISION">GÉNÉRAL DE DIVISION</option>
-                </select>
-                    </div>
-                    <div className="mb-3">
-                        <label className="form-label">Service</label>
-                        <select
-                            className="form-control"
-                            name="service"
-                            value={formData.service}
-                            onChange={handleChange}
-                            >
-                            <option value="">-- SÉLECTIONNEZ LE SERVICE --</option>
-                            <option value="1ER ESCADRON">1ER ESCADRON</option>
-                            <option value="2EME ESCADRON">2EME ESCADRON</option>
-                            <option value="3EME ESCADRON">3EME ESCADRON</option>
-                            <option value="4EME ESCADRON">4EME ESCADRON</option>
-                            <option value="5EME ESCADRON">5EME ESCADRON</option>
-                            <option value="6EME ESCADRON">6EME ESCADRON</option>
-                            <option value="7EME ESCADRON">7EME ESCADRON</option>
-                            <option value="8EME ESCADRON">8EME ESCADRON</option>
-                            <option value="9EME ESCADRON">9EME ESCADRON</option>
-                            <option value="10EME ESCADRON">10EME ESCADRON</option>
-                            <option value="SIT INFO">SIT INFO</option>
-                            <option value="SE">SE</option>
-                            <option value="COUR A">COUR A</option>
-                            <option value="COUR B">COUR B</option>
-                            <option value="MATR">MATR</option>
-                            <option value="SM">SM</option>
-                            <option value="INFRA">INFRA</option>
-                            </select>
-                    </div>
-                    <button className="btn btn-primary me-4" onClick={handleAddCadre}>
-                        Ajouter
-                    </button>
-                    
-                    <button className="btn btn-success" onClick={handleModifCadre}>
-                        Modifier
-                    </button>
-                    </div>
+                {["GST", "G2C", "G1C", "GHC", "GP2C", "GP1C", "GPHC", "GPCE", "LIEUTENANT", "CAPITAINE", "CHEF D'ESCADRON", "LIEUTENANT-COLONEL", "COLONEL", "GÉNÉRAL DE BRIGADE", "GÉNÉRAL DE DIVISION"].map((grade) => (
+                  <option key={grade} value={grade}>{grade}</option>
+                ))}
+              </select>
+            </div>
 
-                    {/* Tableau à droite */}
-                    <div className="col-md-7">
-                    <h4>Liste des Cadres</h4>
-                        <DataTable
-                        columns={columns}
-                        data={cadres}
-                        pagination
-                        highlightOnHover
-                        striped
-                        noDataComponent="Aucun élève à afficher"
-                        customStyles={customStyles}
-                        
-                    />                         
+            <div className="mb-4">
+              <select
+                className="form-select form-select-lg"
+                name="service"
+                value={formData.service}
+                onChange={handleChange}
+              >
+                <option value="">-- SÉLECTIONNEZ LE SERVICE --</option>
+                {["1ER ESCADRON", "2EME ESCADRON", "3EME ESCADRON", "4EME ESCADRON", "5EME ESCADRON", "6EME ESCADRON", "7EME ESCADRON", "8EME ESCADRON", "9EME ESCADRON", "10EME ESCADRON", "SIT INFO", "SE", "COUR A", "COUR B", "MATR", "SM", "INFRA"].map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
 
-                          </div>
-                          
-                        </div>
-                        <button
-                          className="btn btn-secondary"
-                          style={{
-                            position: "fixed",
-                            bottom: "20px",
-                            left: "50%",
-                            transform: "translateX(-50%)",
-                            zIndex: 999,
-                          }}
-                          onClick={toggleSPA}
-                        >
-                          SPA
-                        </button>
-                        {showSPA && (
-                          <div className="container mt-4 border-top pt-4 bg-light">
-                            <div className="row">
-                              <div className="col-md-5">
-                                <h4>Formulaire SPA</h4>
-                                <div className="mb-3">
-                                  <label className="form-label">Matricule</label>
-                                  <input
-                                    type="text"
-                                    className="form-control"
-                                    name="matricule"
-                                    value={formSPA.matricule}
-                                    onChange={handleChangeSPA}
-                                    placeholder="Entrez le matricule"
-                                  />
-                                </div>
-                                <div className="mb-3">
-                                  <label className="form-label">Nom</label>
-                                  <input
-                                    type="text"
-                                    className="form-control"
-                                    name="nom"
-                                    value={formSPA.nom}
-                                    onChange={handleChangeSPA}
-                                  />
-                                </div>
-                                <div className="mb-3">
-                                  <label className="form-label">Prénom</label>
-                                  <input
-                                    type="text"
-                                    className="form-control"
-                                    name="prenom"
-                                    value={formSPA.prenom}
-                                    onChange={handleChangeSPA}
-                                  />
-                                </div>
-                                <div className="mb-3">
-                                  <label className="form-label">Grade</label>
-                                  <input
-                                    type="text"
-                                    className="form-control"
-                                    name="grade"
-                                    value={formSPA.grade}
-                                    onChange={handleChangeSPA}
-                                  />
-                                </div>
-                                <div className="mb-3">
-                                  <label className="form-label">Service</label>
-                                  <input
-                                    type="text"
-                                    className="form-control"
-                                    name="service"
-                                    value={formSPA.service}
-                                    onChange={handleChangeSPA}
-                                  />
-                                </div>
-                                <button className="btn btn-primary">Soumettre</button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                    
-                        
-                      </div>
-                      
-                    );
-                    
-                  };
+            <div className="d-flex justify-content-between">
+              <button className="btn btn-primary w-50 me-2" onClick={handleAddCadre}>
+                <i className="fa fa-plus me-1"></i> Ajouter
+              </button>
+              <button className="btn btn-success w-50" onClick={handleModifCadre}>
+                <i className="fa fa-edit me-1"></i> Modifier
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
-        const customStyles = {
-            headCells: {
-            style: {
-                fontSize: '14px', // Taille du texte des en-têtes
-                fontWeight: 'bold',
-            },
-            },
-            cells: {
-            style: {
-                fontSize: '14px', // Taille du texte des cellules
-            },
-            },
-            stripedStyle: {
-            style: {
-                backgroundColor: '#f2f2f2', // Lignes paires (striped)
-            },
-            }
-        };
+      {/* Tableau à droite */}
+      <div className="col-md-7">
+        <div className="card shadow-sm border-0">
+          <div className="card-body">
+            <h4 className="card-title text-primary mb-3">
+              <i className="fa fa-users me-2"></i>Liste des Cadres
+            </h4>
+            <DataTable
+              columns={columns}
+              data={cadres}
+              pagination
+              highlightOnHover
+              striped
+              noDataComponent="Aucun élève à afficher"
+              customStyles={customStyles}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+  </div>
+  
+  )};
+  const customStyles = {
+    headCells: {
+    style: {
+        fontSize: '14px', // Taille du texte des en-têtes
+        fontWeight: 'bold',
+    },
+    },
+    cells: {
+    style: {
+        fontSize: '14px', // Taille du texte des cellules
+    },
+    },
+    stripedStyle: {
+    style: {
+        backgroundColor: '#f2f2f2', // Lignes paires (striped)
+    },
+    }
+  }
         
 
 export default CadreFormBootstrap;

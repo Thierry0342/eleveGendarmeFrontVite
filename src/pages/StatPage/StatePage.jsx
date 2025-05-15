@@ -542,7 +542,14 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
                   
 
                   <div className="container mt-4">
-                        <h5>Situation de Prise d'arme</h5>
+                  <div className="bg-light p-3 rounded shadow-sm mb-4 text-center">
+                    <h5 className="fw-bold m-0">
+                      <i className="fa fa-flag text-danger me-2"></i>
+                      Situation de Prise d'Arme
+                    </h5>
+                  </div>
+
+
                         <form className="row g-3 mb-4">
                           <div className="col-md-6">
                             <label className="form-label">Date</label>
@@ -583,7 +590,7 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
                   {/* FIN SPA*/}
                     {/* MODAL ICI – À L'EXTÉRIEUR DU DATATABLE */}
                     {selectedRow && (
-                      <div className="modal-overlay">
+                      <div className="modal-overlayy">
                         <div className="modal-content">
                           <h4>INFORMATION EVASAN</h4>
                           <div className="modal-fields">

@@ -1,10 +1,14 @@
+
+
 .club_cc{
     // background-color: red !important;
     padding: 10px;
     transition: 0.9s;
+    
     &:hover {
-        transform: scale(1.11); // Zoom léger de la carte entière
-      }
+      transform: scale(1.11);
+    }
+  
 
     .club_ca{
         height: 100%;
@@ -67,9 +71,35 @@
     font-size: 14px;
     box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.2);
   }
+  .footer-left {
+    position: fixed;
+    left: 17px;
+    bottom: 17px;
+    font-weight: 50;
+    font-size: 14px;
+    color :#ffffff
+  }
+
   
   .footer-content p {
     margin: 5px 0;
   }
   
 
+ // Animation
+@keyframes fadeInUp {
+    0% {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  // Classe d'animation appliquée au montage
+  .club-appear {
+    animation: fadeInUp 0.7s ease forwards;
+  }
+  

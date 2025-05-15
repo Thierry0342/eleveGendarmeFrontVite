@@ -1,0 +1,48 @@
+.card {
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .form-control {
+    border-radius: 8px;
+  }
+  
+  .form-select {
+    border-radius: 8px;
+  }
+  .custom-modal-overlay {
+    position: fixed;
+    inset: 0; /* top:0, left:0, right:0, bottom:0 */
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(3px);
+    z-index: 1050;
+    display: flex;
+    align-items: center; /* centre verticalement */
+    justify-content: center; /* centre horizontalement */
+    padding: 1rem;
+    overflow-y: auto;
+  }
+  
+  .custom-modal-dialog {
+    width: 100%;
+    max-width: 100ch;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .modal-content {
+    
+    max-height: 90vh;
+    border-radius: 10px;
+  }
+  .modal-title {
+    color: #1f2937; /* gris foncé */
+    font-family: 'Times New Roman', sans-serif;
+    border-bottom: 2px solid #dee2e6;
+    
+    padding-bottom: 0.5rem;
+  
+    text-align: center;
+  }
+  

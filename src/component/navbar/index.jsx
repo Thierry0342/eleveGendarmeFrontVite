@@ -63,14 +63,19 @@ const Navbar = () => {
   return (
     <nav className={`navbar ${scrolled ? 'shrink transparent' : ''}`}>
 
-      <div className="logo">
-        <Link to="/">GESTION ELEVE GENDARME</Link>
-      </div>
+        <div className="logo">
+          <Link to="/">
+            <img src="/images/image/logoegna.png" alt="Logo" className="logo-icon" />
+               GESTION ELEVE GENDARME
+          </Link>
+        </div>
+
+
 
       <ul className="nav-links">
-        <li><Link to="/">Accueil</Link></li>
-        <li><Link to="/eleve">Élève</Link></li>
-        <li><Link to="/assiduite">Assiduité</Link></li>
+        <li><Link to="/">HOME</Link></li>
+        <li><Link to="/eleve">ELEVE</Link></li>
+        <li><Link to="/statistique">ASSUIDITE</Link></li>
         {/* Icône de déconnexion dans le bouton */}
         <li><button onClick={handleLogout} className="btn-logout">
           <FontAwesomeIcon icon={faSignOutAlt} /> 

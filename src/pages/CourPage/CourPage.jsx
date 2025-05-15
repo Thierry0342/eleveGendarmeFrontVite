@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import courService from '../../services/courService';
 import userService from '../../services/userService'; 
+import logService from '../../services/logs-service';
+import DataTable from 'react-data-table-component';
 import Swal from 'sweetalert2';
 
 const CourPage = () => {
@@ -13,11 +15,14 @@ const CourPage = () => {
   const [type, setType] = useState('');
   const [userMessage, setUserMessage] = useState('');
   const [utilisateurs, setUtilisateurs] = useState([]);
+  const [logs, setLogs] = useState([]);
+  const [error, setError] = useState(null);
 
   // Charger les cours et utilisateurs
   useEffect(() => {
     fetchCours();
     fetchUtilisateurs();
+    fetchLogs();
   }, []);
 
   const fetchCours = async () => {
@@ -28,6 +33,18 @@ const CourPage = () => {
       console.error('Erreur de chargement des cours', error);
     }
   };
+
+    const fetchLogs = async () => {
+      const result = await logService.getAll();
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setLogs(result.data);
+      }
+    };
+
+    
+
 
   const fetchUtilisateurs = async () => {
     try {
@@ -185,6 +202,35 @@ const CourPage = () => {
       }
     }
   };
+  //tableau logs 
+  const columns = [
+    {
+      name: 'User ID',
+      selector: row => row.userId,
+      sortable: true,
+    },
+    {
+      name: 'Username',
+      selector: row => row.User.username,
+      sortable: true,
+    },
+    {
+      name: 'Action',
+      selector: row => row.action,
+      sortable: true,
+    },
+    {
+      name: 'Détails',
+      selector: row => row.details,
+      sortable: false,
+      wrap: true,
+    },
+    {
+      name: 'Horodatage',
+      selector: row => row.createdAt,
+      sortable: true,
+    },
+  ];
 
   return (
     <div className="container mt-4">
@@ -337,6 +383,21 @@ const CourPage = () => {
           )}
         </div>
       </div>
+
+      <h2 className="text-xl font-bold mb-4">Logs</h2>
+      <DataTable
+        columns={columns}
+        data={logs}
+        pagination
+        paginationPerPage={5}
+        paginationRowsPerPageOptions={[5, 10, 15]}
+        highlightOnHover
+        striped
+        responsive
+        noDataComponent="Aucun log trouvé."
+      />
+    
+      
     </div>
   );
 };
