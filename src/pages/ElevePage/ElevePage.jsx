@@ -551,10 +551,10 @@ const ElevePage = () => {
             {/* Ligne 4 */}
             <div className="row mb-3">
               <div className="col">
-                <input type="text" className="form-control" name="nom" placeholder="Nom" value={formData.nom} onChange={handleChange} />
+                <input type="text" className="form-control" name="nom" placeholder="Nom" value={formData.nom} onChange={handleChange}   style={{ textTransform: "uppercase" }}/>
               </div>
               <div className="col">
-                <input type="text" className="form-control" name="prenom" placeholder="Prénom" value={formData.prenom} onChange={handleChange} />
+                <input type="text" className="form-control" name="prenom" placeholder="Prénom" value={formData.prenom} onChange={handleChange}  style={{ textTransform: "uppercase" }} />
               </div>
             </div>
 

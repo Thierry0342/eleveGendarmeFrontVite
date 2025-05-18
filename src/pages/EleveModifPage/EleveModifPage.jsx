@@ -6,7 +6,7 @@ import eleveService from '../../services/eleveService';
 import Swal from 'sweetalert2';
 import { toast } from 'react-toastify';
 
-
+const user = JSON.parse(localStorage.getItem('user'));
 
 const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave }) => {
   //initie donne
@@ -344,7 +344,7 @@ const handleSave = async () => {
 
 
   return (
-    <Modal show={show} onHide={onClose} size="lg" dialogClassName="large-modal" >
+    <Modal show={show} onHide={onClose} size="xl" dialogClassName="large-modal" >
       <Modal.Header closeButton>
         <Modal.Title>Modifier les informations de l'élève</Modal.Title>
       </Modal.Header>
@@ -467,10 +467,10 @@ const handleSave = async () => {
                 {/* Ligne 4 */}
                 <div className="row mb-3">
                   <div className="col">
-                    <input type="text" className="form-control" name="nom" placeholder="Nom" value={eleve.nom} onChange={onChange} />
+                    <input type="text" className="form-control" name="nom" placeholder="Nom" value={eleve.nom} onChange={onChange}  style={{ textTransform: "uppercase" }}/>
                   </div>
                   <div className="col">
-                    <input type="text" className="form-control" name="prenom" placeholder="Prénom" value={eleve.prenom} onChange={onChange} />
+                    <input type="text" className="form-control" name="prenom" placeholder="Prénom" value={eleve.prenom} onChange={onChange}  style={{ textTransform: "uppercase" }} />
                   </div>
                 </div>
 
@@ -1105,7 +1105,11 @@ const handleSave = async () => {
       </Modal.Body>
       <Modal.Footer>
         <Button variant="secondary" onClick={onClose}>Annuler</Button>
-        <Button variant="primary" onClick={handleSave}>Modifier</Button>
+        {user?.type === 'admin' && (
+      <Button variant="primary" onClick={handleSave}>
+         Modifier
+        </Button>
+        )}
       </Modal.Footer>
     </Modal>
     

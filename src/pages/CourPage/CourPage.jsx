@@ -175,7 +175,10 @@ const CourPage = () => {
            <option value="user" ${user.type === 'user' ? 'selected' : ''}>user</option>
            <option value="saisie" ${user.type === 'saisie' ? 'selected' : ''}>saisie</option>
            <option value="admin" ${user.type === 'admin' ? 'selected' : ''}>admin</option>
-         </select>`,
+         </select>` +
+        `<input id="swal-input3" class="swal2-input" type="password" placeholder="Mot de passe actuel">` +
+        `<input id="swal-input4" class="swal2-input" type="password" placeholder="Nouveau mot de passe">` +
+        `<input id="swal-input5" class="swal2-input" type="password" placeholder="Confirmation du mot de passe">`,
       focusConfirm: false,
       showCancelButton: true,
       confirmButtonText: 'Enregistrer',
@@ -183,25 +186,55 @@ const CourPage = () => {
       preConfirm: () => {
         const username = document.getElementById('swal-input1').value;
         const type = document.getElementById('swal-input2').value;
+        const currentPassword = document.getElementById('swal-input3').value;
+        const newPassword = document.getElementById('swal-input4').value;
+        const confirmPassword = document.getElementById('swal-input5').value;
+  
+        // Validation
         if (!username || username.trim().length < 3) {
-          Swal.showValidationMessage('Nom invalide (min. 3 caractères)');
+          Swal.showValidationMessage('Le nom d\'utilisateur est invalide (min. 3 caractères)');
           return false;
         }
-        return { username, type };
+  
+        if (newPassword || confirmPassword) {
+          if (!currentPassword) {
+            Swal.showValidationMessage('Le mot de passe actuel est requis pour modifier le mot de passe');
+            return false;
+          }
+          if (newPassword !== confirmPassword) {
+            Swal.showValidationMessage('Le nouveau mot de passe ne correspond pas à la confirmation');
+            return false;
+          }
+        }
+  
+        return { username, type, currentPassword, newPassword, confirmPassword };
       }
     });
   
+
+  
     if (formValues) {
       try {
-        await userService.update(user.id, formValues); // Assure-toi que userService a une méthode `.update`
+        await userService.update(user.id, formValues);
         fetchUtilisateurs();
-        Swal.fire('Modifié', 'Utilisateur mis à jour avec succès', 'success');
+        Swal.fire({
+          icon: 'success',
+          title: 'Modifié',
+          text: 'Utilisateur mis à jour avec succès',
+          timer: 2500,
+          showConfirmButton: false,
+          toast: true,
+          position: 'top-end'
+        });
       } catch (error) {
         console.error('Erreur modification utilisateur', error);
         Swal.fire('Erreur', 'La mise à jour a échoué', 'error');
       }
     }
   };
+  
+  
+  
   //tableau logs 
   const columns = [
     {
@@ -231,6 +264,14 @@ const CourPage = () => {
       sortable: true,
     },
   ];
+  //ip
+  const [ip, setIp] = useState(localStorage.getItem("CUSTOM_IP") || "");
+
+  const handleSave = () => {
+    localStorage.setItem("CUSTOM_IP", ip);
+    alert("Nouvelle IP enregistrée ! Rafraîchissez la page pour appliquer les changements.");
+  };
+
 
   return (
     <div className="container mt-4">
@@ -383,6 +424,23 @@ const CourPage = () => {
           )}
         </div>
       </div>
+      <div className="container mt-5">
+      <h2>Paramètres Réseau</h2>
+      <div className="mb-3">
+        <label htmlFor="ipInput" className="form-label">Adresse IP du serveur :</label>
+        <input
+          id="ipInput"
+          type="text"
+          className="form-control"
+          placeholder="http://192.168.1.100:4000"
+          value={ip}
+          onChange={(e) => setIp(e.target.value)}
+        />
+      </div>
+      <button className="btn btn-primary" onClick={handleSave}>
+        Enregistrer
+      </button>
+    </div>
 
       <h2 className="text-xl font-bold mb-4">Logs</h2>
       <DataTable

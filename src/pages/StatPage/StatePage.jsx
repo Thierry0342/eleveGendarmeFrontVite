@@ -16,6 +16,9 @@ const StatePage = () => {
   const [listeAbsence,setListeAbsence] = useState([]);
   const [selectedDate, setSelectedDate] = useState('');
   const [numIncorp, setNumIncorp] = useState('');
+  const [currentPageMotif, setCurrentPageMotif] = useState(1);
+  const [searchMotif, setSearchMotif] = useState('');
+
   //paggination
   
   
@@ -218,22 +221,48 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
   });
   
   
-  const recapMotifs = filteredAbsences.reduce((acc, curr) => {
-    const motif = curr.motif || 'Inconnu';
-    acc[motif] = (acc[motif] || 0) + 1;
-    return acc;
-  }, {});
- 
+  const recapParEleve = {};
+
+  filteredAbsences.forEach(abs => {
+    const eleveId = abs.eleveId;
+    const nom = abs.Eleve?.nom || 'Inconnu';
+    const motif = abs.motif || 'Inconnu';
+    const date = abs.date;
   
+    if (!recapParEleve[eleveId]) {
+      recapParEleve[eleveId] = {
+        nom,
+        motifs: {},
+      };
+    }
+  
+    // Initialiser une liste de dates uniques par motif
+    if (!recapParEleve[eleveId].motifs[motif]) {
+      recapParEleve[eleveId].motifs[motif] = new Set();
+    }
+  
+    // Ajouter la date au set
+    recapParEleve[eleveId].motifs[motif].add(date);
+  });
+  const motifData = [];
 
-
-    // Convertir recapMotifs en tableau
-    const motifData = Object.entries(recapMotifs).map(([motif, count], index) => ({
-      id: index + 1,
-      motif,
-      count,
-    }));
+  Object.entries(recapParEleve).forEach(([eleveId, data]) => {
+    Object.entries(data.motifs).forEach(([motif, datesSet]) => {
+      motifData.push({
+        eleveId,
+        nom: data.nom,
+        motif,
+        count: datesSet.size, // nombre de dates uniques
+      });
+    });
+  });
+  
   const columns2 = [
+    {
+      name: "Élève",
+      selector: row => row.nom,
+      sortable: true,
+    },
     {
       name: "Motif",
       selector: row => row.motif,
@@ -245,8 +274,24 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
       sortable: true,
     },
   ];
+  //tableau pour nombre par motif
+  // 2. Calculer le nombre de personnes distinctes par motif
+      const elevesParMotif = {};
+      filteredAbsences.forEach(abs => {
+        const motif = abs.motif || 'Inconnu';
+        const eleveId = abs.eleveId;
 
-    
+        if (!elevesParMotif[motif]) {
+          elevesParMotif[motif] = new Set();
+        }
+        elevesParMotif[motif].add(eleveId);
+      });
+
+      const personneParMotifData = Object.entries(elevesParMotif).map(([motif, eleveSet]) => ({
+        motif,
+        nombrePersonnes: eleveSet.size,
+      }));
+        
 
   
  
@@ -483,6 +528,88 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
             </>
         )}
     </div>
+   {/* Tableau des personnes par motif d'absence */}
+<div className="card mb-3">
+  <div className="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+    <span>Nombre de personnes par motif</span>
+  </div>
+
+  <div className="card-body">
+
+    {/* Barre de recherche */}
+    <div className="mb-3">
+      <input
+        type="text"
+        className="form-control"
+        placeholder="Rechercher un motif..."
+        value={searchMotif}
+        onChange={(e) => {
+          setSearchMotif(e.target.value);
+          setCurrentPageMotif(1); // Revenir à la première page lors d'une recherche
+        }}
+      />
+    </div>
+
+    {personneParMotifData.length === 0 ? (
+      <p className="text-muted">Aucun motif trouvé.</p>
+    ) : (
+      (() => {
+        // Filtrage
+        const filteredMotifs = personneParMotifData.filter(item =>
+          item.motif.toLowerCase().includes(searchMotif.toLowerCase())
+        );
+
+        // Tri
+        const sortedMotifs = filteredMotifs.sort((a, b) => b.nombrePersonnes - a.nombrePersonnes);
+
+        // Pagination
+        const itemsPerPage = 5;
+        const indexOfLastItem = currentPageMotif * itemsPerPage;
+        const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+        const currentItems = sortedMotifs.slice(indexOfFirstItem, indexOfLastItem);
+        const totalPages = Math.ceil(sortedMotifs.length / itemsPerPage);
+
+        return (
+          <>
+            <ul className="list-group">
+              {currentItems.map((item, index) => (
+                <li key={index} className="list-group-item d-flex justify-content-between align-items-center">
+                  <div>
+                    <strong>{item.motif}</strong>
+                  </div>
+                  <span className="badge bg-success rounded-pill">
+                    {item.nombrePersonnes} personne(s)
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            {/* Pagination */}
+            <nav className="mt-3">
+              <ul className="pagination pagination-sm justify-content-end">
+                <li className={`page-item ${currentPageMotif === 1 ? 'disabled' : ''}`}>
+                  <button className="page-link" onClick={() => setCurrentPageMotif(currentPageMotif - 1)}>Précédent</button>
+                </li>
+                {Array.from({ length: totalPages }).map((_, index) => (
+                  <li key={index} className={`page-item ${currentPageMotif === index + 1 ? 'active' : ''}`}>
+                    <button className="page-link" onClick={() => setCurrentPageMotif(index + 1)}>{index + 1}</button>
+                  </li>
+                ))}
+                <li className={`page-item ${currentPageMotif === totalPages ? 'disabled' : ''}`}>
+                  <button className="page-link" onClick={() => setCurrentPageMotif(currentPageMotif + 1)}>Suivant</button>
+                </li>
+              </ul>
+            </nav>
+          </>
+        );
+      })()
+    )}
+  </div>
+</div>
+
+
+
+
 </div>
 
 
@@ -537,6 +664,8 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
                     striped
                     responsive
                     noDataComponent="Aucune donneé"
+                    paginationPerPage={5} // Affiche au minimum 5 éléments par page
+                    paginationRowsPerPageOptions={[5, 10, 15, 20, 50]} // Options de pagination
                     customStyles={customStyles}
                   />
                   
@@ -580,6 +709,8 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
                           striped
                           responsive
                           noDataComponent="Aucune donnée"
+                          paginationPerPage={5} // Affiche au minimum 5 éléments par page
+                          paginationRowsPerPageOptions={[5, 10, 15, 20, 50]} // Options de pagination
                           customStyles={customStyles}
                         />
                       </div>

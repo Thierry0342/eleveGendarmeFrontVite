@@ -1,14 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSignOutAlt } from '@fortawesome/free-solid-svg-icons'; // Icône de déconnexion
-import './Navbar.css';
+import { faSignOutAlt } from '@fortawesome/free-solid-svg-icons';
 import Swal from 'sweetalert2';
-
+import './Navbar.css';
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
-  const navigate = useNavigate(); // pour la redirection après déconnexion
+  const [showUserInfo, setShowUserInfo] = useState(false);
+  const navigate = useNavigate();
+
+  const buttonRef = useRef(null);
+  const panelRef = useRef(null);
+
+  // Récupérer user dans localStorage (tu peux adapter si tu as un contexte ou autre)
+  const user = JSON.parse(localStorage.getItem('user'));
 
   useEffect(() => {
     const handleScroll = () => {
@@ -17,6 +23,22 @@ const Navbar = () => {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Fermer le panneau si clic en dehors
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (
+        panelRef.current &&
+        !panelRef.current.contains(event.target) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target)
+      ) {
+        setShowUserInfo(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleLogout = () => {
@@ -31,11 +53,9 @@ const Navbar = () => {
       cancelButtonText: 'Annuler'
     }).then((result) => {
       if (result.isConfirmed) {
-        // Supprimer les infos
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-  
-        // Toast de confirmation
+
         Swal.fire({
           icon: 'success',
           title: 'Déconnexion réussie',
@@ -45,41 +65,87 @@ const Navbar = () => {
           timer: 2000,
           timerProgressBar: true
         });
-  
-        // Attente de 2 secondes avant redirection
+
         setTimeout(() => {
           navigate('/auth');
         }, 2000);
       }
     });
   };
-  
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
       navigate('/auth', { replace: true });
     }
-  }, []);  // Ne se lance qu'une fois au chargement
+  }, [navigate]);
+
   return (
     <nav className={`navbar ${scrolled ? 'shrink transparent' : ''}`}>
-
-        <div className="logo">
-          <Link to="/">
-            <img src="/images/image/logoegna.png" alt="Logo" className="logo-icon" />
-               GESTION ELEVE GENDARME
-          </Link>
-        </div>
-
-
+      <div className="logo">
+        <Link to="/">
+          <img src="/images/image/logoegna.png" alt="Logo" className="logo-icon" />
+          GESTION ELEVE GENDARME
+        </Link>
+      </div>
 
       <ul className="nav-links">
         <li><Link to="/">HOME</Link></li>
         <li><Link to="/eleve">ELEVE</Link></li>
         <li><Link to="/statistique">ASSUIDITE</Link></li>
-        {/* Icône de déconnexion dans le bouton */}
-        <li><button onClick={handleLogout} className="btn-logout">
-          <FontAwesomeIcon icon={faSignOutAlt} /> 
-        </button></li>
+        <li style={{ position: 'relative' }}>
+          <button
+            ref={buttonRef}
+            onClick={() => setShowUserInfo(!showUserInfo)}
+            className="btn-logout"
+          >
+            <FontAwesomeIcon icon={faSignOutAlt} />
+          </button>
+
+          {showUserInfo && (
+            <div
+              ref={panelRef}
+              style={{
+                position: 'absolute',
+                top: 'calc(100% + 5px)',
+                right: 0,
+                background: 'white',
+                border: '1px solid #ccc',
+                borderRadius: '6px',
+                padding: '10px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                width: '220px',
+                zIndex: 1000,
+                color: '#333'
+              }}
+            >
+             <p><strong>Username :</strong> {user?.username}</p>
+
+              {user?.type === 'admin' && (
+                <button
+                  className="btn btn-secondary w-100 mb-2"
+                  onClick={() => {
+                    console.log("Ouvrir les paramètres");
+                     navigate("/admin") 
+                  }}
+                >
+                  ⚙ Paramètres
+                </button>
+              )}
+
+              <button
+                className="btn btn-danger w-100"
+                onClick={() => {
+                  handleLogout();
+                  setShowUserInfo(false);
+                }}
+              >
+                Déconnexion
+              </button>
+
+            </div>
+          )}
+        </li>
       </ul>
     </nav>
   );

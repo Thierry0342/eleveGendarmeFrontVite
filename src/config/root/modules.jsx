@@ -1,5 +1,10 @@
-import { ENV_MODE, IP } from "../env/env"
+// src/env/env.js
 
-export const IMAGE_PATH = (ENV_MODE == "dev" ? "http://localhost:3000" : IP) + "/data/uploads"
+const DEFAULT_IP = "http://localhost:4000"; // <-- l'IP de ton backend accessible
+const savedIP = localStorage.getItem("CUSTOM_IP");
 
-export const API_URL = ENV_MODE == "dev" ? "http://localhost:4000" : IP
+export const ENV_MODE = "prod"; // ou "dev"
+export const IP = savedIP || DEFAULT_IP; // Utilise une IP par défaut si aucune IP personnalisée n'est encore définie
+
+export const IMAGE_PATH = IP + "/data/uploads";
+export const API_URL = IP;

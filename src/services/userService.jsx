@@ -20,8 +20,24 @@ const userService = {
     if (!id || !data || !data.username || !data.type) {
       return Promise.reject(new Error("ID ou données invalides pour la mise à jour."));
     }
-    return axiosInstance.put(`${API_URL}/api/user/${id}`, data);
+  
+    // Préparer les données à envoyer
+    const payload = {
+      username: data.username,
+      type: data.type,
+    };
+    
+    if (data.currentPassword && data.newPassword && data.confirmPassword) {
+      payload.currentPassword = data.currentPassword;
+      payload.newPassword = data.newPassword;
+      payload.confirmPassword = data.confirmPassword;
+    }
+    
+  
+    return axiosInstance.put(`${API_URL}/api/user/${id}`, payload);
+    
   },
+  
   authUser(credentials) {
     return axios.post(`${API_URL}/api/user/auth`, credentials);
   }

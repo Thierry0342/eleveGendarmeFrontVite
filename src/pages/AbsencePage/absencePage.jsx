@@ -7,6 +7,8 @@ import spaspecialeService from'../../services/spaSpeciale-service';
 import DataTable from 'react-data-table-component';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from "xlsx";
+
 import { format } from 'date-fns';
 import './style.css'
 const user = JSON.parse(localStorage.getItem('user'));
@@ -17,6 +19,7 @@ const user = JSON.parse(localStorage.getItem('user'));
 
   const [incorporation, setIncorporation] = useState('');
   const [eleveData, setEleveData] = useState({});
+  const [allEleves,setAllEleves]=useState({});
   const [cour, setCour] = useState([]);
   const [cour2, setCour2] = useState([]);
   const [motif, setMotif] = useState('');
@@ -34,10 +37,23 @@ const user = JSON.parse(localStorage.getItem('user'));
   const [totalI, setTotalI] = useState(0);
   const [totalA,setTotalA] = useState(0);
   const [spaNumber, setSpaNumber] = useState(1499); // Valeur par défaut
+  const [showSpaSpecialeModal, setShowSpaSpecialeModal] = useState(false);
+  const [newSpaSpeciale, setNewSpaSpeciale] = useState({ motif: '', nombre: '', date: '' });
+  //motif autre 
+  const [incorporationSPA, setIncorporationSPA] = useState('');
+  const [eleveSPAInfo, setEleveSPAInfo] = useState(null);
+
+ 
+  
+  
+
+
+
    //pagination spa
    const [pageAbsence, setPageAbsence] = useState(1);
    const [pageSpa, setPageSpa] = useState(1);
    const ITEMS_PER_PAGE = 5;
+   const [currentPage, setCurrentPage] = useState(1);
    
   //ajout cour automatique
   useEffect(() => {
@@ -136,6 +152,8 @@ const user = JSON.parse(localStorage.getItem('user'));
     return () => clearInterval(intervalId);
   
   }, []);
+  //ajout spa speciale 
+ 
 
 
   //inserer dans un tableau react
@@ -181,7 +199,8 @@ const user = JSON.parse(localStorage.getItem('user'));
       const response = await eleveService.getByInc(inc, cour);
       if (response.data) {
         setEleveData(response.data);  // Stocke les données récupérées
-        console.log("reponse maka by incorportation"+eleveData)
+        setAllEleves(response.data);
+        //console.log("reponse maka by incorportation"+eleveData)
       } else {
         console.log('Élève non trouvé');
           
@@ -189,6 +208,7 @@ const user = JSON.parse(localStorage.getItem('user'));
       }
     } catch (err) {
         setEleveData({});
+        setAllEleves({});
         console.error('Erreur lors de la récupération des données:', err);
     }
   };
@@ -201,9 +221,25 @@ const user = JSON.parse(localStorage.getItem('user'));
   //ajout absence 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
   
-    
+    // Vérifie s'il existe déjà une absence avec la même date et le même élève
+    const absenceExistante = absences.some(abs =>
+      abs.date === date && abs.eleveId === eleveData.eleve.id
+    );
+  
+    if (absenceExistante) {
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'warning',
+        title: 'Cette absence existe déjà pour cette date.',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+      });
+      return; // Ne pas continuer si déjà existant
+    }
+  
     Swal.fire({
       title: 'Confirmer l\'enregistrement',
       text: 'Voulez-vous enregistrer cette absence ?',
@@ -215,29 +251,30 @@ const user = JSON.parse(localStorage.getItem('user'));
       cancelButtonColor: '#d33'
     }).then((result) => {
       if (result.isConfirmed) {
-        //data to send
         const dataToSend = {
           eleveId: eleveData.eleve.id,
           date,
           motif,
-        };    
+        };
+  
         absenceService.post(dataToSend)
           .then(response => {
             console.log('Absence enregistrée avec succès:', response.data);
             setAbsences([...absences, response.data]);
+            setIncorporation('');
   
-            //  Message de succès
             Swal.fire({
+              toast: true,
+              position: 'top-end',
               icon: 'success',
-              title: 'Succès',
-              text: 'L\'absence a été enregistrée.',
-              confirmButtonColor: '#3085d6',
+              title: 'L\'absence a été enregistrée.',
+              showConfirmButton: false,
+              timer: 3000,
+              timerProgressBar: true,
             });
           })
           .catch(error => {
             console.error('Erreur lors de l\'enregistrement de l\'absence:', error);
-  
-            //  Message d'erreur
             Swal.fire({
               icon: 'error',
               title: 'Erreur',
@@ -248,6 +285,7 @@ const user = JSON.parse(localStorage.getItem('user'));
       }
     });
   };
+  
  //date aujourdhui
  useEffect(() => {
   const today = new Date().toISOString().split("T")[0]; // format 'YYYY-MM-DD'
@@ -273,6 +311,11 @@ const user = JSON.parse(localStorage.getItem('user'));
 
             return escadronMatch && pelotonMatch && courMatch && matchSearch && dateMatch;
        });
+       //filter spa speciale 
+       // Filtrer par cours et date
+          
+       
+       
 
       //pour le filtre 
       //console.log("Toutes les absences :", listeAbsence);
@@ -299,7 +342,7 @@ const user = JSON.parse(localStorage.getItem('user'));
   }, {});
   //ppour SPA 
   const handleAfficherIndispo = () => {
-    const motifsI = ["IG", "CONSULTATION", "A REVOIR IG", "REPOS SAN" , "A REVOIR CHRR","DONNEUR DE SANG"];
+    const motifsI = ["IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE" , "A REVOIR CHRR","DONNEUR DE SANG"];
     // ISO pour comparaison de dates
   const spaDateISO = new Date(spaDate).toISOString().slice(0, 10);
 
@@ -338,24 +381,42 @@ const user = JSON.parse(localStorage.getItem('user'));
    );
 
    // Pagination pour tableau Spa Spéciale
-   const spaFiltered = filter.date
-   ? spaSpeciale.filter(spa => spa.date?.slice(0, 10) === filter.date)
-   : spaSpeciale;
-   const totalSpaPages = Math.ceil(spaFiltered.length / ITEMS_PER_PAGE);
-   const paginatedSpa = spaFiltered.slice(
-   (pageSpa - 1) * ITEMS_PER_PAGE,
-   pageSpa * ITEMS_PER_PAGE
-   );
+   // Filtrage combiné par date ET cours
+   const spaFiltered = spaSpeciale.filter(spa => {
+    const matchDate = filter.date ? spa.date?.slice(0, 10) === filter.date : true;
+    const matchCour = filter.cour ? spa.cour === parseInt(filter.cour) : true;
+    return matchDate && matchCour;
+  });
+  
+console.log("spa speciale veee",spaSpeciale)
+// Pagination des motifs filtrés
+const totalSpaPages = Math.ceil(spaFiltered.length / ITEMS_PER_PAGE);
+const paginatedSpa = spaFiltered.slice(
+  (pageSpa - 1) * ITEMS_PER_PAGE,
+  pageSpa * ITEMS_PER_PAGE
+);
+
+// [OPTIONNEL] Si tu veux toujours afficher tous les motifs sans filtrage pour une autre section :
+const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+const paginatedSpaSpeciale = spaSpeciale.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+const totalPages = Math.ceil(spaSpeciale.length / ITEMS_PER_PAGE);
+
 
   // -----------------------------------------------
   ///En pdf 
   const handleExportPDF = () => {
     try {
       const doc = new jsPDF({ format: "a4" });
-      //change le date 
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const marginBottom = 20; // marge en bas pour éviter d’écrire trop bas
+      
+      // Formatage de la date
       const formattedDate = format(new Date(spaDate), "d MMMM yyyy");
+  
+      // Entête
       doc.setFontSize(11);
-      doc.setFont("TIMES NEW ROMAN");
+      doc.setFont("Times", "normal");
       doc.text("ECOLE DE LA GENDARMERIE NATIONALE", 5, 15);
       doc.text("AMBOSITRA", 35, 22);
       doc.text("----------------------", 32, 25);
@@ -363,61 +424,43 @@ const user = JSON.parse(localStorage.getItem('user'));
       doc.text("----------------------", 32, 35);
       doc.text("COUR DE FORMATION DES ELEVES GENDARME", 5, 42);
       doc.text("-----------------------", 32, 45);
-      doc.text("REPOBLIKAN'I MADAGASCAR",150,15);
-      doc.text("Fitiavana - Tanindrazana - Fandrosoana",145,22);
+      doc.text("REPOBLIKAN'I MADAGASCAR", 150, 15);
+      doc.text("Fitiavana - Tanindrazana - Fandrosoana", 145, 22);
       doc.text("-----------------------", 165, 25);
-
-
   
       doc.setFontSize(12);
       doc.text(`Situation de Prise d'Arme du ${filter.cour} CFEG du ${formattedDate} `, 90, 55);
   
-      // Tableau résumé
-      //pour SPA speciale 
-     // const spaDateObj = new Date(spaDate);
-
-      // 1. Convert spaDate en date ISO (AAAA-MM-JJ)
+      // Calcul des données spaSpeciale du jour
       const spaDateISO = new Date(spaDate).toISOString().slice(0, 10);
-      // Trouver les entrées spaSpéciale correspondant à la date
-      const spaSpecialesDuJour = spaSpeciale.filter(spa => {
-        return spa.date?.slice(0, 10) === spaDateISO;
-      });
-      // Si une correspondance existe, ajouter le nombre à totalA
-        const totalAjoutSpaSpeciale = spaSpecialesDuJour.reduce((total, spa) => {
-        return total + (spa.nombre || 0);
-       }, 0);
-
-      //  Calculer le nouveau totalA
-       const totalASpeciale = totalA 
-
- 
-
-
+      const spaSpecialesDuJour = spaSpeciale.filter(spa => spa.date?.slice(0, 10) === spaDateISO);
+      const totalAjoutSpaSpeciale = spaSpecialesDuJour.reduce((total, spa) => total + (spa.nombre || 0), 0);
+      const totalASpeciale = totalA;
+  
+      // Premier tableau résumé
       autoTable(doc, {
         startY: 60,
         head: [['R', 'A', 'P', 'I', 'S']],
-        body: [[ 
+        body: [[
           spaNumber,
           totalASpeciale,
           spaNumber - totalASpeciale,
           totalI,
-          (spaNumber - totalASpeciale) - totalI]],
+          (spaNumber - totalASpeciale) - totalI
+        ]],
         theme: 'grid',
         tableWidth: 100,
-        margin: { left: doc.internal.pageSize.getWidth() - 120 },
+        margin: { left: pageWidth - 120 },
         styles: {
           fontSize: 10,
           halign: 'center',
         },
       });
   
-      // Préparation des données détaillées, avec regroupement des absences par motif
+      // Préparation du tableau détaillé des absences
       const absencesDuJour = absenceafficher.filter(abs => abs.date === spaDate);
+      const specificMotifs = ["IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE"];
   
-      // Motifs spécifiques à afficher après les autres
-      const specificMotifs = ["IG", "CONSULTATION", "A REVOIR IG", "REPOS SAN"];
-      
-      // Regroupement des absences par motif
       const groupedMotifs = {};
       absencesDuJour.forEach(abs => {
         const motif = abs.motif?.toUpperCase() || "SANS MOTIF";
@@ -425,76 +468,41 @@ const user = JSON.parse(localStorage.getItem('user'));
         groupedMotifs[motif].push(abs);
       });
   
-      // Construction des lignes du tableau
       let bodyDetails = [];
   
-      // Ajout des autres motifs avant les motifs spécifiques
-      //ajout spaSpeciale
+      // En-tête motifs absents
+      bodyDetails.push(['', { content: 'MOTIFS DES ABSENTS', styles: { fontStyle: 'bold' } }, '', '', '', '']);
+      bodyDetails.push(['', '', '', '', '', '']);
+  
+      // Ajout des spaSpeciale
       spaSpecialesDuJour.forEach(spa => {
-        // Titre avec le motif et nombre
-        bodyDetails.push([
-          `${spa.motif.toUpperCase()} : ${spa.nombre}`,
-          '', '', '', '', ''
-        ]);
-      
-       
+        bodyDetails.push([`${spa.motif.toUpperCase()} : ${spa.nombre}`, '', '', '', '', '']);
       });
-      
+  
+      // Ajout des autres motifs (hors spécifiques)
       Object.entries(groupedMotifs).forEach(([motif, absences]) => {
         if (!specificMotifs.includes(motif)) {
-          // Ligne de total pour le motif
-          bodyDetails.push([
-            `${motif} : ${absences.length}`,
-            '',
-            '',
-            '',
-            '',
-            ''
-          ]);
-
-          absences.forEach((abs, index) => {
-            bodyDetails.push([
-              '',
-              abs.Eleve?.nom || '',
-              abs.Eleve?.prenom || '',
-              abs.Eleve?.numeroIncorporation || '',
-              abs.Eleve?.escadron || '',
-              abs.Eleve?.peloton || '',
-            ]);
+          bodyDetails.push([`${motif} : ${absences.length}`, '', '', '', '', '']);
+          absences.forEach(abs => {
+            bodyDetails.push(['', abs.Eleve?.nom || '', abs.Eleve?.prenom || '', abs.Eleve?.numeroIncorporation || '', abs.Eleve?.escadron || '', abs.Eleve?.peloton || '']);
           });
-  
-          
         }
       });
   
-      // Ajout des motifs spécifiques après
+      bodyDetails.push(['', '', '', '', '', '']);
+      bodyDetails.push(['', { content: 'MOTIFS DES INDISPONIBLES', styles: { fontStyle: 'bold' } }, '', '', '', '']);
+  
+      // Ajout motifs spécifiques
       specificMotifs.forEach(motif => {
         if (groupedMotifs[motif]) {
-          bodyDetails.push([
-            `${motif} : ${groupedMotifs[motif].length}`,
-            '',
-            '',
-            '',
-            '',
-            ''
-          ]);
-          groupedMotifs[motif].forEach((abs, index) => {
-            bodyDetails.push([
-              '',
-              abs.Eleve?.nom || '',
-              abs.Eleve?.prenom || '',
-              abs.Eleve?.numeroIncorporation || '',
-              abs.Eleve?.escadron || '',
-              abs.Eleve?.peloton || '',
-            ]);
+          bodyDetails.push([`${motif} : ${groupedMotifs[motif].length}`, '', '', '', '', '']);
+          groupedMotifs[motif].forEach(abs => {
+            bodyDetails.push(['', abs.Eleve?.nom || '', abs.Eleve?.prenom || '', abs.Eleve?.numeroIncorporation || '', abs.Eleve?.escadron || '', abs.Eleve?.peloton || '']);
           });
-  
-          // Ligne de total pour le motif
-         
         }
       });
   
-      // Tableau détaillé en bas
+      // Deuxième tableau détaillé
       autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 10,
         head: [['MOTIFS', 'NOM', 'PRENOM', 'NUM INC', 'ESC', 'PON']],
@@ -506,36 +514,158 @@ const user = JSON.parse(localStorage.getItem('user'));
         },
         headStyles: {
           fontStyle: 'bold',
-          
         },
       });
-      //final
-     
-      
-      const finalY = doc.lastAutoTable.finalY; 
+  
+      // Texte final "DESTINATAIRES"
+      let finalY = doc.lastAutoTable.finalY + 10;
+      const spaceNeeded = 90; // hauteur estimée nécessaire
+  
+      if (finalY + spaceNeeded > pageHeight - marginBottom) {
+        doc.addPage();
+        finalY = 20;
+      }
+  
       doc.setFontSize(12);
-      doc.text("DESTINATAIRES", 5 , finalY + 10);
-      doc.text("- Monsieur le COLONEL ,",7, finalY + 17);
-      doc.text(" Commandant de l'Ecole de la Gendarmerie nationale ,",7,finalY+22);
-      doc.text("-AMBOSITRA-",70,finalY+28);
-      doc.text("EGNA/CAB",45,finalY+32);  
-      doc.save(`SPA_${spaDate}.pdf`);
+      doc.text("DESTINATAIRES", 5, finalY);
+      doc.text("- Monsieur le COLONEL ,", 7, finalY + 7);
+      doc.text(" Commandant de l'Ecole de la Gendarmerie nationale ,", 7, finalY + 12);
+      doc.text("-AMBOSITRA-", 70, finalY + 18);
+      doc.text("(EGNA/CAB)", 45, finalY + 22);
+  
+      doc.text("- A Monsieur LE LIEUTENANT-COLONEL,", 7, finalY + 30);
+      doc.text("Directeur de l'instruction a l'Ecole de la Gendarmerie nationale", 7, finalY + 35);
+      doc.text("-AMBOSITRA-", 70, finalY + 41);
+      doc.text("(EGNA/DI)", 45, finalY + 45);
+  
+      doc.text("- A Monsieur LE LIEUTENANT-COLONEL,", 7, finalY + 52);
+      doc.text("Chef de Service Administratif et Financier,", 7, finalY + 57);
+      doc.text("-AMBOSITRA-", 70, finalY + 63);
+      doc.text("(EGNA/SAF)", 45, finalY + 67);
+  
+      doc.text("- Aux archives,", 7, finalY + 71);
+  
+      // Sauvegarde du PDF
+      doc.save(`SPA DU_${spaDate}.pdf`);
+  
     } catch (error) {
       console.error("Erreur lors de l'exportation du PDF :", error);
       alert("Une erreur est survenue lors de la génération du PDF.");
     }
   };
-//set filter o
-const handleResetFilter = () => {
-  setFilter({
-    cour: "",
-    escadron: "",
-    peloton: "",
-    search: "",
-    date: "",
-  });
-};
-
+  //en excel 
+  const handleExportExcel = () => {
+    try {
+      const spaDateISO = new Date(spaDate).toISOString().slice(0, 10);
+      const formattedDate = format(new Date(spaDate), "d MMMM yyyy");
+  
+      // 🧮 Récupération des données SPA
+      const spaSpecialesDuJour = spaSpeciale.filter(
+        (spa) => spa.date?.slice(0, 10) === spaDateISO
+      );
+      const totalAjoutSpaSpeciale = spaSpecialesDuJour.reduce(
+        (total, spa) => total + (spa.nombre || 0),
+        0
+      );
+  
+      // Résumé haut de page
+      const resumeData = [
+        ["", "Situation de Prise d'Arme"],
+        ["Cours", `${filter.cour}`],
+        ["Date", formattedDate],
+        ["R", spaNumber],
+        ["A", totalA],
+        ["P", spaNumber - totalA],
+        ["I", totalI],
+        ["S", (spaNumber - totalA) - totalI],
+      ];
+  
+      // 🧍 Absences du jour
+      const absencesDuJour = absenceafficher.filter(
+        (abs) => abs.date === spaDate
+      );
+      const specificMotifs = [
+        "IG",
+        "CONSULTATION",
+        "A REVOIR IG",
+        "REPOS SANITAIRE",
+      ];
+  
+      const groupedMotifs = {};
+      absencesDuJour.forEach((abs) => {
+        const motif = abs.motif?.toUpperCase() || "SANS MOTIF";
+        if (!groupedMotifs[motif]) groupedMotifs[motif] = [];
+        groupedMotifs[motif].push(abs);
+      });
+  
+      const detailsData = [];
+  
+      detailsData.push(["MOTIFS DES ABSENTS"]);
+      spaSpecialesDuJour.forEach((spa) => {
+        detailsData.push([`${spa.motif.toUpperCase()} : ${spa.nombre}`]);
+      });
+  
+      Object.entries(groupedMotifs).forEach(([motif, absences]) => {
+        if (!specificMotifs.includes(motif)) {
+          detailsData.push([`${motif} : ${absences.length}`]);
+          absences.forEach((abs) => {
+            detailsData.push([
+              "",
+              abs.Eleve?.nom || "",
+              abs.Eleve?.prenom || "",
+              abs.Eleve?.numeroIncorporation || "",
+              abs.Eleve?.escadron || "",
+              abs.Eleve?.peloton || "",
+            ]);
+          });
+        }
+      });
+  
+      detailsData.push([""]);
+      detailsData.push(["MOTIFS DES INDISPONIBLES"]);
+  
+      specificMotifs.forEach((motif) => {
+        if (groupedMotifs[motif]) {
+          detailsData.push([`${motif} : ${groupedMotifs[motif].length}`]);
+          groupedMotifs[motif].forEach((abs) => {
+            detailsData.push([
+              "",
+              abs.Eleve?.nom || "",
+              abs.Eleve?.prenom || "",
+              abs.Eleve?.numeroIncorporation || "",
+              abs.Eleve?.escadron || "",
+              abs.Eleve?.peloton || "",
+            ]);
+          });
+        }
+      });
+  
+      // 📄 Ajout des feuilles
+      const wb = XLSX.utils.book_new();
+      const wsResume = XLSX.utils.aoa_to_sheet(resumeData);
+      const wsDetails = XLSX.utils.aoa_to_sheet(detailsData);
+  
+      XLSX.utils.book_append_sheet(wb, wsResume, "Résumé SPA");
+      XLSX.utils.book_append_sheet(wb, wsDetails, "Détails Absences");
+  
+      XLSX.writeFile(wb, `SPA_DU_${spaDate}.xlsx`);
+    } catch (error) {
+      console.error("Erreur lors de l'exportation Excel :", error);
+      alert("Une erreur est survenue lors de la génération Excel.");
+    }
+  };
+  
+              //set filter o
+              const handleResetFilter = () => {
+                setFilter({
+                  cour: "",
+                  escadron: "",
+                  peloton: "",
+                  search: "",
+                  date: "",
+                });
+              };
+           
   
               return (
                 <div className="container mt-5">
@@ -693,6 +823,7 @@ const handleResetFilter = () => {
                         <option value="AD MDG">AD MDG</option>
                         <option value="REPOS SANITAIRE">REPOS SANITAIRE</option>
                         <option value="STAGE">STAGE</option>
+                        <option value="ARTS MARTIAUX">ARTS MARTIAUX</option>
                         <option value="MISSION">MISSION</option>
                         <option value="MISSION TANA">MISSION TANA</option>
                         <option value="AD CEGN">AD CEGN</option>
@@ -704,11 +835,16 @@ const handleResetFilter = () => {
                       
                     </div>
 
+                    {user?.type === 'saisie' && (
                     <div className="text-center">
-                      <button type="submit" className="btn btn-success w-100 shadow-sm">
+                      <button
+                        type="submit"
+                        className="btn btn-success w-100 shadow-sm"
+                      >
                         <i className="fas fa-save me-2"></i>Enregistrer Absence
                       </button>
                     </div>
+                  )}
                   </>
                 )}
               </form>
@@ -815,7 +951,7 @@ const handleResetFilter = () => {
                                               columns={columns}
                                               data={absenceafficher}
                                               pagination
-                                              paginationPerPage={50}
+                                              paginationPerPage={10}
                                               paginationRowsPerPageOptions={[10,20,50, 100]}
                                               highlightOnHover
                                               striped
@@ -836,12 +972,191 @@ const handleResetFilter = () => {
                                             >
                                               ⚔️ Situation de Prise d'Arme (SPA)
                                             </button>
+                                      
+                                            {user?.type !== 'user' && (
                                             <button
                                               className="btn btn-outline-success w-100 w-md-auto"
-                                              
+                                              onClick={() => setShowSpaSpecialeModal(true)}
                                             >
                                               ⚔️ SPA SPECIALE
                                             </button>
+                                          )}
+
+
+
+                                            {showSpaSpecialeModal && (
+                                      <div className="modal show d-block" tabIndex="-1" role="dialog" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+                                        <div className="modal-dialog modal-xl modal-dialog-centered" role="document">
+                                          <div className="modal-content">
+                                            <div className="modal-header">
+                                              <h5 className="modal-title">Ajouter SPA Spéciale</h5>
+                                              <button type="button" className="btn-close" onClick={() => setShowSpaSpecialeModal(false)}></button>
+                                            </div>
+                                            <div className="modal-body d-flex flex-column flex-md-row gap-4">
+                                              {/* Formulaire SPA spéciale */}
+                                              <div className="flex-fill">
+                                                <form>
+                                                  <div className="mb-3">
+                                                    <label className="form-label">Motif</label>
+                                                    <input
+                                                      type="text"
+                                                      className="form-control"
+                                                      value={newSpaSpeciale.motif}
+                                                      onChange={(e) => setNewSpaSpeciale({ ...newSpaSpeciale, motif: e.target.value })}
+                                                      required
+                                                    />
+                                                  </div>
+                                                  <div className="mb-3">
+                                                    <label className="form-label">Nombre</label>
+                                                    <input
+                                                      type="number"
+                                                      className="form-control"
+                                                      value={newSpaSpeciale.nombre}
+                                                      onChange={(e) => setNewSpaSpeciale({ ...newSpaSpeciale, nombre: Number(e.target.value) })}
+                                                      required
+                                                    />
+                                                  </div>
+                                                  <div className="mb-3">
+                                                    <label className="form-label">Date</label>
+                                                    <input
+                                                      type="date"
+                                                      className="form-control"
+                                                      value={newSpaSpeciale.date}
+                                                      required
+                                                      onChange={(e) => setNewSpaSpeciale({ ...newSpaSpeciale, date: e.target.value })}
+                                                    />
+                                                  </div>
+                                                  <div className="d-flex justify-content-between">
+                                                  <button
+                                                      type="button"
+                                                      className="btn btn-success"
+                                                      onClick={() => {
+                                                        if (!newSpaSpeciale.motif || !newSpaSpeciale.nombre || !newSpaSpeciale.date) {
+                                                          Swal.fire({
+                                                            icon: 'warning',
+                                                            title: 'Champs manquants',
+                                                            text: 'Veuillez remplir tous les champs requis (motif, nombre, date).',
+                                                          });
+                                                          return;
+                                                        }
+
+                                                        Swal.fire({
+                                                          title: 'Confirmer l\'ajout',
+                                                          text: 'Voulez-vous vraiment ajouter ce motif spécial ?',
+                                                          icon: 'question',
+                                                          showCancelButton: true,
+                                                          confirmButtonText: 'Oui, ajouter',
+                                                          cancelButtonText: 'Annuler',
+                                                          confirmButtonColor: '#3085d6',
+                                                          cancelButtonColor: '#d33'
+                                                        }).then((result) => {
+                                                          if (result.isConfirmed) {
+                                                            spaspecialeService.post(newSpaSpeciale)
+                                                              .then(() => {
+                                                                Swal.fire({
+                                                                  icon: 'success',
+                                                                  title: 'Ajouté avec succès',
+                                                                  showConfirmButton: false,
+                                                                  timer: 1500
+                                                                });
+
+                                                                setNewSpaSpeciale({ motif: "", nombre: "", date: "" });
+
+                                                                spaspecialeService.getAll().then(res => setSpaSpeciale(res.data || []));
+                                                              })
+                                                              .catch((err) => {
+                                                                console.error(err);
+                                                                Swal.fire({
+                                                                  icon: 'error',
+                                                                  title: 'Erreur',
+                                                                  text: 'Erreur lors de l\'ajout. Veuillez réessayer.',
+                                                                });
+                                                              });
+                                                          }
+                                                        });
+                                                      }}
+                                                    >
+                                                      Ajouter
+                                                    </button>
+
+                                                    <button className="btn btn-secondary" onClick={() => setShowSpaSpecialeModal(false)}>Fermer</button>
+                                                  </div>
+                                                </form>
+                                              </div>
+
+                                              {/* Liste des SPA spéciales avec pagination */}
+                                              <div className="flex-fill border-start ps-3">
+                                                <h6 className="mb-2">📋 Motifs spéciaux existants</h6>
+                                                <ul className="list-group">
+                                                  {paginatedSpaSpeciale.length > 0 ? (
+                                                    paginatedSpaSpeciale.map((spa) => (
+                                                      <li key={spa._id} className="list-group-item d-flex justify-content-between align-items-center">
+                                                        <div>
+                                                          <strong>{spa.motif}</strong> <small className="text-muted">({spa.date?.slice(0, 10)})</small>
+                                                        </div>
+                                                        <div className="d-flex align-items-center gap-2">
+                                                          <span className="badge bg-primary">{spa.nombre}</span>
+                                                          {user?.type !== 'saisie' && (
+                                                            <button
+                                                              className="btn btn-sm btn-danger"
+                                                              onClick={() => {
+                                                                if (window.confirm("Supprimer ce motif ?")) {
+                                                                  spaspecialeService.delete(spa.id)
+                                                                    .then(() => {
+                                                                      setSpaSpeciale(spaSpeciale.filter(item => item.id !== spa.id));
+                                                                    })
+                                                                    .catch(err => {
+                                                                      console.error(err);
+                                                                      alert("Erreur lors de la suppression.");
+                                                                    });
+                                                                }
+                                                              }}
+                                                            >
+                                                              Supprimer
+                                                            </button>
+                                                          )}
+                                                         
+
+                                                        </div>
+                                                      </li>
+                                                    ))
+                                                  ) : (
+                                                    <li className="list-group-item text-muted text-center">Aucun motif</li>
+                                                  )}
+                                                </ul>
+
+                                                {/* Pagination */}
+                                                <nav className="mt-3">
+                                                  <ul className="pagination justify-content-center">
+                                                    <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                                                      <button className="page-link" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}>Précédent</button>
+                                                    </li>
+                                                    {Array.from({ length: totalPages }, (_, i) => (
+                                                      <li key={i} className={`page-item ${currentPage === i + 1 ? 'active' : ''}`}>
+                                                        <button className="page-link" onClick={() => setCurrentPage(i + 1)}>{i + 1}</button>
+                                                      </li>
+                                                    ))}
+                                                    <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                                                      <button className="page-link" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}>Suivant</button>
+                                                    </li>
+                                                  </ul>
+                                                  
+
+                                                </nav>
+                                              </div>
+                                             
+                                             
+    
+
+
+
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+
+
 
 
                                           </div>
@@ -890,47 +1205,63 @@ const handleResetFilter = () => {
 
                                             {/* ==== TABLEAU MOTIF SPECIAL ==== */}
                                             <h5 className="text-center mb-3">
-                                              {filter.date ? `Motifs Spéciaux du ${filter.date}` : "Tous les Motifs Spéciaux"}
+                                              {filter.date ? `Motifs Spéciaux du ${filter.date}` : ""}
                                             </h5>
-                                            <table className="table table-bordered table-striped table-sm text-center">
-                                              <thead className="table-warning">
-                                                <tr>
-                                                  <th>Motif</th>
-                                                  <th>Nombre</th>
-                                                  <th>Date</th>
-                                                </tr>
-                                              </thead>
-                                              <tbody>
-                                                {paginatedSpa.map((spa, index) => (
+                                            <h5 className="text-center mb-3">
+                                            {filter.date
+                                              ? `Motifs Spéciaux du ${filter.date}${filter.cour ? ` - ${filter.cour}` : ''}`
+                                              : filter.cour
+                                                ? `Motifs Spéciaux pour le cours ${filter.cour}`
+                                                : "Tous les Motifs Spéciaux"}
+                                          </h5>
+
+                                          <table className="table table-bordered table-striped table-sm text-center">
+                                            <thead className="table-warning">
+                                              <tr>
+                                                <th>Motif</th>
+                                                <th>Nombre</th>
+                                                <th>Date</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {paginatedSpa.length > 0 ? (
+                                                paginatedSpa.map((spa, index) => (
                                                   <tr key={index}>
-                                                    <td>{spa.motif} <span className="badge bg-info">[Spécial]</span></td>
-                                                    <td><span className="badge bg-warning">{spa.nombre}</span></td>
+                                                    <td>
+                                                      {spa.motif} <span className="badge bg-info">[Spécial]</span>
+                                                    </td>
+                                                    <td>
+                                                      <span className="badge bg-warning">{spa.nombre}</span>
+                                                    </td>
                                                     <td>{spa.date}</td>
                                                   </tr>
-                                                ))}
-                                                {filter.date && spaFiltered.length === 0 && (
-                                                  <tr>
-                                                    <td colSpan="3">Aucun motif spécial pour cette date</td>
-                                                  </tr>
-                                                )}
-                                              </tbody>
-                                            </table>
-                                            <div className="d-flex justify-content-end mb-3">
-                                              <button
-                                                className="btn btn-sm btn-outline-secondary me-2"
-                                                disabled={pageSpa === 1}
-                                                onClick={() => setPageSpa(p => p - 1)}
-                                              >
-                                                ◀ Précédent
-                                              </button>
-                                              <button
-                                                className="btn btn-sm btn-outline-secondary"
-                                                disabled={pageSpa === totalSpaPages}
-                                                onClick={() => setPageSpa(p => p + 1)}
-                                              >
-                                                Suivant ▶
-                                              </button>
-                                            </div>
+                                                ))
+                                              ) : (
+                                                <tr>
+                                                  <td colSpan="3">Aucun motif spécial pour ces critères</td>
+                                                </tr>
+                                              )}
+                                            </tbody>
+                                          </table>
+
+                                          <div className="d-flex justify-content-end mb-3">
+                                            <button
+                                              className="btn btn-sm btn-outline-secondary me-2"
+                                              disabled={pageSpa === 1}
+                                              onClick={() => setPageSpa((p) => p - 1)}
+                                            >
+                                              ◀ Précédent
+                                            </button>
+                                            <button
+                                              className="btn btn-sm btn-outline-secondary"
+                                              disabled={pageSpa === totalSpaPages}
+                                              onClick={() => setPageSpa((p) => p + 1)}
+                                            >
+                                              Suivant ▶
+                                            </button>
+                                          </div>
+
+                                            
                                           </div>
                                         )}
 
@@ -1020,17 +1351,33 @@ const handleResetFilter = () => {
                                                   </table>
                                                 </div>
 
-                                                <div className="modal-footer d-flex justify-content-between">
-                                                  <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Fermer</button>
-                                                  <button className="btn btn-success" onClick={handleExportPDF}>IMPRIMER</button>
-                                                </div>
+                                                <div className="modal-footer d-flex justify-content-between flex-wrap gap-2">
+                                              <button className="btn btn-outline-secondary" onClick={() => setShowModal(false)}>
+                                                ❌ Fermer
+                                              </button>
+
+                                              <div className="btn-group">
+                                                <button className="btn btn-primary" onClick={handleExportPDF}>
+                                                  🖨️ Imprimer (PDF)
+                                                </button>
+                                                
+                                                
+                                                <button className="btn btn-success" onClick={handleExportExcel}>
+                                                  📊 Export Excel (.xlsx)
+                                                </button>
+                                              </div>
+                                            </div>
+
                                               </div>
                                             </div>
                                           </div>
+                                          
                                         </>
+                                        
                                       )}
+                                      
 
-                                                                        </div>
+                                   </div>
                                   );
                                   
                                 };
@@ -1052,7 +1399,8 @@ const handleResetFilter = () => {
                                     },
                                   }
                                 };
-                                //show modal SPA 
+                                //show modal SPA  special
                               
-                          
+                                
+                                                      
 export default SaisieAbsence;
