@@ -121,7 +121,7 @@ const Navbar = () => {
             >
              <p><strong>Username :</strong> {user?.username}</p>
 
-              {user?.type === 'admin' && (
+              {user?.type === 'superadmin' && (
                 <button
                   className="btn btn-secondary w-100 mb-2"
                   onClick={() => {

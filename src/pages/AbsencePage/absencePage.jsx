@@ -8,7 +8,7 @@ import DataTable from 'react-data-table-component';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from "xlsx";
-
+import { fr } from "date-fns/locale";
 import { format } from 'date-fns';
 import './style.css'
 const user = JSON.parse(localStorage.getItem('user'));
@@ -42,7 +42,9 @@ const user = JSON.parse(localStorage.getItem('user'));
   //motif autre 
   const [incorporationSPA, setIncorporationSPA] = useState('');
   const [eleveSPAInfo, setEleveSPAInfo] = useState(null);
-
+  const [autreMotif, setAutreMotif] = useState("");
+  const [typeMotif, setTypeMotif] = useState("");
+  
  
   
   
@@ -179,7 +181,7 @@ const user = JSON.parse(localStorage.getItem('user'));
     {
       name: 'Actions',
       cell: row => (
-        <>{ user?.type === 'admin' &&(
+        <>{ user?.type === 'superadmin' &&(
           <button className="btn btn-danger btn-sm" onClick={() => handleDelete(row.id)}>
             Delete
           </button>
@@ -239,6 +241,9 @@ const user = JSON.parse(localStorage.getItem('user'));
       });
       return; // Ne pas continuer si déjà existant
     }
+    const finalMotif = motif === "AUTRE" 
+    ? `${autreMotif} (${typeMotif})` 
+    : motif;
   
     Swal.fire({
       title: 'Confirmer l\'enregistrement',
@@ -252,9 +257,10 @@ const user = JSON.parse(localStorage.getItem('user'));
     }).then((result) => {
       if (result.isConfirmed) {
         const dataToSend = {
+          
           eleveId: eleveData.eleve.id,
           date,
-          motif,
+          motif:finalMotif
         };
   
         absenceService.post(dataToSend)
@@ -342,20 +348,32 @@ const user = JSON.parse(localStorage.getItem('user'));
   }, {});
   //ppour SPA 
   const handleAfficherIndispo = () => {
-    const motifsI = ["IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE" , "A REVOIR CHRR","DONNEUR DE SANG"];
+    const motifsI =["IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG"];
     // ISO pour comparaison de dates
   const spaDateISO = new Date(spaDate).toISOString().slice(0, 10);
 
+  const isIndisponibleMotif = (motif) => {
+    if (!motif) return false;
+    const motifUpper = motif.toUpperCase().trim();
+    return (
+      motifsI.includes(motifUpper) ||
+      motifUpper.endsWith("(INDISPONIBLE)") ||
+      motifUpper.endsWith("INDISPONIBLE")
+    );
+  };
 
-    const totalIvalue = absenceafficher.filter(abs =>
-      motifsI.includes(abs.motif?.toUpperCase()) &&
-      abs.date === spaDate && cour===cour
-    ).length;
+    // Total indisponibles
+  const totalIvalue = absenceafficher.filter(abs =>
+    isIndisponibleMotif(abs.motif) &&
+    abs.date === spaDate &&
+    cour === cour
+  ).length;
   
-    const totalAvalue = absenceafficher.filter(abs =>
-      !motifsI.includes(abs.motif?.toUpperCase()) &&
-      abs.date === spaDate
-    ).length;
+    // Total absents (non indisponibles)
+  const totalAvalue = absenceafficher.filter(abs =>
+    !isIndisponibleMotif(abs.motif) &&
+    abs.date === spaDate
+  ).length;
 
     // Prendre en compte les SPA spéciales
   const spaSpecialesDuJour = spaSpeciale.filter(spa => spa.date?.slice(0, 10) === spaDateISO);
@@ -401,7 +419,13 @@ const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
 const paginatedSpaSpeciale = spaSpeciale.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 const totalPages = Math.ceil(spaSpeciale.length / ITEMS_PER_PAGE);
 
-
+//motif change 
+const handleMotifChange = (e) => {
+  setMotif(e.target.value);
+  if (e.target.value !== "AUTRE") {
+    setAutreMotif("");
+  }
+}
   // -----------------------------------------------
   ///En pdf 
   const handleExportPDF = () => {
@@ -459,8 +483,16 @@ const totalPages = Math.ceil(spaSpeciale.length / ITEMS_PER_PAGE);
   
       // Préparation du tableau détaillé des absences
       const absencesDuJour = absenceafficher.filter(abs => abs.date === spaDate);
-      const specificMotifs = ["IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE"];
-  
+      const specificMotifs = ["IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG"];
+     // Fonction pour identifier un motif "indisponible"
+      const isIndisponible = (motif) => {
+        if (!motif) return false;
+        const motifUpper = motif.toUpperCase();
+        return (
+          specificMotifs.includes(motifUpper) ||
+          motifUpper.endsWith("(INDISPONIBLE)")
+        );
+      };
       const groupedMotifs = {};
       absencesDuJour.forEach(abs => {
         const motif = abs.motif?.toUpperCase() || "SANS MOTIF";
@@ -480,11 +512,19 @@ const totalPages = Math.ceil(spaSpeciale.length / ITEMS_PER_PAGE);
       });
   
       // Ajout des autres motifs (hors spécifiques)
+     // Ajout des motifs "absents" (non indisponibles)
       Object.entries(groupedMotifs).forEach(([motif, absences]) => {
-        if (!specificMotifs.includes(motif)) {
+        if (!isIndisponible(motif)) {
           bodyDetails.push([`${motif} : ${absences.length}`, '', '', '', '', '']);
           absences.forEach(abs => {
-            bodyDetails.push(['', abs.Eleve?.nom || '', abs.Eleve?.prenom || '', abs.Eleve?.numeroIncorporation || '', abs.Eleve?.escadron || '', abs.Eleve?.peloton || '']);
+            bodyDetails.push([
+              '',
+              abs.Eleve?.nom || '',
+              abs.Eleve?.prenom || '',
+              abs.Eleve?.numeroIncorporation || '',
+              abs.Eleve?.escadron || '',
+              abs.Eleve?.peloton || ''
+            ]);
           });
         }
       });
@@ -492,15 +532,22 @@ const totalPages = Math.ceil(spaSpeciale.length / ITEMS_PER_PAGE);
       bodyDetails.push(['', '', '', '', '', '']);
       bodyDetails.push(['', { content: 'MOTIFS DES INDISPONIBLES', styles: { fontStyle: 'bold' } }, '', '', '', '']);
   
-      // Ajout motifs spécifiques
-      specificMotifs.forEach(motif => {
-        if (groupedMotifs[motif]) {
-          bodyDetails.push([`${motif} : ${groupedMotifs[motif].length}`, '', '', '', '', '']);
-          groupedMotifs[motif].forEach(abs => {
-            bodyDetails.push(['', abs.Eleve?.nom || '', abs.Eleve?.prenom || '', abs.Eleve?.numeroIncorporation || '', abs.Eleve?.escadron || '', abs.Eleve?.peloton || '']);
-          });
-        }
-      });
+     // Ajout des motifs "indisponibles"
+    Object.entries(groupedMotifs).forEach(([motif, absences]) => {
+      if (isIndisponible(motif)) {
+        bodyDetails.push([`${motif} : ${absences.length}`, '', '', '', '', '']);
+        absences.forEach(abs => {
+          bodyDetails.push([
+            '',
+            abs.Eleve?.nom || '',
+            abs.Eleve?.prenom || '',
+            abs.Eleve?.numeroIncorporation || '',
+            abs.Eleve?.escadron || '',
+            abs.Eleve?.peloton || ''
+          ]);
+        });
+      }
+    });
   
       // Deuxième tableau détaillé
       autoTable(doc, {
@@ -526,7 +573,7 @@ const totalPages = Math.ceil(spaSpeciale.length / ITEMS_PER_PAGE);
         finalY = 20;
       }
   
-      doc.setFontSize(12);
+      doc.setFontSize(11);
       doc.text("DESTINATAIRES", 5, finalY);
       doc.text("- Monsieur le COLONEL ,", 7, finalY + 7);
       doc.text(" Commandant de l'Ecole de la Gendarmerie nationale ,", 7, finalY + 12);
@@ -544,6 +591,9 @@ const totalPages = Math.ceil(spaSpeciale.length / ITEMS_PER_PAGE);
       doc.text("(EGNA/SAF)", 45, finalY + 67);
   
       doc.text("- Aux archives,", 7, finalY + 71);
+      doc.text(`NR        EGNA/2-DI/C-A Ambositra,le ${formattedDate} `,120 ,finalY+7);
+      doc.text("Le chef d'escadron,Donatiens RAYMOND",130,finalY+17)
+      doc.text("Commandant du cours A de formation des élèves gendarmes",114,finalY+23)
   
       // Sauvegarde du PDF
       doc.save(`SPA DU_${spaDate}.pdf`);
@@ -554,60 +604,93 @@ const totalPages = Math.ceil(spaSpeciale.length / ITEMS_PER_PAGE);
     }
   };
   //en excel 
-  const handleExportExcel = () => {
-    try {
-      const spaDateISO = new Date(spaDate).toISOString().slice(0, 10);
-      const formattedDate = format(new Date(spaDate), "d MMMM yyyy");
+  const handleExportExcel = async () => {
+    const { isConfirmed, value: exportType } = await Swal.fire({
+      title: "Choix du format d'export",
+      text: "Souhaitez-vous inclure les noms des élèves ?",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Exporter avec nomination",
+      cancelButtonText: "Annuler",
+      input: "radio",
+      inputOptions: {
+        simple: "Export simplifié (juste les totaux)",
+        complet: "Export complet (avec les noms)",
+      },
+      inputValidator: (value) => {
+        if (!value) return "Veuillez choisir un format.";
+      },
+    });
   
-      // 🧮 Récupération des données SPA
-      const spaSpecialesDuJour = spaSpeciale.filter(
-        (spa) => spa.date?.slice(0, 10) === spaDateISO
+    if (!isConfirmed) return;
+  
+    const spaDateISO = new Date(spaDate).toISOString().slice(0, 10);
+    const formattedDate = format(new Date(spaDate), "d MMMM yyyy", { locale: fr });
+  
+    const spaSpecialesDuJour = spaSpeciale.filter(
+      (spa) => spa.date?.slice(0, 10) === spaDateISO
+    );
+    const totalAjoutSpaSpeciale = spaSpecialesDuJour.reduce(
+      (total, spa) => total + (spa.nombre || 0),
+      0
+    );
+  
+    const resumeData = [
+      ["", "Situation de Prise d'Arme"],
+      ["Cours", `${filter.cour}`],
+      ["Date", formattedDate],
+      ["R", spaNumber],
+      ["A", totalA],
+      ["P", spaNumber - totalA],
+      ["I", totalI],
+      ["S", (spaNumber - totalA) - totalI],
+    ];
+  
+    const absencesDuJour = absenceafficher.filter(
+      (abs) => abs.date === spaDate
+    );
+  
+    const specificMotifs = [
+      "IG",
+      "CONSULTATION",
+      "A REVOIR IG",
+      "REPOS SANITAIRE",
+      "CONFINES EN CHAMBRE",
+      "GARDE MALADE IG",
+      "DONNEUR DE SANG"
+    ];
+  
+    const isIndisponible = (motif) => {
+      if (!motif) return false;
+      const motifUpper = motif.toUpperCase().trim();
+      return (
+        specificMotifs.includes(motifUpper) ||
+        motifUpper.endsWith("(INDISPONIBLE)") ||
+        motifUpper.endsWith("INDISPONIBLE")
       );
-      const totalAjoutSpaSpeciale = spaSpecialesDuJour.reduce(
-        (total, spa) => total + (spa.nombre || 0),
-        0
-      );
+    };
   
-      // Résumé haut de page
-      const resumeData = [
-        ["", "Situation de Prise d'Arme"],
-        ["Cours", `${filter.cour}`],
-        ["Date", formattedDate],
-        ["R", spaNumber],
-        ["A", totalA],
-        ["P", spaNumber - totalA],
-        ["I", totalI],
-        ["S", (spaNumber - totalA) - totalI],
-      ];
+    // Regrouper les motifs
+    const groupedMotifs = {};
+    absencesDuJour.forEach((abs) => {
+      const motif = abs.motif?.toUpperCase().trim() || "SANS MOTIF";
+      if (!groupedMotifs[motif]) groupedMotifs[motif] = [];
+      groupedMotifs[motif].push(abs);
+    });
   
-      // 🧍 Absences du jour
-      const absencesDuJour = absenceafficher.filter(
-        (abs) => abs.date === spaDate
-      );
-      const specificMotifs = [
-        "IG",
-        "CONSULTATION",
-        "A REVOIR IG",
-        "REPOS SANITAIRE",
-      ];
+    const detailsData = [];
   
-      const groupedMotifs = {};
-      absencesDuJour.forEach((abs) => {
-        const motif = abs.motif?.toUpperCase() || "SANS MOTIF";
-        if (!groupedMotifs[motif]) groupedMotifs[motif] = [];
-        groupedMotifs[motif].push(abs);
-      });
-  
-      const detailsData = [];
-  
+    if (exportType === "complet") {
+      // EXPORT COMPLET
       detailsData.push(["MOTIFS DES ABSENTS"]);
       spaSpecialesDuJour.forEach((spa) => {
         detailsData.push([`${spa.motif.toUpperCase()} : ${spa.nombre}`]);
       });
   
       Object.entries(groupedMotifs).forEach(([motif, absences]) => {
-        if (!specificMotifs.includes(motif)) {
+        if (!isIndisponible(motif)) {
           detailsData.push([`${motif} : ${absences.length}`]);
+          detailsData.push(["", "Nom", "Prénom", "Incorporation", "Escadron", "Peloton"]);
           absences.forEach((abs) => {
             detailsData.push([
               "",
@@ -624,10 +707,11 @@ const totalPages = Math.ceil(spaSpeciale.length / ITEMS_PER_PAGE);
       detailsData.push([""]);
       detailsData.push(["MOTIFS DES INDISPONIBLES"]);
   
-      specificMotifs.forEach((motif) => {
-        if (groupedMotifs[motif]) {
-          detailsData.push([`${motif} : ${groupedMotifs[motif].length}`]);
-          groupedMotifs[motif].forEach((abs) => {
+      Object.entries(groupedMotifs).forEach(([motif, absences]) => {
+        if (isIndisponible(motif)) {
+          detailsData.push([`${motif} : ${absences.length}`]);
+          detailsData.push(["", "Nom", "Prénom", "Incorporation", "Escadron", "Peloton"]);
+          absences.forEach((abs) => {
             detailsData.push([
               "",
               abs.Eleve?.nom || "",
@@ -639,21 +723,45 @@ const totalPages = Math.ceil(spaSpeciale.length / ITEMS_PER_PAGE);
           });
         }
       });
+    } else {
+      // EXPORT SIMPLIFIÉ
+      detailsData.push(["MOTIFS DES ABSENTS"]);
+      spaSpecialesDuJour.forEach((spa) => {
+        detailsData.push([`${spa.motif.toUpperCase()} : ${spa.nombre}`]);
+      });
   
-      // 📄 Ajout des feuilles
-      const wb = XLSX.utils.book_new();
-      const wsResume = XLSX.utils.aoa_to_sheet(resumeData);
-      const wsDetails = XLSX.utils.aoa_to_sheet(detailsData);
+      Object.entries(groupedMotifs).forEach(([motif, absences]) => {
+        if (!isIndisponible(motif)) {
+          detailsData.push([`${motif} : ${absences.length}`]);
+        }
+      });
   
-      XLSX.utils.book_append_sheet(wb, wsResume, "Résumé SPA");
-      XLSX.utils.book_append_sheet(wb, wsDetails, "Détails Absences");
+      detailsData.push([""]);
+      detailsData.push(["MOTIFS DES INDISPONIBLES"]);
   
-      XLSX.writeFile(wb, `SPA_DU_${spaDate}.xlsx`);
-    } catch (error) {
-      console.error("Erreur lors de l'exportation Excel :", error);
-      alert("Une erreur est survenue lors de la génération Excel.");
+      Object.entries(groupedMotifs).forEach(([motif, absences]) => {
+        if (isIndisponible(motif)) {
+          detailsData.push([`${motif} : ${absences.length}`]);
+        }
+      });
     }
+  
+    // 📄 Création du fichier Excel
+    const wb = XLSX.utils.book_new();
+    const wsResume = XLSX.utils.aoa_to_sheet(resumeData);
+    const wsDetails = XLSX.utils.aoa_to_sheet(detailsData);
+  
+    XLSX.utils.book_append_sheet(wb, wsResume, "Résumé SPA");
+    XLSX.utils.book_append_sheet(wb, wsDetails, "Détails Absences");
+  
+    const formattedFilenameDate = format(new Date(spaDate), "dd_MMMM_yyyy", { locale: fr }).toUpperCase();
+    const filename = exportType === "complet"
+      ? `SPA_COMPLET_DU_${formattedFilenameDate}.xlsx`
+      : `SPA_RESUME_DU_${formattedFilenameDate}.xlsx`;
+  
+    XLSX.writeFile(wb, filename);
   };
+      
   
               //set filter o
               const handleResetFilter = () => {
@@ -717,44 +825,22 @@ const totalPages = Math.ceil(spaSpeciale.length / ITEMS_PER_PAGE);
                 {/* Affichage automatique des informations de l'élève */}
                 {eleveData && Object.keys(eleveData).length > 0 && (
                   <>
-                    <div className="mb-3">
-                      <label htmlFor="nom" className="form-label d-flex align-items-center">
-                        <i className="fas fa-user me-2"></i>Nom
-                      </label>
-                      <input
-                        id="nom"
-                        type="text"
-                        className="form-control"
-                        value={eleveData.eleve.nom || ''}
-                        disabled
-                      />
-                    </div>
+                   
 
                     <div className="mb-3">
                       <label htmlFor="prenom" className="form-label d-flex align-items-center">
-                        <i className="fas fa-user-tag me-2"></i>Prénom
+                        <i className="fas fa-user-tag me-2"></i>Nom et Prénom
                       </label>
                       <input
                         id="prenom"
                         type="text"
                         className="form-control"
-                        value={eleveData.eleve.prenom || ''}
+                        value={eleveData.eleve.nom +" "+ eleveData.eleve.prenom || ''}
                         disabled
                       />
                     </div>
 
-                    <div className="mb-3">
-                      <label htmlFor="matricule" className="form-label d-flex align-items-center">
-                        <i className="fas fa-clipboard-list me-2"></i>Matricule
-                      </label>
-                      <input
-                        id="matricule"
-                        type="text"
-                        className="form-control"
-                        value={eleveData.eleve.matricule || ''}
-                        disabled
-                      />
-                    </div>
+                 
 
                     <div className="mb-3">
                       <label htmlFor="escadron" className="form-label d-flex align-items-center">
@@ -784,7 +870,7 @@ const totalPages = Math.ceil(spaSpeciale.length / ITEMS_PER_PAGE);
 
                     <div className="mb-3">
                       <label htmlFor="dateNaissance" className="form-label d-flex align-items-center">
-                        <i className="fas fa-calendar-alt me-2"></i>Date de naissance
+                        <i className="fas fa-calendar-alt me-2"></i>Date
                       </label>
                       <input
                         type="date"
@@ -795,60 +881,106 @@ const totalPages = Math.ceil(spaSpeciale.length / ITEMS_PER_PAGE);
                       />
                     </div>
 
-                    {/* Sélection du motif */}
-                    <div className="mb-3">
-                      <label htmlFor="motif" className="form-label d-flex align-items-center">
-                        <i className="fas fa-list-alt me-2"></i>Motif
-                      </label>
-                      <select
-                        id="motif"
-                        className="form-select border-0 shadow-sm"
-                        value={motif}
-                        onChange={(e) => setMotif(e.target.value)}
-                        required
-                      >
-                        <option value="">Sélectionner un motif</option>
-                        <option value="IG">ADMIS IG</option>
-                        <option value="CHRR">ADMIS CHRR</option>
-                        <option value="EVASAN">EVASAN</option>
-                        <option value="CONSULTATION">CONSULTATION</option>
-                        <option value="DONNEUR DE SANG">DONNEUR DE SANG</option>
-                        <option value="A REVOIR CHRR">A REVOIR CHRR</option>
-                        <option value="A REVOIR IG">A REVOIR IG</option>
-                        <option value="AD COM DLI">AD COM DLI</option>
-                        <option value="AD COM DQG SPORT">AD COM DQG SPORT</option>
-                        <option value="PERMISSION">PERMISSION</option>
-                        <option value="VATOVORY">VATOVORY</option>
-                        <option value="SPORT">SPORT</option>
-                        <option value="AD MDG">AD MDG</option>
-                        <option value="REPOS SANITAIRE">REPOS SANITAIRE</option>
-                        <option value="STAGE">STAGE</option>
-                        <option value="ARTS MARTIAUX">ARTS MARTIAUX</option>
-                        <option value="MISSION">MISSION</option>
-                        <option value="MISSION TANA">MISSION TANA</option>
-                        <option value="AD CEGN">AD CEGN</option>
-                        <option value="TOBY FANDRIANA">TOBY FANDRIANA</option>
-                        <option value="DEFILE TANA">DEFILE TANA</option>
-                        <option value="DEFILE AMBOSITRA">DEFILE AMBOSITRA</option>
-                        <option value="S.O">S.O</option>
-                      </select>
-                      
-                    </div>
+                  {/* Sélection du motif */}
+                      <div className="mb-3">
+                        <label htmlFor="motif" className="form-label d-flex align-items-center">
+                          <i className="fas fa-list-alt me-2"></i>Motif
+                        </label>
+                        <select
+                          id="motif"
+                          className="form-select border-0 shadow-sm"
+                          value={motif}
+                          onChange={(e) => setMotif(e.target.value)}
+                          required
+                        >
+                          <option value="">Sélectionner un motif</option>
+                          <option value="IG">ADMIS IG</option>
+                          <option value="CHRR">ADMIS CHRR</option>
+                          <option value="EVASAN">EVASAN</option>
+                          <option value="A REVOIR IG">A REVOIR IG</option>
+                          <option value="A REVOIR CHRR">A REVOIR CHRR</option>
+                          <option value="CONSULTATION">CONSULTATION</option>
+                          <option value="CONSULTATION EXTERNE">CONSULTATION EXTERNE</option>
+                          <option value="GARDE MALADE IG">GARDE MALADE IG</option>
+                          <option value="A REVOIR CENHOSOA">A REVOIR CENHOSOA</option>
+                          <option value="ADMIS CENHOSOA">ADMIS CENHOSOA</option>
+                          <option value="ADMIS HOMI">ADMIS HOMI</option>
+                          <option value="DONNEUR DE SANG">DONNEUR DE SANG</option>
+                          <option value="CONFINES EN CHAMBRE">CONFINES EN CHAMBRE</option>
+                          <option value="ADMIS CLINIC MANIA">ADMIS CLINIC MANIA</option>
+                          <option value="AD COM DLI">AD COM DLI</option>
+                          <option value="AD COM DQG SPORT">AD COM DQG SPORT</option>
+                          <option value="PERMISSION">PERMISSION</option>
+                          <option value="VATOVORY">VATOVORY</option>
+                          <option value="SPORT">SPORT</option>
+                          <option value="AD MDG">AD MDG</option>
+                          <option value="REPOS SANITAIRE">REPOS SANITAIRE</option>
+                          <option value="STAGE">STAGE</option>
+                          <option value="ARTS MARTIAUX">ARTS MARTIAUX</option>
+                          <option value="MISSION">MISSION</option>
+                          <option value="MISSION TANA">MISSION TANA</option>
+                          <option value="AD CEGN">AD CEGN</option>
+                          <option value="TOBY FANDRIANA">TOBY FANDRIANA</option>
+                          <option value="DEFILE TANA">DEFILE TANA</option>
+                          <option value="DEFILE AMBOSITRA">DEFILE AMBOSITRA</option>
+                          <option value="S.O">S.O</option>
+                          <option value="AUTRE">Autre...</option>
+                        </select>
+                      </div>
 
-                    {user?.type === 'saisie' && (
-                    <div className="text-center">
-                      <button
-                        type="submit"
-                        className="btn btn-success w-100 shadow-sm"
-                      >
-                        <i className="fas fa-save me-2"></i>Enregistrer Absence
-                      </button>
-                    </div>
-                  )}
-                  </>
-                )}
-              </form>
-            </div>
+                      {/* Champ texte si "Autre" est sélectionné */}
+                      {motif === 'AUTRE' && (
+                        <>
+                          <div className="mb-3">
+                            <label htmlFor="autreMotif" className="form-label">
+                              <i className="fas fa-pen me-2"></i>Motif personnalisé
+                            </label>
+                            <input
+                              type="text"
+                              id="autreMotif"
+                              className="form-control border-0 shadow-sm"
+                              value={autreMotif}
+                              onChange={(e) => setAutreMotif(e.target.value)}
+                              placeholder="Saisir le motif"
+                              required
+                            />
+                          </div>
+
+                          <div className="mb-3">
+                            <label htmlFor="typeMotif" className="form-label">
+                              <i className="fas fa-check-circle me-2"></i>Type de motif
+                            </label>
+                            <select
+                              id="typeMotif"
+                              className="form-select border-0 shadow-sm"
+                              value={typeMotif}
+                              onChange={(e) => setTypeMotif(e.target.value)}
+                              required
+                            >
+                              <option value="">Choisir le type</option>
+                              <option value="ABSENT">ABSENT</option>
+                              <option value="INDISPONIBLE">INDISPONIBLE</option>
+                            </select>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Bouton Enregistrer */}
+                      {user?.type === 'saisie' && (
+                        <div className="text-center">
+                          <button
+                            type="submit"
+                            className="btn btn-success w-100 shadow-sm"
+                          >
+                            <i className="fas fa-save me-2"></i>Enregistrer Absence
+                          </button>
+                        </div>
+                      )}
+
+                                        </>
+                                      )}
+                                    </form>
+                                  </div>
 
 
 
@@ -1051,6 +1183,7 @@ const totalPages = Math.ceil(spaSpeciale.length / ITEMS_PER_PAGE);
                                                           cancelButtonColor: '#d33'
                                                         }).then((result) => {
                                                           if (result.isConfirmed) {
+                                                            newSpaSpeciale.cour=filter.cour
                                                             spaspecialeService.post(newSpaSpeciale)
                                                               .then(() => {
                                                                 Swal.fire({

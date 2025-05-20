@@ -16,7 +16,7 @@ const PermissionPage = () => {
  const [permissionList, setPermissionList] = useState([]);
  const [filter, setFilter] = useState({ escadron: '', peloton: '' ,search:'' ,cour:'',date:''});
  
- const user = JSON.parse(localStorage.getItem('user'));
+
 
  const [formData, setFormData] = useState({
     telephone1: "",
@@ -41,9 +41,10 @@ const PermissionPage = () => {
   }, [eleveData.eleve]);
   
   
-  
+  const user = JSON.parse(localStorage.getItem('user'));
  //ajout cour automatique
  useEffect(() => {
+  
     const fetchCours = async () => {
       try {
         const res = await courService.getAll();
@@ -437,11 +438,14 @@ const columns = [
               />
             </div>
 
+            {user?.type !== "user" && (
             <div className="text-center">
               <button type="submit" className="btn btn-success w-100 rounded-pill shadow">
                 <i className="fas fa-save me-2"></i>Enregistrer la Permission
               </button>
             </div>
+          )}
+
           </>
         )}
       </form>

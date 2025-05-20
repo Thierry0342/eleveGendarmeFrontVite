@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import EleveService from '../../services/eleveService'; // ⚠️ Vérifie la casse exacte du fichier
+import EleveService from '../../services/eleveService'; // 
+import NoteService from '../../services/note-service'; // ajuste le chemin selon ton projet
+
 import ModalModificationEleve from '../EleveModifPage/EleveModifPage'; // 
 import Swal from 'sweetalert2';
 import DataTable from 'react-data-table-component';
@@ -17,7 +19,79 @@ const ListeElevePge = () => {
   const [eleves, setEleves] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [eleveActif, setEleveActif] = useState(null);
+  const [selectedEleve, setSelectedEleve] = useState(null);
+  const [noteModalOpen, setNoteModalOpen] = useState(false);
+  const [noteId,setNoteId]=useState(null);
   const [filter, setFilter] = useState({ escadron: '', peloton: '' ,search:'' ,cour:''});
+  const [notes, setNotes] = useState({
+    finfetta: '',
+    mistage: '',
+    finstage: ''
+  });
+  const handleOpenNoteModal = (eleve) => {
+    setSelectedEleve(eleve);
+    setNoteModalOpen(true);
+  };
+  const handleCloseNoteModal = () => {
+    setNoteModalOpen(false);
+    setSelectedEleve(null);
+    setNotes({
+      finfetta: '',
+      mistage: '',
+      finstage: ''
+    });
+  };
+  //verifier 
+  useEffect(() => {
+    if (noteModalOpen && selectedEleve) {
+       NoteService.getbyEleveId(selectedEleve.id)
+       
+        .then((res) => {
+          if (res.data) {
+            setNotes({
+              finfetta: res.data.finfetta || '',
+              mistage: res.data.mistage || '',
+              finstage: res.data.finstage || ''
+            });
+            setNoteId(res.data.id); // pour savoir si c’est un update ou un create
+          } else {
+            setNotes({ finfetta: '', mistage: '', finstage: '' });
+            setNoteId(null);
+          }
+        })
+        .catch(() => {
+          setNotes({ finfetta: '', mistage: '', finstage: '' });
+          setNoteId(null);
+        });
+    }
+  }, [noteModalOpen, selectedEleve]);
+  
+  //valide note 
+  const handleSaveNotes = async () => {
+    const noteData = {
+      finfetta: notes.finfetta,
+      mistage: notes.mistage,
+      finstage: notes.finstage,
+      eleveId: selectedEleve.id
+    };
+    //console.log("note id veeeee",noteId);
+  
+    try {
+      if (noteId) {
+        await NoteService.update(noteId, noteData);
+      } else {
+        await NoteService.post(noteData);
+      }
+      alert("Note enregistrée avec succès !");
+      handleCloseNoteModal();
+    } catch (err) {
+      console.error("Erreur lors de l'enregistrement :", err);
+      alert("Échec de l'enregistrement.");
+    }
+  };
+  
+  
+  
 
   //cour 
   const [coursList, setCoursList] = useState([]);
@@ -152,37 +226,53 @@ useEffect(() => {
     return escadronMatch && pelotonMatch && courMatch && matchSearch; // <- Ajout ici
   });
   
-const columns = [
-  { name: 'Nom', selector: row => row.nom, sortable: true },
-  { name: 'Prénom', selector: row => row.prenom, sortable: true },
-  { name: 'Escadron', selector: row => row.escadron, sortable :true},
-  { name: 'Peloton', selector: row => row.peloton },
-  { name: 'Matricule', selector: row => row.matricule} ,
-  { name: 'Incorporation', selector: row => row.numeroIncorporation },
-  { name: 'Cours', selector: row => row.cour },
-  {
-    name: 'Actions',
-    cell: row => (
-      <>
-        <button
-          className="btn btn-warning btn-sm me-2"
-          onClick={() => handleOpenModal(row)}
-        >
-          View
-        </button>
-    
-        {user?.type === 'admin' && (
+  const columns = [
+    { name: 'Nom', selector: row => row.nom, sortable: true },
+    { name: 'Prénom', selector: row => row.prenom, sortable: true ,},
+    { name: 'Escadron', selector: row => row.escadron, sortable: true ,width:"80px"},
+    { name: 'Peloton', selector: row => row.peloton ,width:"80px"},
+    { name: 'Matricule', selector: row => row.matricule },
+    { name: 'Incorporation', selector: row => row.numeroIncorporation },
+   
+    {
+      name: 'Actions',
+      cell: row => (
+        <>
           <button
-            className="btn btn-danger btn-sm"
-            onClick={() => handleDelete(row.id)}
+            className="btn btn-warning btn-sm me-2"
+            onClick={() => handleOpenModal(row)}
           >
-            Delete
+            View
           </button>
-        )}
-      </>
-    )
-  }
-];
+           {(user?.type === 'superadmin' || user?.type === 'admin' || user?.type === 'user' )&&(
+             <>
+    
+         
+              <button
+                className="btn btn-info btn-sm me-2"
+                onClick={() => handleOpenNoteModal(row)}
+              >
+                Note
+              </button>
+              </>
+          )}
+              {user?.type === 'superadmin' && (
+             <>
+    
+              <button
+                className="btn btn-danger btn-sm"
+                onClick={() => handleDelete(row.id)}
+              >
+                Delete
+              </button>
+            </>
+          )}
+        </>
+      )
+    }
+    
+  ];
+  
 //export en excel 
 const handleExportExcel = async () => {
   try {
@@ -203,6 +293,7 @@ const handleExportExcel = async () => {
       { header: 'Nom', key: 'nom', width: 20 },
       { header: 'Prénom', key: 'prenom', width: 20 },
       { header: 'Numéro Incorporation', key: 'numeroIncorporation', width: 25 },
+      { header: 'Matricule', key: 'matricule', width: 25 },
       { header: 'Escadron', key: 'escadron', width: 15 },
       { header: 'Peloton', key: 'peloton', width: 15 },
       
@@ -243,6 +334,7 @@ const handleExportExcel = async () => {
           eleve.nom || '',
           eleve.prenom || '',
           eleve.numeroIncorporation || '',
+          eleve.matricule || '',
           eleve.escadron || '',
           eleve.peloton || '',
           
@@ -269,131 +361,208 @@ const handleExportExcel = async () => {
 
   return (
     <div className="container mt-5">
-      <h1 className="text-center fw-bold mb-4">
-      --<i className="fa fa-users me-2 text-primary"></i>
-        Liste des Élèves Gendarmes --
-            
-        </h1>
+     *
+     <h1 className="text-center fw-bold mb-4">
+  <i className="fa fa-users me-2 text-primary"></i>
+  Liste des Élèves Gendarmes
+</h1>
+
       <div className="row justify-content-center mb-5">
-        <div className="col-md-6">
-          <div className="row g-2">
-            <div className='col-12'>
-            <div className="col-md-3">
-              <select
-                  className="form-select"
-                  name="cour"
-                  value={filter.cour}
-                  onChange={handleFilterChange}
-                >
-                  <option value="">COURS</option>
-                  {coursList.map((c) => (
-                    <option key={c.id} value={c.cour}>
-                      {c.cour}
-                    </option>
-                  ))}
-                </select>
+        <div className="col-md-10 col-lg-8">
+          <div className="card shadow-sm border-0">
+            <div className="card-body">
+              <div className="row g-3">
+                {/* Cours */}
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold">Cours</label>
+                  <select
+                    className="form-select"
+                    name="cour"
+                    value={filter.cour}
+                    onChange={handleFilterChange}
+                  >
+                    <option value="">Tous les cours</option>
+                    {coursList.map((c) => (
+                      <option key={c.id} value={c.cour}>
+                        {c.cour}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
+                {/* Recherche par nom, prénom ou incorporation */}
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold">Recherche</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Nom, prénom ou incorporation"
+                    name="search"
+                    value={filter.search}
+                    onChange={handleFilterChange}
+                  />
+                </div>
+
+                {/* Escadron */}
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold">Escadron</label>
+                  <select
+                    className="form-select"
+                    name="escadron"
+                    value={filter.escadron}
+                    onChange={handleFilterChange}
+                  >
+                    <option value="">Tous les escadrons</option>
+                    {[...Array(10)].map((_, i) => (
+                      <option key={i + 1} value={i + 1}>{i + 1}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Peloton */}
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold">Peloton</label>
+                  <select
+                    className="form-select"
+                    name="peloton"
+                    value={filter.peloton}
+                    onChange={handleFilterChange}
+                  >
+                    <option value="">Tous les pelotons</option>
+                    {[1, 2, 3].map((p) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Bouton Réinitialiser */}
+                <div className="col-12 mt-3">
+                  <button
+                    className="btn btn-outline-secondary w-100"
+                    onClick={() => setFilter({ escadron: '', peloton: '', search: '', cour: '' })}
+                  >
+                    <i className="fa fa-refresh me-2"></i> Réinitialiser les filtres
+                  </button>
+                </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
 
-            <div className="col-12">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Rechercher par nom, prénom ou incorporation"
-                name="search"
-                value={filter.search}
-                onChange={handleFilterChange}
-              />
+                
+               
+              <div className="card shadow-sm border-0 mb-4">
+          <div className="card-body">
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h5 className="fw-bold text-primary m-0">
+                👥 
+              </h5>
+              <button
+                className="btn btn-success"
+                onClick={handleExportExcel}
+              >
+                <i className="fa fa-file-excel me-2"></i>
+                Exporter (.xlsx)
+              </button>
             </div>
 
-              <div className="col-6">
-                <select
-                  className="form-select"
-                  name="escadron"
-                  value={filter.escadron}
-                  onChange={handleFilterChange}
-                >
-                  <option value="">Sélectionner un escadron</option>
-                  {[...Array(10)].map((_, i) => (
-                    <option key={i + 1} value={i + 1}>{i + 1}</option>
-                  ))}
-                </select>
-              </div>
+            <DataTable
+              columns={columns}
+              data={elevesAAfficher}
+              pagination
+              paginationPerPage={50}
+              paginationRowsPerPageOptions={[50, 100]}
+              highlightOnHover
+              striped
+              noDataComponent="Aucun élève à afficher"
+              customStyles={customStyles}
+            />
+            {noteModalOpen && (
+                <div className="modal-overlay">
+                  <div className="modal-content" style={{ maxWidth: '400px', background: 'white', borderRadius: '10px', padding: '20px', position: 'relative' }}>
+                    <button className="modal-close-btn" onClick={handleCloseNoteModal}>×</button>
+                    <h5 className="text-center mb-3">Ajouter des Notes</h5>
 
-                      <div className="col-6">
-                        <select
-                          className="form-select"
-                          name="peloton"
-                          value={filter.peloton}
-                          onChange={handleFilterChange}
-                        >
-                          <option value="">Peloton</option>
-                          {[1, 2, 3].map(p => (
-                            <option key={p} value={p}>{p}</option>
-                          ))}
-                        </select>
-                      </div>
-                  {/* Réinitialiser le filtre */}
-                      <div className="col-12">
-                          <button
-                            className="btn btn-outline-secondary w-100 btn-lg"
-                            onClick={() => setFilter({ escadron: '', peloton: '', search: '',cour:''})}
-                          >
-                            <i className="fa fa-refresh"></i> Réinitialiser les filtres
-                          </button>
-                        </div>
+                    <div className="mb-2">
+                      <label>Fin FETTA</label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        value={notes.finfetta}
+                        onChange={(e) => setNotes({ ...notes, finfetta: e.target.value })}
+                      />
+                    </div>
+                    <div className="mb-2">
+                      <label>Mi-Stage</label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        value={notes.mistage}
+                        onChange={(e) => setNotes({ ...notes, mistage: e.target.value })}
+                      />
+                    </div>
+                    <div className="mb-3">
+                      <label>Fin Formation</label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        value={notes.finstage}
+                        onChange={(e) => setNotes({ ...notes, finstage: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="text-center">
+                    {user?.type !== 'user' && (
+                      <button
+                        className="btn btn-success w-100 rounded-pill"
+                        onClick={handleSaveNotes}
+                      >
+                        Enregistrer
+                      </button>
+                    )}
+
+
                     </div>
                   </div>
                 </div>
-                <DataTable
-                    columns={columns}
-                    data={elevesAAfficher}
-                    pagination
-                    paginationPerPage={50}
-                    paginationRowsPerPageOptions={[50, 100]}
-                    highlightOnHover
-                    striped
-                    noDataComponent="Aucun élève à afficher"
-                    customStyles={customStyles}
-                 />
-                 <button
-                    className="btn btn-outline-success"
-                    onClick={handleExportExcel}
-                  >
-                    📥 Exporter en Excel (.xlsx)
-                  </button>
+              )}
 
-                 <div className="text-end mt-2">
-                    <strong>Total :</strong> {elevesAAfficher.length} élèves Gendarmes
-                  </div>
 
-                    {eleveActif && (
-                      <ModalModificationEleve
-                        show={showModal}
-                        onClose={handleCloseModal}
-                        eleve={eleveActif}
-                        onChange={handleChange}
-                        onSave={handleSave}
-                      />
-                    )}
-                    
-                  </div>
-                    );
-                   };
-                                  const customStyles = {
-                                    headCells: {
-                                      style: {
-                                        fontSize: '17px', // Taille du texte des en-têtes
-                                        fontWeight: 'bold',
-                                      },
-                                    },
-                                    cells: {
-                                      style: {
-                                        fontSize: '17px', // Taille du texte des cellules
-                                      },
-                                    },
-                                  };
+            <div className="text-end mt-3">
+              <span className="fw-semibold">
+                Total : <span className="text-primary">{elevesAAfficher.length}</span> élèves gendarmes
+              </span>
+            </div>
+          </div>
+        </div>
+
+                            {eleveActif && (
+                              <ModalModificationEleve
+                                show={showModal}
+                                onClose={handleCloseModal}
+                                eleve={eleveActif}
+                                onChange={handleChange}
+                                onSave={handleSave}
+                              />
+                            )}
+                            
+                          </div>
+                            );
+                          };
+                                          const customStyles = {
+                                            headCells: {
+                                              style: {
+                                                fontSize: '17px', // Taille du texte des en-têtes
+                                                fontWeight: 'bold',
+                                              },
+                                            },
+                                            cells: {
+                                              style: {
+                                                fontSize: '17px', // Taille du texte des cellules
+                                              },
+                                            },
+                                          };
 
 
 

@@ -8,7 +8,7 @@ export default function ParametreIpPage() {
     localStorage.setItem("CUSTOM_IP", ip);
     alert("Nouvelle IP enregistrée ! Rafraîchissez la page pour appliquer les changements.");
   };
-console.log(localStorage.getItem("CUSTOM_IP"));
+
   return (
     <div className="container mt-5">
       <h2>Paramètres Réseau</h2>

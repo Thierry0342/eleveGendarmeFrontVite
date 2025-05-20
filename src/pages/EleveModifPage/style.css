@@ -14,6 +14,9 @@
   align-items: center;
   justify-content: center;
   padding: 0;
+  align-items: flex-start; 
+  padding-top: -40px; 
+  padding-bottom: 40px;
 }
 /* Bouton de fermeture */
 .modal-close-btn {
@@ -28,6 +31,7 @@
 
 
 .modal-content {
+
 
   border-radius: 0;
   width: 100%;

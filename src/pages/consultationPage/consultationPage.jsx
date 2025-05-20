@@ -6,7 +6,8 @@ import cadreService from "../../services/cadre-service";
 import courService from "../../services/courService";
 import Swal from 'sweetalert2';
 import './index.css'
-
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
   const ConsultationPage = () => {
   const [incorporation, setIncorporation] = useState('');
@@ -18,8 +19,10 @@ import './index.css'
   const [coursList,setCoursList] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [searchNom, setSearchNom] = useState("");
-  const [searchDate, setSearchDate] = useState("");
-
+  const [searchDate, setSearchDate] = useState("");4
+  const [searchMotif, setSearchMotif] = useState("");
+ const [searchIncorporation, setSearchIncorporation] = useState("");
+ const user = JSON.parse(localStorage.getItem('user'));
   const [selectedRow, setSelectedRow] = useState(null);
   // ajout  eleve et cadre
   const [eleveData, setEleveData] = useState({});
@@ -204,7 +207,8 @@ import './index.css'
         showConfirmButton: false,
         timerProgressBar: true,
       })
-      window.location.reload();
+      //window.location.reload();
+      fetchConsultations(cour2);
       setShowModal(false);  // Ferme le modal
     })
     .catch((err) => {
@@ -218,12 +222,30 @@ import './index.css'
   };
   
 
+
   const handleDelete = async (id) => {
-    if (window.confirm("Voulez-vous vraiment supprimer cette consultation ?")) {
-      await consultationService.delete(id);
-      window.location.reload();
+    const result = await Swal.fire({
+      title: 'Confirmation',
+      text: 'Voulez-vous vraiment supprimer cette consultation ?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Oui, supprimer',
+      cancelButtonText: 'Annuler',
+    });
+  
+    if (result.isConfirmed) {
+      try {
+        await consultationService.delete(id);
+        await fetchConsultations(cour2);
+        Swal.fire('Supprimé !', 'La consultation a été supprimée.', 'success');
+      } catch (error) {
+        console.error(error);
+        Swal.fire('Erreur', "La suppression a échoué.", 'error');
+      }
     }
   };
+  
+  
   //serach eleve par inco
   // Fonction pour la recherche de l'élève en fonction du numéro d'incorporation et du cours
 
@@ -260,12 +282,14 @@ import './index.css'
       cell: row => (
         <div className="d-flex justify-content-start">
           {/* Bouton Supprimer */}
-          <button
-            className="btn btn-danger btn-sm me-2"
-            onClick={() => handleDelete(row.id)}
-          >
-            DEL
-          </button>
+          {user?.type !== 'user' && (
+            <button
+              className="btn btn-danger btn-sm me-2"
+              onClick={() => handleDelete(row.id)}
+            >
+              DEL
+            </button>
+          )}
           
           {/* Bouton Modifier */}
           <button
@@ -285,10 +309,43 @@ import './index.css'
     const nomComplet = `${item.Eleve?.nom || ""} ${item.Eleve?.prenom || ""}`.toLowerCase();
     const dateMatch = searchDate === "" || item.dateDepart?.startsWith(searchDate);
     const nomMatch = nomComplet.includes(searchNom.toLowerCase());
-  
-    return nomMatch && dateMatch;
+    const motifMatch = item.status?.toLowerCase().includes(searchMotif.toLowerCase());
+    const incorporationMatch = item.Eleve?.numeroIncorporation?.toString().includes(searchIncorporation);
+    return nomMatch && dateMatch && motifMatch && incorporationMatch;
   });
   
+  //export en excel 
+  const handleExportExcel = () => {
+    // Mapper les données vers un format plat
+    const dataToExport = filteredConsultations.map(item => ({
+      "Nom Élève": `${item.Eleve?.nom || ""} ${item.Eleve?.prenom || ""}`,
+      "Esc": item.Eleve?.escadron || "",
+      "Pon": item.Eleve?.peloton || "",
+      "Nom Cadre": item.Cadre?.nom || "",
+      "Téléphone Cadre": item.phone || "",
+      "Date Départ": item.dateDepart || "",
+      "Date Arrivée": item.dateArrive || "",
+      "Service Médical": item.service || "",
+      "Référé": item.refere || "",
+      "Status": item.status || ""
+    }));
+  
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Consultations");
+  
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
+  
+    const fileData = new Blob([excelBuffer], {
+      type:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
+    });
+  
+    saveAs(fileData, "consultations.xlsx");
+  };
 
   return (
 <div className="container py-4">
@@ -520,13 +577,16 @@ import './index.css'
         </div>
 
         <div className="mt-4 d-flex justify-content-center">
-            <button
-              className="btn btn-success d-flex align-items-center justify-content-center gap-2 px-4 py-2 rounded-3 shadow"
-              onClick={handleSave}
-            >
-              <i className="fas fa-save"></i>
-              Enregistrer
-            </button>
+        {user?.type !== 'user' && (
+          <button
+            className="btn btn-success d-flex align-items-center justify-content-center gap-2 px-4 py-2 rounded-3 shadow"
+            onClick={handleSave}
+          >
+            <i className="fas fa-save"></i>
+            Enregistrer
+          </button>
+        )}
+
           </div>
 
       </div>
@@ -552,30 +612,62 @@ import './index.css'
 
             {isTableVisible && (
               <>
-              <div className="row g-3 mb-4 bg-light p-3 rounded-4 shadow-sm border">
-                  <div className="col-md-6 position-relative">
-                    <label className="form-label fw-bold">🔍 Rechercher par nom</label>
-                    <input
-                      type="text"
-                      className="form-control border-primary rounded-3 shadow-sm ps-4"
-                      placeholder="Nom ou prénom de l'élève"
-                      value={searchNom}
-                      onChange={(e) => setSearchNom(e.target.value)}
-                    />
-                    <i className="bi bi-person position-absolute top-50 start-0 translate-middle-y ms-2 text-primary"></i>
-                  </div>
-
-                  <div className="col-md-6 position-relative">
-                    <label className="form-label fw-bold">📅 Filtrer par date de départ</label>
-                    <input
-                      type="date"
-                      className="form-control border-primary rounded-3 shadow-sm ps-4"
-                      value={searchDate}
-                      onChange={(e) => setSearchDate(e.target.value)}
-                    />
-                    <i className="bi bi-calendar-event position-absolute top-50 start-0 translate-middle-y ms-2 text-primary"></i>
-                  </div>
+                          <div className="row g-3 mb-4 bg-light p-3 rounded-4 shadow-sm border">
+                {/* Recherche par nom */}
+                <div className="col-md-6 position-relative">
+                  <label className="form-label fw-bold">🔍 Rechercher par nom</label>
+                  <input
+                    type="text"
+                    className="form-control border-primary rounded-3 shadow-sm ps-4"
+                    placeholder="Nom ou prénom de l'élève"
+                    value={searchNom}
+                    onChange={(e) => setSearchNom(e.target.value)}
+                  />
+                  <i className="bi bi-person position-absolute top-50 start-0 translate-middle-y ms-2 text-primary"></i>
                 </div>
+
+                {/* Filtrer par date de départ */}
+                <div className="col-md-6 position-relative">
+                  <label className="form-label fw-bold">📅 Filtrer par date de départ</label>
+                  <input
+                    type="date"
+                    className="form-control border-primary rounded-3 shadow-sm ps-4"
+                    value={searchDate}
+                    onChange={(e) => setSearchDate(e.target.value)}
+                  />
+                  <i className="bi bi-calendar-event position-absolute top-50 start-0 translate-middle-y ms-2 text-primary"></i>
+                </div>
+
+                {/* Filtrer par motif */}
+                <div className="col-md-6 position-relative">
+                <label className="form-label fw-bold">📝 Filtrer par motif</label>
+                <select
+                  className="form-select border-primary rounded-3 shadow-sm"
+                  value={searchMotif}
+                  onChange={(e) => setSearchMotif(e.target.value)}
+                >
+                  <option value="">-- Tous les motifs --</option>
+                  <option value="EVASAN">EVASAN</option>
+                  <option value="IG">IG</option>
+                  <option value="ESCADRON">ESCADRON</option>
+                </select>
+                <i className="bi bi-funnel position-absolute top-50 start-0 translate-middle-y ms-2 text-primary"></i>
+              </div>
+
+
+                {/* Filtrer par incorporation */}
+                <div className="col-md-6 position-relative">
+                  <label className="form-label fw-bold">#️⃣ Rechercher par incorporation</label>
+                  <input
+                    type="text"
+                    className="form-control border-primary rounded-3 shadow-sm ps-4"
+                    placeholder="Numéro d'incorporation"
+                    value={searchIncorporation}
+                    onChange={(e) => setSearchIncorporation(e.target.value)}
+                  />
+                  <i className="bi bi-hash position-absolute top-50 start-0 translate-middle-y ms-2 text-primary"></i>
+                </div>
+              </div>
 
 
                 {/* Tableau des consultations */}
@@ -590,6 +682,12 @@ import './index.css'
                     paginationRowsPerPageOptions={[5, 10, 15]}
                     noDataComponent="Aucune consultation trouvée"
                   />
+                  <div className="text-end mt-3">
+                <button className="btn btn-outline-success" onClick={handleExportExcel}>
+                  📥 Exporter en Excel (.xlsx)
+                </button>
+              </div>
+
                 </div>
 
                 {/* Cartes de statistiques */}
@@ -741,6 +839,7 @@ import './index.css'
                             >
                               Annuler
                             </button>
+                            {user?.type !== 'user' && (
                             <button
                               type="button"
                               className="btn btn-primary"
@@ -748,6 +847,8 @@ import './index.css'
                             >
                               Sauvegarder
                             </button>
+                          )}
+
 
                           </div>
                         </div>

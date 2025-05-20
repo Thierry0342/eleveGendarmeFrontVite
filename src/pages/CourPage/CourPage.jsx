@@ -290,7 +290,7 @@ const CourPage = () => {
                 onChange={(e) => setCour(e.target.value)}
                 placeholder="Ex: 79"
                 required
-                min={77}
+                min={70}
                 max={999}
               />
             </div>
@@ -373,9 +373,10 @@ const CourPage = () => {
                   required
                 >
                   <option value="">-- Sélectionner un type --</option>
-                  <option value="user">User</option>
                   <option value="saisie">Saisie</option>
+                  <option value="user">User</option>
                   <option value="admin">Admin</option>
+                  <option value="superadmin">Super Admin</option>
                 </select>
               </div>
             <button type="submit" className="btn btn-success">Ajouter l'utilisateur</button>
