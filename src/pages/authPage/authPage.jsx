@@ -31,6 +31,8 @@ const LoginPage = () => {
         // Attends 3 secondes avant de rediriger
         setTimeout(() => {
           navigate('/');  // Redirection après 3 secondes
+          window.location.reload();
+
         }, 3000);  // 3000ms = 3 secondes
       }
     } catch (err) {

@@ -229,8 +229,8 @@ useEffect(() => {
   const columns = [
     { name: 'Nom', selector: row => row.nom, sortable: true },
     { name: 'Prénom', selector: row => row.prenom, sortable: true ,},
-    { name: 'Escadron', selector: row => row.escadron, sortable: true ,width:"80px"},
-    { name: 'Peloton', selector: row => row.peloton ,width:"80px"},
+    { name: 'Esc', selector: row => row.escadron, sortable: true ,width:"90px"},
+    { name: 'Pon', selector: row => row.peloton ,width:"90px"},
     { name: 'Matricule', selector: row => row.matricule },
     { name: 'Incorporation', selector: row => row.numeroIncorporation },
    

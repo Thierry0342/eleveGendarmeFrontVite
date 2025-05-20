@@ -137,8 +137,9 @@ return { ...classe, count };
 
  //colonne eleve
   const columns = [
-    { name: 'Nom', selector: row => row.nom, sortable: true },
-    { name: 'Prénom', selector: row => row.prenom, sortable: true },
+    { name: 'Nom et prenom', selector: row => row.nom +" "+row.prenom, sortable: true },
+    { name: 'Escadron', selector: row => row.escadron },
+    { name: 'Peloton', selector: row => row.peloton },
     { name: 'Âge', selector: row => {
       const age = dayjs().diff(dayjs(row.dateNaissance), 'year');
       return age >= 17 && age <= 100 ? age : 'N/A';
@@ -146,7 +147,7 @@ return { ...classe, count };
     { name: 'Niveau', selector: row => row.niveau },
     {name :'Concour', selector : row =>row.genreConcours},
     { name: 'Religion', selector: row => row.religion },
-    { name: 'Cour', selector: row => row.cour }
+    
   ];
   //tailleee
 

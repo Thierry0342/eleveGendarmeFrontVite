@@ -32,7 +32,7 @@ function AppRoutes() {
       {!hideNavbar && <Navbar />}
       <div style={{ padding: '20px' }}>
         <Routes>
-          <Route path="/" element={<PrivateRoute allowedRoles={['superadmin','admin','user','saisie']}><HomePage /></PrivateRoute>} />
+          <Route path="/" element={<HomePage />}/>
           <Route path="/eleve" element={<PrivateRoute allowedRoles={['superadmin','admin']}><ElevePage /></PrivateRoute>} />
           <Route path="/eleve/listeEleveGendarme"element={<PrivateRoute allowedRoles={['superadmin','admin','user','saisie']}> <ListeElevePge /></PrivateRoute>} />
           <Route path="/admin/" element={<PrivateRoute allowedRoles={['superadmin']}><CourPage /></PrivateRoute>} />
@@ -41,7 +41,7 @@ function AppRoutes() {
           <Route path="/eleve/consultation" element={<PrivateRoute allowedRoles={['superadmin','admin','user']}><ConsultationPage /></PrivateRoute>} />
           <Route path="/Statistique"  element={<PrivateRoute allowedRoles={['user','superadmin']}><StatePage /></PrivateRoute>} />
           <Route path="/eleves/diplome"  element={<PrivateRoute allowedRoles={['admin','user','superadmin']}><DiverPage /></PrivateRoute>} />
-          <Route path="/parametres-ip" element={<PrivateRoute allowedRoles={['superadmin']}><ParametreIpPage /></PrivateRoute>} />
+          <Route path="/parametres-ip" element={<ParametreIpPage />} />
           <Route path="/eleve/permission" element={<PrivateRoute allowedRoles={['admin','superadmin','user']}><PermissionPage /></PrivateRoute>} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="*" element={<NotFoundPage />} />

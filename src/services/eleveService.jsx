@@ -10,6 +10,7 @@ class EleveService  {
     post(data){
         return axiosInstance.post(API_URL + "/api/eleve", data,);
     }
+    
     put(id, formData) {
         // Utiliser FormData pour envoyer les données du formulaire
         return axiosInstance.put(API_URL + "/api/eleve/" + id, formData, {
@@ -18,6 +19,7 @@ class EleveService  {
             },
         });
     }
+    
     delete(id) {
         return axiosInstance.delete(`${API_URL}/api/eleve/${id}`);
       }

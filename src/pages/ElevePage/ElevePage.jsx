@@ -41,6 +41,7 @@ const ElevePage = () => {
     niveau:'',
     groupeSaguin:'',
     fady:'',
+    sexe:'',
     relationGenante: "", 
     pointure : {
        tailleChemise: "",
@@ -322,6 +323,7 @@ const ElevePage = () => {
     form.append("telephone3", formData.telephone3);
     form.append("facebook", formData.facebook);
     form.append("cour",formData.cour);
+    form.append("sexe",formData.sexe)
     
     // Champs complexes (convertis en chaînes JSON)
     form.append("pointure", JSON.stringify(formData.pointure));
@@ -368,23 +370,47 @@ const ElevePage = () => {
         confirmButtonText: 'Oui, Ajouter',
         cancelButtonText: 'Annuler'
       }).then((result) => {
-        if (result.isConfirmed) {
-          
-           eleveService.post(form)
-            .then(() => {
-    
-              Swal.fire('Ajouté!', 'L\'élève a été ajouté', 'success').then(() => {
-                console.log('Formulaire soumis:', form);
-                navigate('/eleve/listeEleveGendarme'); // 
-              });
+        if (result.isConfirmed) 
+        {
+          eleveService.getByInc(formData.numeroIncorporation, formData.cour)
+            .then(res => {
+              if (res.data.eleve) {
+                Swal.fire("Échec", "Un élève avec cette incorporation et ce cours existe déjà.", "warning");
+              } else {
+                eleveService.post(form)
+                  .then(() => {
+                    Swal.fire("Ajouté!", "L'élève a été ajouté.", "success").then(() => {
+                      console.log("Formulaire soumis:", form);
+                      navigate("/eleve/listeEleveGendarme");
+                    });
+                  })
+                  .catch(error => {
+                    console.error("Erreur lors de l'enregistrement :", error);
+                    Swal.fire("Erreur", "Une erreur s'est produite", "error");
+                  });
+              }
             })
             .catch(error => {
-              console.error("Erreur lors de l'enregistrement :", error);
-              Swal.fire("Une erreur s'est produite",'error')
-              
-              
+              if (error.response && error.response.status === 404) {
+                // Pas d'élève trouvé => OK pour l'ajouter
+                eleveService.post(form)
+                  .then(() => {
+                    Swal.fire("Ajouté!", "L'élève a été ajouté.", "success").then(() => {
+                      console.log("Formulaire soumis:", form);
+                      navigate("/eleve/listeEleveGendarme");
+                    });
+                  })
+                  .catch(err => {
+                    console.error("Erreur lors de l'enregistrement :", err);
+                    Swal.fire("Erreur", "Une erreur s'est produite", "error");
+                  });
+              } else {
+                console.error("Erreur lors de la vérification :", error);
+                Swal.fire("Erreur", "Impossible de vérifier l'existence de l'élève", "error");
+              }
             });
         }
+        
       });
 
 
@@ -403,7 +429,9 @@ const ElevePage = () => {
 
   return (
     <div className="container mt-5">
-      <h2 className="text-center mb-4">ELEVE GENDARME</h2>
+ <h2 className="text-center mb-2 fw-bold text-uppercase text-primary" style={{ letterSpacing: '1px' }}>
+    Fiche Élève Gendarme
+  </h2>
       <form onSubmit={handleSubmit}>
              <div className="col-md-3">
              <select
@@ -587,6 +615,36 @@ const ElevePage = () => {
                 <input type="date" className="form-control" name="duplicata" placeholder="Duplicata (si applicable)" value={formData.duplicata} onChange={handleChange} />
               </div>
             </div>
+            {/* Sexe (Checkbox) */}
+            <div className="row mb-3">
+              <label className="form-label">Sexe :</label>
+              <div className="form-check form-check-inline">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  name="sexe"
+                  value="Masculin"
+                  checked={formData.sexe === "Masculin"}
+                  onChange={() =>setFormData({ ...formData, sexe: "Masculin" })
+                  }
+                />
+                <label className="form-check-label">Masculin</label>
+              </div>
+              <div className="form-check form-check-inline">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  name="sexe"
+                  value="Feminin"
+                  checked={formData.sexe === "Feminin"}
+                  onChange={() =>setFormData({ ...formData, sexe: "Feminin" })
+                  }
+                />
+                <label className="form-check-label">Féminin</label>
+              </div>
+            </div>
+            
+
             <div className="mb-3">
               {/* checkbox ici e */}
               <label className="form-label">Situation de famille:</label>

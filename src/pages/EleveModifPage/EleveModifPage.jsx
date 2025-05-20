@@ -503,6 +503,33 @@ const handleSave = async () => {
                     <input type="text" className="form-control" name="duplicata" placeholder="Duplicata (si applicable)" value={eleve.duplicata} onChange={onChange} />
                   </div>
                 </div>
+                {/* Sexe */}
+              <div className="mb-3">
+                <label className="form-label">Sexe :</label>
+                <div className="form-check form-check-inline">
+                  <input
+                    className="form-check-input"
+                    type="radio"
+                    name="sexe"
+                    value="Masculin"
+                    checked={eleve.sexe === "Masculin"}
+                    onChange={onChange}
+                  />
+                  <label className="form-check-label">Masculin</label>
+                </div>
+                <div className="form-check form-check-inline">
+                  <input
+                    className="form-check-input"
+                    type="radio"
+                    name="sexe"
+                    value="Feminin"
+                    checked={eleve.sexe === "Feminin"}
+                    onChange={onChange}
+                  />
+                  <label className="form-check-label">Féminin</label>
+                </div>
+              </div>
+
 
                 {/* Situation de famille */}
                 <div className="mb-3">
