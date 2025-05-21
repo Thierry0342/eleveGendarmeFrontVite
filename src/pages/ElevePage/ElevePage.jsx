@@ -800,7 +800,7 @@ const ElevePage = () => {
     <div className="mb-3">
       <label className="form-label">Religion</label>
       <div className="d-flex flex-wrap gap-3">
-      {["EKAR", "FJKM", "FLM", "Islam", "Autre"].map((religion) => (
+      {["EKAR", "FJKM", "FLM", "ISLAM", "Autre"].map((religion) => (
         <div className="form-check form-check-inline" key={religion}>
           <input
             className="form-check-input"

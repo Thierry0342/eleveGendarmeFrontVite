@@ -90,9 +90,9 @@ const Navbar = () => {
       </div>
 
       <ul className="nav-links">
-        <li><Link to="/">HOME</Link></li>
+        <li><Link to="/">ACCUEIL</Link></li>
         <li><Link to="/eleve">ELEVE</Link></li>
-        <li><Link to="/statistique">ASSUIDITE</Link></li>
+        <li><Link to="/statistique">ASSIDUITE</Link></li>
         <li style={{ position: 'relative' }}>
           <button
             ref={buttonRef}

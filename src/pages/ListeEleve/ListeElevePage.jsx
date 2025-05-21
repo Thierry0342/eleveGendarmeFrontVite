@@ -487,27 +487,30 @@ const handleExportExcel = async () => {
                     <div className="mb-2">
                       <label>Fin FETTA</label>
                       <input
-                        type="number"
+                        type="text"
                         className="form-control"
                         value={notes.finfetta}
+                        maxLength="5"
                         onChange={(e) => setNotes({ ...notes, finfetta: e.target.value })}
                       />
                     </div>
                     <div className="mb-2">
                       <label>Mi-Stage</label>
                       <input
-                        type="number"
+                        type="text"
                         className="form-control"
                         value={notes.mistage}
+                        maxLength="5"
                         onChange={(e) => setNotes({ ...notes, mistage: e.target.value })}
                       />
                     </div>
                     <div className="mb-3">
                       <label>Fin Formation</label>
                       <input
-                        type="number"
+                        type="text"
                         className="form-control"
                         value={notes.finstage}
+                        maxLength="5"
                         onChange={(e) => setNotes({ ...notes, finstage: e.target.value })}
                       />
                     </div>
