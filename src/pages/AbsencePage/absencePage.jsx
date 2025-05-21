@@ -44,10 +44,24 @@ const user = JSON.parse(localStorage.getItem('user'));
   const [eleveSPAInfo, setEleveSPAInfo] = useState(null);
   const [autreMotif, setAutreMotif] = useState("");
   const [typeMotif, setTypeMotif] = useState("");
-  
+  const [showOptions, setShowOptions] = useState(false);
  
-  
-  
+  const handleExportPDF = () => {
+    Swal.fire({
+      title: 'Choisissez le format d\'impression',
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: '📄 PDF Simple',
+      denyButtonText: '📻 Message Radio',
+      cancelButtonText: 'Annuler',
+    }).then((result) => {
+      if (result.isConfirmed) {
+       handleExportPDFSimple();
+      } else if (result.isDenied) {
+        handleExportPDFNarratif();
+      }
+    });
+  };
 
 
 
@@ -223,11 +237,17 @@ const user = JSON.parse(localStorage.getItem('user'));
   //ajout absence 
   const handleSubmit = (e) => {
     e.preventDefault();
-  
+  //console.log("******id ve",eleveData?.eleve?.id);
+  //console.log("******id ve",absences.eleveId);
     // Vérifie s'il existe déjà une absence avec la même date et le même élève
-    const absenceExistante = absences.some(abs =>
-      abs.date === date && abs.eleveId === eleveData.eleve.id
-    );
+    const absenceExistante = absences.some(abs => {
+      const sameDate = new Date(abs.date).toISOString().split('T')[0] === new Date(date).toISOString().split('T')[0];
+      
+      const sameEleve = abs.eleveId === eleveData?.eleve?.id;
+      
+      return sameDate && sameEleve;
+    });
+    
   
     if (absenceExistante) {
       Swal.fire({
@@ -428,7 +448,8 @@ const handleMotifChange = (e) => {
 }
   // -----------------------------------------------
   ///En pdf 
-  const handleExportPDF = () => {
+
+  const handleExportPDFSimple =()=>{
     try {
       const doc = new jsPDF({ format: "a4" });
       const pageWidth = doc.internal.pageSize.getWidth();
@@ -602,6 +623,156 @@ const handleMotifChange = (e) => {
       console.error("Erreur lors de l'exportation du PDF :", error);
       alert("Une erreur est survenue lors de la génération du PDF.");
     }
+  }
+  const handleExportPDFNarratif = () => {
+    const doc = new jsPDF();
+  
+    const formatDate = (date) => {
+      const d = new Date(date);
+      return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1)
+        .toString()
+        .padStart(2, '0')}/${d.getFullYear()}`;
+    };
+  
+    const spaDateISO = new Date(spaDate).toISOString().slice(0, 10);
+    const spaSpecialesDuJour = spaSpeciale.filter(
+      (spa) => spa.date?.slice(0, 10) === spaDateISO
+    );
+    // Formatage de la date
+    const formattedDate = format(new Date(spaDate), "d MMMM yyyy");
+    doc.setFontSize(13);
+    let content = `OBJET  SPA ELEVE GENDARME ${filter.cour}EME CFEG X HVRC X DATE  DU ${formattedDate} X `;
+    const totalRealise = spaNumber || 0;
+    const totalAbsent = totalA || 0;
+    const totalPresent = spaNumber - totalA || 0;
+    const totalIndisponible = totalI || 0;
+    const totalSurLeRang = totalRealise - totalAbsent - totalIndisponible;
+  
+    content += `EFFECTIF REALISE  ${totalRealise} X `;
+    content += `ABSENTS  ${totalAbsent} X `;
+    content += `PRESENTS  ${totalPresent} X `;
+    content += `INDISPONIBLES  ${totalIndisponible} X `;
+    content += `SUR LE RANG  ${totalSurLeRang} X `;
+    
+    // Fonctions d'aide
+    const specificMotifs = [
+      'IG',
+      'CONSULTATION',
+      'A REVOIR IG',
+      'REPOS SANITAIRE',
+      'CONFINES EN CHAMBRE',
+      'GARDE MALADE IG',
+      'DONNEUR DE SANG',
+    ];
+    const isIndisponible = (motif) => {
+      if (!motif) return false;
+      const motifUpper = motif.toUpperCase();
+      return (
+        specificMotifs.includes(motifUpper) || motifUpper.endsWith('(INDISPONIBLE)')
+      );
+    };
+  
+    const absencesDuJour = absenceafficher.filter((abs) => abs.date === spaDate);
+  
+    const groupedMotifs = {};
+    absencesDuJour.forEach((abs) => {
+      const motif = abs.motif?.toUpperCase().trim() || 'SANS MOTIF';
+      if (!groupedMotifs[motif]) groupedMotifs[motif] = [];
+      groupedMotifs[motif].push(abs);
+    });
+  
+    // Sections pour absents et indisponibles (à ajuster selon ta structure réelle)
+    const sectionsAbsents = [
+      'ALPHA',   'BRAVO',   'CHARLIE', 'DELTA',  'ECHO', 
+      'FOXTROT', 'GOLF',    'HOTEL',   'INDIA',  'JULIETT', 
+      'KILO',    'LIMA',    'MIKE',    'NOVEMBER','OSCAR',
+      'PAPA',    'QUEBEC',  'ROMEO',   'SIERRA', 'TANGO',
+      'UNIFORM', 'VICTOR',  'WHISKEY', 'XRAY',   'YANKEE', 
+      'ZULU'
+    ];
+    
+    const sectionsIndispo = [
+      'PRIMO',    // 1er
+      'SECUNDO',  // 2e
+      'TERTIO',   // 3e
+      'QUARTO',   // 4e
+      'QUINTO',   // 5e
+      'SESTO',    // 6e
+      'SEPTIMO',  // 7e
+      'OTTAVO',   // 8e
+      'NONO',     // 9e
+      'DECIMO'    // 10e
+    ];
+    
+  
+    // Fonction pour récupérer section par index (ou boucle)
+    let indexSectionAbsent = 0;
+    let indexSectionIndispo = 0;
+  
+    // Absents
+    content += 'MOTIFS DES ABSENTS X ';
+
+// 1. SPA spéciales
+spaSpecialesDuJour.forEach(spa => {
+  const section = sectionsAbsents[indexSectionAbsent % sectionsAbsents.length];
+  const motif = spa.motif?.toUpperCase() || 'SPA SPECIALE';
+  const nombre = spa.nombre || 0;
+  content += `${section} X ${nombre} ${motif} X `;
+  indexSectionAbsent++;
+});
+
+// 2. Absents classiques avec élèves
+for (const [motif, absences] of Object.entries(groupedMotifs)) {
+  if (!isIndisponible(motif)) {
+    const section = sectionsAbsents[indexSectionAbsent % sectionsAbsents.length];
+    const motifUpper = motif.toUpperCase();
+    const nombre = absences.length;
+
+    content += `${section} X ${nombre} ${motifUpper} X `;
+
+    absences.forEach((abs, i) => {
+      const eleve = abs.Eleve;
+      const nom = eleve?.nom?.toUpperCase() || 'INCONNU';
+      const numero = eleve?.numeroIncorporation || 'N/A';
+      content += `${(i + 1).toString().padStart(2, '0')} / ${nom} NR ${numero} -  `;
+    });
+
+    indexSectionAbsent++;
+  }
+}
+
+    
+  
+    // Indisponibles
+    content += 'MOTIFS DES INDISPONIBLES X ';
+for (const [motif, absences] of Object.entries(groupedMotifs)) {
+  if (isIndisponible(motif)) {
+    const section = sectionsIndispo[indexSectionIndispo % sectionsIndispo.length];
+    const motifUpper = motif.toUpperCase();
+    const nombre = absences.length;
+
+    // Ajouter section, nombre et motif
+    content += `${section} X ${nombre} ${motifUpper} X `;
+
+    absences.forEach((abs, i) => {
+      const eleve = abs.Eleve;
+      const nom = eleve?.nom?.toUpperCase() || 'INCONNU';
+      const numero = eleve?.numeroIncorporation || 'N/A';
+      content += `${(i + 1).toString().padStart(2, '0')} / ${nom} NR ${numero} - `;
+    });
+
+    indexSectionIndispo++;
+  }
+}
+
+  
+    content += 'FIN RABEMANANTSOA';
+  
+    // Nettoyage espaces et retours ligne
+    content = content.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+  
+    doc.text(content, 10, 10, { maxWidth: 190 });
+    doc.save('spa.pdf');
   };
   //en excel 
   const handleExportExcel = async () => {
@@ -1489,10 +1660,14 @@ const handleMotifChange = (e) => {
                                                 ❌ Fermer
                                               </button>
 
+                                              <div className="btn-group position-relative">
                                               <div className="btn-group">
-                                                <button className="btn btn-primary" onClick={handleExportPDF}>
-                                                  🖨️ Imprimer (PDF)
-                                                </button>
+                                              <button className="btn btn-primary" onClick={handleExportPDF}>
+                                                🖨️ Imprimer (PDF)
+                                              </button>
+                                            </div>
+
+                                             
                                                 
                                                 
                                                 <button className="btn btn-success" onClick={handleExportExcel}>

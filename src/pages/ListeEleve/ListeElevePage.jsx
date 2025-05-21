@@ -26,8 +26,13 @@ const ListeElevePge = () => {
   const [notes, setNotes] = useState({
     finfetta: '',
     mistage: '',
-    finstage: ''
+    finstage: '',
+    rangfinfetta:'',
+    rangmistage:'',
+    rangfinstage:'',
+
   });
+  
   const handleOpenNoteModal = (eleve) => {
     setSelectedEleve(eleve);
     setNoteModalOpen(true);
@@ -38,7 +43,10 @@ const ListeElevePge = () => {
     setNotes({
       finfetta: '',
       mistage: '',
-      finstage: ''
+      finstage: '',
+      rangfinfetta:'',
+      rangmistage:'',
+      rangfinstage:'',
     });
   };
   //verifier 
@@ -51,16 +59,20 @@ const ListeElevePge = () => {
             setNotes({
               finfetta: res.data.finfetta || '',
               mistage: res.data.mistage || '',
-              finstage: res.data.finstage || ''
+              finstage: res.data.finstage || '',
+              rangfinfetta:res.data.rangfinfetta || '',
+              rangmistage:res.data.rangmistage || '',
+              rangfinstage:res.data.rangfinstage || '',
+              
             });
             setNoteId(res.data.id); // pour savoir si c’est un update ou un create
           } else {
-            setNotes({ finfetta: '', mistage: '', finstage: '' });
+            setNotes({ finfetta: '', mistage: '', finstage: '' ,   rangfinfetta:'',rangmistage:'',rangfinstage:'',});
             setNoteId(null);
           }
         })
         .catch(() => {
-          setNotes({ finfetta: '', mistage: '', finstage: '' });
+          setNotes({ finfetta: '', mistage: '', finstage: '' ,   rangfinfetta:'',rangmistage:'',rangfinstage:'',});
           setNoteId(null);
         });
     }
@@ -72,6 +84,10 @@ const ListeElevePge = () => {
       finfetta: notes.finfetta,
       mistage: notes.mistage,
       finstage: notes.finstage,
+      //rang
+      rangfinfetta:notes.rangfinfetta,
+      rangmistage:notes.rangmistage,
+      rangfinstage:notes.rangfinstage,
       eleveId: selectedEleve.id
     };
     //console.log("note id veeeee",noteId);
@@ -296,9 +312,15 @@ const handleExportExcel = async () => {
       { header: 'Matricule', key: 'matricule', width: 25 },
       { header: 'Escadron', key: 'escadron', width: 15 },
       { header: 'Peloton', key: 'peloton', width: 15 },
-      
+      { header: 'Note FETTA', key: 'finfetta', width: 15 },
+      { header: 'Rang FETTA', key: 'rangFinfetta', width: 15 },
+      { header: 'Note Mi-Stage', key: 'mistage', width: 15 },
+      { header: 'Rang Mi-Stage', key: 'rangMistage', width: 15 },
+      { header: 'Note Fin Formation', key: 'finstage', width: 18 },
+      { header: 'Rang Fin Formation', key: 'rangFinstage', width: 18 },
     ];
     worksheet.columns = columns;
+    
 
     // Ligne de départ après le titre
     let currentRow = 3;
@@ -337,10 +359,20 @@ const handleExportExcel = async () => {
           eleve.matricule || '',
           eleve.escadron || '',
           eleve.peloton || '',
-          
+          eleve.Note?.finfetta || '',
+          eleve.Note?.rangfinfetta || '',
+          eleve.Note?.mistage || '',
+          eleve.Note?.rangmistage || '',
+          eleve.Note?.finstage || '',
+          eleve.Note?.rangfinstage || '',
         ];
+         // Centrer chaque cellule de cette ligne
+         worksheet.getRow(currentRow).eachCell({ includeEmpty: true }, cell => {
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          });
         currentRow++;
       });
+      
 
       // Ligne vide entre escadrons
       currentRow++;
@@ -458,13 +490,16 @@ const handleExportExcel = async () => {
               <h5 className="fw-bold text-primary m-0">
                 👥 
               </h5>
-              <button
-                className="btn btn-success"
-                onClick={handleExportExcel}
-              >
-                <i className="fa fa-file-excel me-2"></i>
-                Exporter (.xlsx)
-              </button>
+              {user.type !== 'saisie' && (
+                <button
+                  className="btn btn-success"
+                  onClick={handleExportExcel}
+                >
+                  <i className="fa fa-file-excel me-2"></i>
+                  Exporter (.xlsx)
+                </button>
+              )}
+
             </div>
 
             <DataTable
@@ -478,58 +513,115 @@ const handleExportExcel = async () => {
               noDataComponent="Aucun élève à afficher"
               customStyles={customStyles}
             />
-            {noteModalOpen && (
-                <div className="modal-overlay">
-                  <div className="modal-content" style={{ maxWidth: '400px', background: 'white', borderRadius: '10px', padding: '20px', position: 'relative' }}>
-                    <button className="modal-close-btn" onClick={handleCloseNoteModal}>×</button>
-                    <h5 className="text-center mb-3">Ajouter des Notes</h5>
+           {noteModalOpen && (
+            <div className="modal-overlay">
+              <div
+                className="modal-content"
+                style={{
+                  maxWidth: '600px',
+                  background: 'white',
+                  borderRadius: '10px',
+                  padding: '20px',
+                  position: 'relative',
+                }}
+              >
+                <button className="modal-close-btn" onClick={handleCloseNoteModal}>
+                  ×
+                </button>
+                <h5 className="text-center mb-3">Ajouter des Notes</h5>
 
-                    <div className="mb-2">
-                      <label>Fin FETTA</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={notes.finfetta}
-                        maxLength="5"
-                        onChange={(e) => setNotes({ ...notes, finfetta: e.target.value })}
-                      />
-                    </div>
-                    <div className="mb-2">
-                      <label>Mi-Stage</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={notes.mistage}
-                        maxLength="5"
-                        onChange={(e) => setNotes({ ...notes, mistage: e.target.value })}
-                      />
-                    </div>
-                    <div className="mb-3">
-                      <label>Fin Formation</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={notes.finstage}
-                        maxLength="5"
-                        onChange={(e) => setNotes({ ...notes, finstage: e.target.value })}
-                      />
-                    </div>
+                <div className="row">
+                  {/* Fin FETTA */}
+                  <div className="col-md-6 mb-3">
+                    <label>Fin FETTA</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={notes.finfetta}
+                      maxLength="5"
+                      onChange={(e) =>
+                        setNotes({ ...notes, finfetta: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="col-md-6 mb-3">
+                    <label>Rang Fin FETTA</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={notes.rangfinfetta || ''}
+                      onChange={(e) =>
+                        setNotes({ ...notes, rangfinfetta: e.target.value })
+                      }
+                    />
+                  </div>
 
-                    <div className="text-center">
-                    {user?.type !== 'user' && (
-                      <button
-                        className="btn btn-success w-100 rounded-pill"
-                        onClick={handleSaveNotes}
-                      >
-                        Enregistrer
-                      </button>
-                    )}
+                  {/* Mi-Stage */}
+                  <div className="col-md-6 mb-3">
+                    <label>Mi-Stage</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={notes.mistage}
+                      maxLength="5"
+                      onChange={(e) =>
+                        setNotes({ ...notes, mistage: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="col-md-6 mb-3">
+                    <label>Rang Mi-Stage</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={notes.rangmistage || ''}
+                      onChange={(e) =>
+                        setNotes({ ...notes, rangmistage: e.target.value })
+                      }
+                    />
+                  </div>
 
-
-                    </div>
+                  {/* Fin Formation */}
+                  <div className="col-md-6 mb-3">
+                    <label>Fin Formation</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={notes.finstage}
+                      maxLength="5"
+                      onChange={(e) =>
+                        setNotes({ ...notes, finstage: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="col-md-6 mb-3">
+                    <label>Rang Fin Formation</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={notes.rangfinstage || ''}
+                      onChange={(e) =>
+                        setNotes({ ...notes, rangfinstage: e.target.value })
+                      }
+                    />
                   </div>
                 </div>
-              )}
+
+                {/* Bouton Enregistrer */}
+                <div className="text-center">
+                  {user?.type !== 'saisie' && (
+                    <button
+                      className="btn btn-success w-100 rounded-pill"
+                      onClick={handleSaveNotes}
+                    >
+                      Enregistrer
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
 
 
             <div className="text-end mt-3">
