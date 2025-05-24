@@ -275,11 +275,13 @@ const ElevePage = () => {
     }
      
     else {
+    
       setFormData(prevState => ({
         ...prevState,
         [name]: value,
       }));
     }
+    
   };
 
   const handleSubmit = async (e) => {
@@ -582,7 +584,7 @@ const ElevePage = () => {
                 <input type="text" className="form-control" name="nom" placeholder="Nom" value={formData.nom} onChange={handleChange}   style={{ textTransform: "uppercase" }}/>
               </div>
               <div className="col">
-                <input type="text" className="form-control" name="prenom" placeholder="Prénom" value={formData.prenom} onChange={handleChange}  style={{ textTransform: "uppercase" }} />
+                <input type="text" className="form-control" name="prenom" placeholder="Prénom" value={formData.prenom} onChange={handleChange}  />
               </div>
             </div>
 
@@ -742,8 +744,34 @@ const ElevePage = () => {
               <input type="text" className="form-control" name="facebook" placeholder="facebook" value={formData.facebook} onChange={handleChange} />
             </div>
             <div className="col">
-              <input type="text" className="form-control" name="fady" placeholder="fady" value={formData.fady} onChange={handleChange} />
+              <select
+                className="form-control"
+                name="fady"
+                value={formData.fady}
+                onChange={handleChange}
+              >
+                <option value="">Foko</option>
+                <option value="Antaifasy">Antaifasy</option>
+                <option value="Antaimoro">Antaimoro</option>
+                <option value="Antambahoaka">Antambahoaka</option>
+                <option value="Antandroy">Antandroy</option>
+                <option value="Antanosy">Antanosy</option>
+                <option value="Antikarana">Antakarana</option>
+                <option value="Bara">Bara</option>
+                <option value="Bezanozano">Bezanozano</option>
+                <option value="Betsileo">Betsileo</option>
+                <option value="Betsimisaraka">Betsimisaraka</option>
+                <option value="Mahafaly">Mahafaly</option>
+                <option value="Merina">Merina</option>
+                <option value="Mikea">Mikea</option>
+                <option value="Sakalava">Sakalava</option>
+                <option value="Sihanaka">Sihanaka</option>
+                <option value="Tanala">Tanala</option>
+                <option value="Tsimihety">Tsimihety</option>
+                <option value="Vezo">Vezo</option>
+              </select>
             </div>
+
 
          </div>
            {/* fin card gauche  */}

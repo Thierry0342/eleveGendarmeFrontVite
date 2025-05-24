@@ -264,6 +264,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave }) => {
     
      
     else {
+      
       setFormData(prevState => ({
         ...prevState,
         [name]: value,
@@ -470,7 +471,7 @@ const handleSave = async () => {
                     <input type="text" className="form-control" name="nom" placeholder="Nom" value={eleve.nom} onChange={onChange}  style={{ textTransform: "uppercase" }}/>
                   </div>
                   <div className="col">
-                    <input type="text" className="form-control" name="prenom" placeholder="Prénom" value={eleve.prenom} onChange={onChange}  style={{ textTransform: "uppercase" }} />
+                    <input type="text" className="form-control" name="prenom" placeholder="Prénom" value={eleve.prenom} onChange={onChange}  />
                   </div>
                 </div>
 
@@ -573,6 +574,34 @@ const handleSave = async () => {
                 <div className="col">
                   <input type="text" className="form-control" name="facebook" placeholder="facebook" value={eleve.facebook} onChange={onChange} />
                 </div>
+                <div className="col">
+              <select
+                className="form-control"
+                name="fady"
+                value={eleve.fady}
+                onChange={onChange}
+              >
+                <option value="">Foko</option>
+                <option value="Antaifasy">Antaifasy</option>
+                <option value="Antaimoro">Antaimoro</option>
+                <option value="Antambahoaka">Antambahoaka</option>
+                <option value="Antandroy">Antandroy</option>
+                <option value="Antanosy">Antanosy</option>
+                <option value="Antikarana">Antakarana</option>
+                <option value="Bara">Bara</option>
+                <option value="Bezanozano">Bezanozano</option>
+                <option value="Betsileo">Betsileo</option>
+                <option value="Betsimisaraka">Betsimisaraka</option>
+                <option value="Mahafaly">Mahafaly</option>
+                <option value="Merina">Merina</option>
+                <option value="Mikea">Mikea</option>
+                <option value="Sakalava">Sakalava</option>
+                <option value="Sihanaka">Sihanaka</option>
+                <option value="Tanala">Tanala</option>
+                <option value="Tsimihety">Tsimihety</option>
+                <option value="Vezo">Vezo</option>
+              </select>
+            </div>
               </div>
             </div>
             {/* card milie commence ici*/ }

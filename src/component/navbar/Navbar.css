@@ -14,7 +14,7 @@
   transition: all 0.9s ease; /* Transition fluide */
   width: 90%;
   border-radius: 12px;
-  height: 60px; /* Fixe la hauteur du navbar */
+  height: 75px; /* Fixe la hauteur du navbar */
   margin-top: 10px;
   
 }

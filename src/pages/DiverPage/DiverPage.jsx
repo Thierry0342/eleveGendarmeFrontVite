@@ -12,7 +12,7 @@ const DiverPage = () => {
   const [eleves, setEleves] = useState([]);
   const [cours, setCours] = useState([]);
   const [filteredPointures, setFilteredPointures] = useState([]);
-  const [filter, setFilter] = useState({ cour: '', diplome: '', religion: '',genreConcours:'',Specialiste:'',ageRange: null  });
+  const [filter, setFilter] = useState({ cour: '', diplome: '', religion: '',genreConcours:'',Specialiste:'',fady:'',ageRange: null  });
   const [pointures, setPointures] = useState([]);
 
   const niveauxEtude = [
@@ -26,6 +26,12 @@ const DiverPage = () => {
     'BACC +7',
     'BACC +8'
   ];
+  const ethnies = [
+    "Antaifasy", "Antaimoro", "Antambahoaka", "Antandroy", "Antanosy", "Antakarana",
+    "Bara", "Bezanozano", "Betsileo", "Betsimisaraka", "Mahafaly", "Merina", 
+    "Mikea", "Sakalava", "Sihanaka", "Tanala", "Tsimihety", "Vezo"
+  ];
+  
   const genresConcours = ['ordinaire', 'specialiste', 'veuve', 'orphelin', 'ex-militaire'];
   const specialiste = ['informatique', 'telecommunication', 'mecanicien', 'infrastructure', 'sport'];
 
@@ -103,6 +109,7 @@ const DiverPage = () => {
       (filter.cour ? e.cour?.toString() === filter.cour : true) &&
       (filter.diplome ? e.niveau === filter.diplome : true) &&
       (filter.religion ? e.religion === filter.religion : true) &&
+      (filter.fady ? e.fady === filter.fady : true) && 
       (filter.ageRange ? age >= filter.ageRange.min && age <= filter.ageRange.max : true) &&
       (filter.genreConcours ? e.genreConcours === filter.genreConcours : true) &&
       // Si un type de spécialité est sélectionné, on le filtre (ex: Informatique), sinon on ignore
@@ -113,40 +120,43 @@ const DiverPage = () => {
   
   //age 
   // Traitement des âges
+// Traitement des âges avec filtre de validité
 const ages = filteredEleves
-.map(e => dayjs().diff(dayjs(e.dateNaissance), 'year'))
-.filter(age => age >= 17);
+  .map(e => dayjs().diff(dayjs(e.dateNaissance), 'year'))
+  .filter(age => age >= 17 && age <= 60); // ✅ filtre ici
 
 const minAge = ages.length > 0 ? Math.min(...ages) : 'N/A';
 const maxAge = ages.length > 0 ? Math.max(...ages) : 'N/A';
 
-const tranchesAge  = [
+const tranchesAge = [
   { label: '17-20 ans', min: 17, max: 20 },
   { label: '21-24 ans', min: 21, max: 24 },
   { label: '25-29 ans', min: 25, max: 29 },
-  { label: '30 ans et +', min: 30, max: 100 }
+  { label: '30 ans et +', min: 30, max: 60 } // ✅ max 60 ans
 ];
 
-const ageClassCounts = tranchesAge .map(classe => {
-const count = filteredEleves.filter(e => {
-  const age = dayjs().diff(dayjs(e.dateNaissance), 'year');
-  return age >= classe.min && age <= classe.max;
-}).length;
-return { ...classe, count };
-});
+const ageClassCounts = tranchesAge.map(classe => {
+  const count = filteredEleves.filter(e => {
+    const age = dayjs().diff(dayjs(e.dateNaissance), 'year');
+    return age >= classe.min && age <= classe.max && age <= 60; // 
+  }).length;
+  return { ...classe, count };
+})
 
  //colonne eleve
   const columns = [
     { name: 'Nom et prenom', selector: row => row.nom +" "+row.prenom, sortable: true },
-    { name: 'Escadron', selector: row => row.escadron },
-    { name: 'Peloton', selector: row => row.peloton },
-    { name: 'Âge', selector: row => {
+    { name: 'Escadron', selector: row => row.escadron ,width:"100px" },
+    { name: 'Peloton', selector: row => row.peloton ,width:"100px"},
+    { name: 'Âge',width:"100px", selector: row => {
       const age = dayjs().diff(dayjs(row.dateNaissance), 'year');
       return age >= 17 && age <= 100 ? age : 'N/A';
     }, sortable: true },
-    { name: 'Niveau', selector: row => row.niveau },
-    {name :'Concour', selector : row =>row.genreConcours},
+    { name: 'Niveau', selector: row => row.niveau ,width:"100px"},
+    {name :'Concour', selector : row =>row.genreConcours,width:"100px"},
     { name: 'Religion', selector: row => row.religion },
+    { name: 'Foko', selector: row => row.fady },
+    { name: 'Sexe', selector: row => row.sexe },
     
   ];
   //tailleee
@@ -252,6 +262,7 @@ const handlePrint = () => {
   if (filter.cour) filterText += `Cours : ${filter.cour}  `;
   if (filter.diplome) filterText += `| Diplôme : ${filter.diplome}  `;
   if (filter.religion) filterText += `| Religion : ${filter.religion}  `;
+  if (filter.fady) filterText += `| Foko : ${filter.fady}  `;
   if (filter.ageRange) filterText += `| Âge : ${filter.ageRange.label}`;
   if (filter.genreConcours) filterText += `| Concours : ${filter.genreConcours}  `;
   if (filter.genreConcours === 'specialiste' && filter.Specialiste)
@@ -356,6 +367,7 @@ const exportPDF = () => {
                       {filter.cour && ` - Cour ${filter.cour}`}
                       {filter.diplome && ` - ${filter.diplome}`}
                       {filter.religion && ` - ${filter.religion}`}
+                      {filter.fady && ` - ${filter.fady}`} {/* ✅ ajout */}
                       {filter.genreConcours && ` - ${filter.genreConcours}`}
                       {filter.Specialiste && ` - ${filter.Specialiste}`}
                       {filter.ageRange && ` - Âge ${filter.ageRange.label}`}
@@ -632,8 +644,54 @@ const exportPDF = () => {
   </div>
 </div>
 
+<h5 className="mt-5 fw-bold text-primary text-uppercase">Filtrer par Foko</h5>
 
-      {/* Menu des tranches d’âge en cartes */}
+<div className="d-flex justify-content-center flex-wrap gap-3 mt-4">
+  {ethnies.map((foko) => {
+    const isActive = filter.fady === foko;
+    const count = eleves.filter(e =>
+      e.fady === foko &&
+      (!filter.diplome || e.niveau === filter.diplome) &&
+      (!filter.cour || e.cour?.toString() === filter.cour) &&
+      (!filter.religion || e.religion === filter.religion)
+    ).length;
+
+    return (
+      <div
+        key={foko}
+        className={`card text-center shadow-sm border-0 ${isActive ? 'bg-success-subtle border-success' : 'bg-white'}`}
+        style={{ cursor: 'pointer', width: '160px', transition: 'all 0.3s' }}
+        onClick={() => setFilter({ ...filter, fady: foko })}
+      >
+        <div className="card-body p-3">
+          <h6 className="fw-semibold mb-1">{foko}</h6>
+          <p className="text-muted small mb-0">{count} élève(s)</p>
+        </div>
+      </div>
+    );
+  })}
+
+  <div
+    className="card text-center shadow-sm border-0 bg-light"
+    style={{ cursor: 'pointer', width: '160px', transition: 'all 0.3s' }}
+    onClick={() => setFilter({ ...filter, fady: '' })}
+  >
+    <div className="card-body p-3">
+      <h6 className="fw-semibold mb-1">Tout afficher</h6>
+      <p className="text-muted small mb-0">
+        {eleves.filter(e =>
+          (!filter.religion || e.religion === filter.religion) &&
+          (!filter.diplome || e.niveau === filter.diplome) &&
+          (!filter.cour || e.cour?.toString() === filter.cour)
+        ).length} élèves
+      </p>
+    </div>
+  </div>
+</div>
+
+
+
+
       <h5 className="mt-5 fw-bold text-primary text-uppercase">Pointure</h5>
       <DataTable
         columns={columns2}

@@ -4,6 +4,7 @@ import eleveService from '../../services/eleveService';
 import courService from '../../services/courService';
 import absenceService from '../../services/absence-service';
 import spaspecialeService from'../../services/spaSpeciale-service';
+import dateService from'../../services/dateservice';
 import DataTable from 'react-data-table-component';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -313,10 +314,16 @@ const user = JSON.parse(localStorage.getItem('user'));
   };
   
  //date aujourdhui
- useEffect(() => {
-  const today = new Date().toISOString().split("T")[0]; // format 'YYYY-MM-DD'
-  setDate(today);
+useEffect(() => {
+  dateService.getServerDate()
+    .then(response => {
+      setDate(response.data.today);
+    })
+    .catch(error => {
+      console.error("Erreur lors de la récupération de la date serveur :", error);
+    });
 }, []);
+
 // Application du filtre
        const absenceafficher = listeAbsence.filter(abs => {
             const escadronMatch = filter.escadron === '' || String(abs.Eleve.escadron) === filter.escadron;
@@ -573,9 +580,10 @@ const handleMotifChange = (e) => {
       // Deuxième tableau détaillé
       autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 10,
-        head: [['MOTIFS', 'NOM', 'PRENOM', 'NUM INC', 'ESC', 'PON']],
+        head: [['MOTIFS', 'NOM', 'PRENOM', 'INC', 'ESC', 'PON']],
         body: bodyDetails,
         theme: 'striped',
+       
         styles: {
           fontSize: 10,
           halign: 'center',
@@ -583,6 +591,7 @@ const handleMotifChange = (e) => {
         headStyles: {
           fontStyle: 'bold',
         },
+        showHead: 'firstPage',
       });
   
       // Texte final "DESTINATAIRES"
@@ -1147,17 +1156,14 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                           </button>
                         </div>
                       )}
-
                                         </>
                                       )}
                                     </form>
                                   </div>
 
-
-
                     {/* Tableau des absences à droite */}
                               <div className="col-md-8 mx-auto">
-                              <h3 className="text-center mb-4 fw-bold text-primary">📋 Liste des Absence</h3>                
+                              <h3 className="text-center mb-4 fw-bold text-primary">📋 Liste des Absents</h3>                
                                 {/* Card pour le formulaire de recherche */}
                                 <div className="card shadow-sm">
                                   <div className="card-body">

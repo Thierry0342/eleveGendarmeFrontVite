@@ -10,6 +10,7 @@ import { Icon } from 'lucide-react';
 
 const HomePage = () => {
   return (
+    
     <div style={{ marginLeft: "50px", marginTop: "100px" , }}>
       {/* Première ligne de 3 cartes */}
       <div className="row justify-content-center">

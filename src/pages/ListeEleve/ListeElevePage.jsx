@@ -247,8 +247,8 @@ useEffect(() => {
     { name: 'Prénom', selector: row => row.prenom, sortable: true ,},
     { name: 'Esc', selector: row => row.escadron, sortable: true ,width:"90px"},
     { name: 'Pon', selector: row => row.peloton ,width:"90px"},
-    { name: 'Matricule', selector: row => row.matricule },
-    { name: 'Incorporation', selector: row => row.numeroIncorporation },
+    { name: 'Matricule', selector: row => row.matricule ,sortable: true},
+    { name: 'Incorporation', selector: row => Number(row.numeroIncorporation) ,sortable: true,sortFunction: (a, b) => Number(a.numeroIncorporation) - Number(b.numeroIncorporation)},
    
     {
       name: 'Actions',
@@ -528,7 +528,7 @@ const handleExportExcel = async () => {
                 <button className="modal-close-btn" onClick={handleCloseNoteModal}>
                   ×
                 </button>
-                <h5 className="text-center mb-3">Ajouter des Notes</h5>
+                <h5 className="text-center mb-3"> Notes</h5>
 
                 <div className="row">
                   {/* Fin FETTA */}
@@ -609,7 +609,7 @@ const handleExportExcel = async () => {
 
                 {/* Bouton Enregistrer */}
                 <div className="text-center">
-                  {user?.type !== 'saisie' && (
+                  {(user?.type !== 'saisie' && user?.type !== 'user') && (
                     <button
                       className="btn btn-success w-100 rounded-pill"
                       onClick={handleSaveNotes}
