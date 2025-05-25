@@ -318,6 +318,8 @@ useEffect(() => {
   dateService.getServerDate()
     .then(response => {
       setDate(response.data.today);
+      setFilter((prev) => ({ ...prev, date: response.data.today }));
+      setSpaDate(response.data.today);
     })
     .catch(error => {
       console.error("Erreur lors de la récupération de la date serveur :", error);
@@ -474,7 +476,7 @@ const handleMotifChange = (e) => {
       doc.text("----------------------", 32, 25);
       doc.text("DIRECTION DE L'INSTRUCTION", 17, 32);
       doc.text("----------------------", 32, 35);
-      doc.text("COUR DE FORMATION DES ELEVES GENDARME", 5, 42);
+      doc.text("COURS DE FORMATION DES ELEVES GENDARME", 5, 42);
       doc.text("-----------------------", 32, 45);
       doc.text("REPOBLIKAN'I MADAGASCAR", 150, 15);
       doc.text("Fitiavana - Tanindrazana - Fandrosoana", 145, 22);

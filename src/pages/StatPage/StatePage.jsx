@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState ,useRef } from "react";
 import consultationService from "../../services/consultation-service"; // ajuste le chemin si besoin
 import courService from "../../services/courService";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import DataTable from 'react-data-table-component';
 import "./EvasanModal.css"
 import absenceService from "../../services/absence-service";
+import * as XLSX from 'xlsx';
+import { API_URL } from '../../config/root/modules';
 const StatePage = () => {
   const [consultations, setConsultations] = useState([]);
   const [consultations2, setConsultations2] = useState([]);
@@ -18,9 +20,28 @@ const StatePage = () => {
   const [numIncorp, setNumIncorp] = useState('');
   const [currentPageMotif, setCurrentPageMotif] = useState(1);
   const [searchMotif, setSearchMotif] = useState('');
-
+  const [dateDebut, setDateDebut] = useState('');
+   const [dateFin, setDateFin] = useState('');
+   const [selectedMotif, setSelectedMotif] = useState(null);
+   const [showModal, setShowModal] = useState(false);
+   const [searchIncorp, setSearchIncorp] = useState('');
+   const [imagePreview, setImagePreview] = useState(null);
+   const fileInputRef = useRef(null);
+   const [isImageOpen, setIsImageOpen] = useState(false);
+   const [selectedItem, setSelectedItem] = useState(null);
+   const [showModal2, setShowModal2] = useState(false);
   //paggination
   
+  //filtre inc dans le tableau nombre eleve par motif 
+  // Filtrer les élèves selon la recherche par incorporation (numeroIncorporation)
+  const filteredEleves = React.useMemo(() => {
+    if (!selectedMotif?.eleves) return [];
+    if (!searchIncorp.trim()) return selectedMotif.eleves;
+
+    return selectedMotif.eleves.filter(eleve =>
+      eleve.numeroIncorporation.toLowerCase().includes(searchIncorp.trim().toLowerCase())
+    );
+  }, [searchIncorp, selectedMotif]);
   
   const [currentPage, setCurrentPage] = useState(1); // Page actuelle
   const [itemsPerPage] = useState(5); // Nombre d'éléments par page
@@ -33,7 +54,37 @@ const StatePage = () => {
   const closeModal = () => {
     setSelectedRow(null);
   };
+  //image click
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+   // Initialiser imagePreview depuis selectedRow.Eleve.image
+   useEffect(() => {
+    if (selectedRow?.Eleve?.image) {
+      setImagePreview(selectedRow.Eleve.image);
+    } else {
+      setImagePreview(null);
+    }
+  }, [selectedRow]);
+  
+  //nombre jpour consul
+  const handleBadgeClick = (item) => {
+    const consultation = consultations.find(c => c.id === item.id);
+    if (consultation) {
+      setSelectedItem({
+        ...item,
+        Eleve: consultation.Eleve,
+        dateDepart: consultation.dateDepart,
+        dateArrive: consultation.dateArrive
+      });
+      setShowModal2(true);
+    }
+  };
 
+  const closeModal2 = () => {
+    setShowModal2(false);
+    setSelectedItem(null);
+  };
 
  //get consultation
   const fetchConsultations = (selectedCour) => {
@@ -65,6 +116,8 @@ const StatePage = () => {
       })
       .catch(err => console.error("Erreur chargement consultations :", err));
   };
+  console.log('qsdfqsfqf',consultations2);
+  
   //initialise table consultation
   const columns = [
     { name: "Nom et prénom de l'élève", selector: row => row.Eleve?.nom + " " + row.Eleve?.prenom, sortable: true },
@@ -89,6 +142,25 @@ const StatePage = () => {
       ),
     }
   ];
+  //export nombre jour par motif 
+  const exportToExcel = (motifData) => {
+    if (!motifData || !Array.isArray(motifData.eleves)) return;
+
+    const worksheetData = filteredEleves.map((eleve, index) => ({
+      '#': index + 1,
+      'Nom': eleve.nom,
+      'Prénom': eleve.prenom,
+      'Incorporation': eleve.numeroIncorporation,
+      'Escadron': eleve.escadron,
+      'Peloton': eleve.peloton,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Élèves');
+
+    XLSX.writeFile(workbook, `Eleves_${motifData.motif}.xlsx`);
+  };
   
 
 
@@ -215,7 +287,18 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
   //filtre et comptage absence 
   const filteredAbsences = listeAbsence.filter(abs => {
     const matchCour = cour ? abs.Eleve?.cour == cour : true;
-    const matchDate = selectedDate ? abs.date === selectedDate : true;
+   // Normaliser les dates
+    const dateAbs = new Date(abs.date).toISOString().slice(0, 10);
+ 
+  const matchDate = (() => {
+    if (dateDebut && dateFin) {
+      return dateAbs >= dateDebut && dateAbs <= dateFin;
+    }
+    if (dateDebut && !dateFin) {
+      return dateAbs === dateDebut;
+    }
+    return true;
+  })();
     const matchIncorp = numIncorp ? abs.Eleve?.numeroIncorporation === numIncorp : true;
     return matchCour && matchDate && matchIncorp;
   });
@@ -228,10 +311,12 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
     const nom = abs.Eleve?.nom || 'Inconnu';
     const motif = abs.motif || 'Inconnu';
     const date = abs.date;
+    const incorp =abs.Eleve?.numeroIncorporation
   
     if (!recapParEleve[eleveId]) {
       recapParEleve[eleveId] = {
         nom,
+        numeroIncorporation: incorp,
         motifs: {},
       };
     }
@@ -250,14 +335,23 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
     Object.entries(data.motifs).forEach(([motif, datesSet]) => {
       motifData.push({
         eleveId,
+        incorp: data.numeroIncorporation,
         nom: data.nom,
         motif,
         count: datesSet.size, // nombre de dates uniques
       });
     });
+   // console.log('asasasasas',data);
   });
+
   
   const columns2 = [
+    {
+      name:'inc',
+      selector: row => row.incorp,
+      sortable:true,
+
+    },
     {
       name: "Élève",
       selector: row => row.nom,
@@ -275,23 +369,44 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
     },
   ];
   //tableau pour nombre par motif
+  
   // 2. Calculer le nombre de personnes distinctes par motif
-      const elevesParMotif = {};
-      filteredAbsences.forEach(abs => {
-        const motif = abs.motif || 'Inconnu';
-        const eleveId = abs.eleveId;
+  const elevesParMotif = {};
 
-        if (!elevesParMotif[motif]) {
-          elevesParMotif[motif] = new Set();
-        }
-        elevesParMotif[motif].add(eleveId);
+  filteredAbsences.forEach(abs => {
+    const motifRaw = abs.motif || 'Inconnu';
+    const motif = motifRaw.trim().toUpperCase();
+  
+    const eleve = abs.Eleve;
+    if (!eleve) return; // Ignore si pas d'élève
+  
+    // Utiliser un id sûr pour chaque élève
+    const eleveId = eleve.id || eleve._id || abs.eleveId; 
+    if (!eleveId) return; // Ignore si pas d'id
+  
+    if (!elevesParMotif[motif]) {
+      elevesParMotif[motif] = new Map();
+    }
+  
+    // Ajouter seulement si cet élève n'est pas déjà ajouté
+    if (!elevesParMotif[motif].has(eleveId)) {
+      elevesParMotif[motif].set(eleveId, {
+        nom: eleve.nom,
+        prenom: eleve.prenom,
+        numeroIncorporation: eleve.numeroIncorporation,
+        escadron: eleve.escadron,
+        peloton: eleve.peloton,
       });
-
-      const personneParMotifData = Object.entries(elevesParMotif).map(([motif, eleveSet]) => ({
-        motif,
-        nombrePersonnes: eleveSet.size,
-      }));
-        
+    }
+  });
+  
+  const personneParMotifData = Object.entries(elevesParMotif).map(([motif, elevesMap]) => ({
+    motif,
+    nombrePersonnes: elevesMap.size,
+    eleves: Array.from(elevesMap.values()),
+  }));
+  
+    
 
   
  
@@ -500,11 +615,70 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
                                                 <strong>{nom} {prenom}</strong><br />
                                                 <small className="text-muted">ID: {item.id}</small>
                                             </div>
-                                            <span className="badge bg-primary rounded-pill">{item.jours} jour(s)</span>
+                                            <span className="badge bg-primary rounded-pill"   style={{ cursor: 'pointer' }}  onClick={() => handleBadgeClick(item)} >{item.jours} jour(s)</span>
                                         </li>
                                     );
                                 })}
                             </ul>
+                             {/* Modal */}
+                            {showModal2 && selectedItem && (
+                              <div
+                                className="modal show fade"
+                                style={{ display: "block", backgroundColor: "rgba(0,0,0,0.5)" }}
+                                onClick={closeModal2}
+                              >
+                                <div
+                                  className="modal-dialog modal-dialog-centered"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <div className="modal-content">
+                                    <div className="modal-header">
+                                      <h5 className="modal-title">Détails Consultation</h5>
+                                      <button type="button" className="btn-close" onClick={closeModal}></button>
+                                    </div>
+                                    <div className="modal-body text-center">
+                                      {selectedItem.Eleve?.image ? (
+                                        <img
+                                          src={`${API_URL}${selectedItem.Eleve.image}`}
+                                          alt="Élève"
+                                          style={{
+                                            width: "150px",
+                                            height: "150px",
+                                            objectFit: "cover",
+                                            borderRadius: "50%",
+                                            marginBottom: "1rem",
+                                          }}
+                                        />
+                                      ) : (
+                                        <div
+                                          style={{
+                                            width: "150px",
+                                            height: "150px",
+                                            borderRadius: "50%",
+                                            backgroundColor: "#ccc",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            marginBottom: "1rem",
+                                            fontStyle: "italic",
+                                            color: "#555",
+                                          }}
+                                        >
+                                          Pas d'image
+                                        </div>
+                                      )}
+                                      <p><strong>Nom:</strong> {selectedItem.Eleve?.nom}</p>
+                                      <p><strong>Prénom:</strong> {selectedItem.Eleve?.prenom}</p>
+                                      <p><strong>Date Départ:</strong> {selectedItem.dateDepart || "-"}</p>
+                                      <p><strong>Date Arrivée:</strong> {selectedItem.dateArrive || "-"}</p>
+                                    </div>
+                                    <div className="modal-footer">
+                                      <button className="btn btn-secondary" onClick={closeModal}>Fermer</button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
 
                             {/* Pagination navigation */}
                             <nav className="mt-3">
@@ -529,88 +703,201 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
         )}
     </div>
    {/* Tableau des personnes par motif d'absence */}
-<div className="card mb-3">
-  <div className="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-    <span>Nombre de personnes par motif</span>
-  </div>
+                    <div className="card mb-3">
+                      <div className="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                        <span>Nombre de personnes par motif</span>
+                      </div>
 
-  <div className="card-body">
+                      <div className="card-body">
 
-    {/* Barre de recherche */}
-    <div className="mb-3">
-      <input
-        type="text"
-        className="form-control"
-        placeholder="Rechercher un motif..."
-        value={searchMotif}
-        onChange={(e) => {
-          setSearchMotif(e.target.value);
-          setCurrentPageMotif(1); // Revenir à la première page lors d'une recherche
-        }}
-      />
-    </div>
+                        {/* Barre de recherche */}
+                        <div className="mb-3">
+                          <input
+                            type="text"
+                            className="form-control"
+                            placeholder="Rechercher un motif..."
+                            value={searchMotif}
+                            onChange={(e) => {
+                              setSearchMotif(e.target.value);
+                              setCurrentPageMotif(1); // Revenir à la première page lors d'une recherche
+                            }}
+                          />
+                          <div className="d-flex gap-2 mb-3">
+                              <input
+                                type="date"
+                                className="form-control"
+                                value={dateDebut}
+                                onChange={(e) => {
+                                  setDateDebut(e.target.value);
+                                  setCurrentPageMotif(1);
+                                }}
+                              />
+                              <input
+                                type="date"
+                                className="form-control"
+                                value={dateFin}
+                                onChange={(e) => {
+                                  setDateFin(e.target.value);
+                                  setCurrentPageMotif(1);
+                                }}
+                              />
+                            </div>
 
-    {personneParMotifData.length === 0 ? (
-      <p className="text-muted">Aucun motif trouvé.</p>
-    ) : (
-      (() => {
-        // Filtrage
-        const filteredMotifs = personneParMotifData.filter(item =>
-          item.motif.toLowerCase().includes(searchMotif.toLowerCase())
-        );
+                        </div>
 
-        // Tri
-        const sortedMotifs = filteredMotifs.sort((a, b) => b.nombrePersonnes - a.nombrePersonnes);
+                        {personneParMotifData.length === 0 ? (
+                          <p className="text-muted">Aucun motif trouvé.</p>
+                        ) : (
+                          (() => {
+                            // Filtrage
+                            const filteredMotifs = personneParMotifData.filter(item =>
+                              item.motif.toLowerCase().includes(searchMotif.toLowerCase())
+                            );
 
-        // Pagination
-        const itemsPerPage = 5;
-        const indexOfLastItem = currentPageMotif * itemsPerPage;
-        const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-        const currentItems = sortedMotifs.slice(indexOfFirstItem, indexOfLastItem);
-        const totalPages = Math.ceil(sortedMotifs.length / itemsPerPage);
+                            // Tri
+                            const sortedMotifs = filteredMotifs.sort((a, b) => b.nombrePersonnes - a.nombrePersonnes);
 
-        return (
-          <>
-            <ul className="list-group">
-              {currentItems.map((item, index) => (
-                <li key={index} className="list-group-item d-flex justify-content-between align-items-center">
-                  <div>
-                    <strong>{item.motif}</strong>
-                  </div>
-                  <span className="badge bg-success rounded-pill">
-                    {item.nombrePersonnes} personne(s)
-                  </span>
-                </li>
-              ))}
-            </ul>
+                            // Pagination
+                            const itemsPerPage = 5;
+                            const indexOfLastItem = currentPageMotif * itemsPerPage;
+                            const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+                            const currentItems = sortedMotifs.slice(indexOfFirstItem, indexOfLastItem);
+                            const totalPages = Math.ceil(sortedMotifs.length / itemsPerPage);
 
-            {/* Pagination */}
-            <nav className="mt-3">
-              <ul className="pagination pagination-sm justify-content-end">
-                <li className={`page-item ${currentPageMotif === 1 ? 'disabled' : ''}`}>
-                  <button className="page-link" onClick={() => setCurrentPageMotif(currentPageMotif - 1)}>Précédent</button>
-                </li>
-                {Array.from({ length: totalPages }).map((_, index) => (
-                  <li key={index} className={`page-item ${currentPageMotif === index + 1 ? 'active' : ''}`}>
-                    <button className="page-link" onClick={() => setCurrentPageMotif(index + 1)}>{index + 1}</button>
-                  </li>
-                ))}
-                <li className={`page-item ${currentPageMotif === totalPages ? 'disabled' : ''}`}>
-                  <button className="page-link" onClick={() => setCurrentPageMotif(currentPageMotif + 1)}>Suivant</button>
-                </li>
-              </ul>
-            </nav>
-          </>
-        );
-      })()
-    )}
-  </div>
-</div>
+                            return (
+                              <>
+                            <ul className="list-group">
+                                {currentItems.map((item, index) => (
+                                  <li
+                                    key={index}
+                                    className="list-group-item d-flex justify-content-between align-items-center"
+                                    onClick={() => {
+                                      setSelectedMotif(item);
+                                      setShowModal(true);
+                                    }}
+                                    style={{ cursor: 'pointer' }}
+                                  >
+                                    <div><strong>{item.motif}</strong></div>
+                                    <span className="badge bg-success rounded-pill">{item.nombrePersonnes} personne(s)</span>
+                                  </li>
+                                ))}
+                           </ul>
 
 
+                           {selectedMotif && (
+                            <div
+                            className={`modal fade ${showModal ? 'show d-block' : ''}`}
+                            tabIndex="-1"
+                            style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+                            onClick={() => setShowModal(false)}
+                          >
+                            <div className="modal-dialog modal-lg" onClick={e => e.stopPropagation()}>
+                              <div className="modal-content">
+                                <div className="modal-header">
+                                  <h5 className="modal-title">Élèves pour : {selectedMotif.motif}</h5>
+                                  <button type="button" className="btn-close" onClick={() => setShowModal(false)} />
+                                </div>
+                                <div className="modal-body">
+                                  {Array.isArray(selectedMotif.eleves) && selectedMotif.eleves.length > 0 ? (
+                                    <>
+                                      {/* Input recherche */}
+                                      <div className="mb-3">
+                                        <input
+                                          type="text"
+                                          className="form-control"
+                                          placeholder="Rechercher par numéro d'incorporation..."
+                                          value={searchIncorp}
+                                          onChange={e => setSearchIncorp(e.target.value)}
+                                        />
+                                      </div>
+
+                                      {/* Tableau des élèves */}
+                                      <div className="table-responsive">
+                                        <table className="table table-bordered table-sm">
+                                          <thead>
+                                            <tr>
+                                              <th>#</th>
+                                              <th>Nom</th>
+                                              <th>Prénom</th>
+                                              <th>Incorporation</th>
+                                              <th>Escadron</th>
+                                              <th>Peloton</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {filteredEleves.length > 0 ? (
+                                              filteredEleves.map((eleve, idx) => (
+                                                <tr key={idx}>
+                                                  <td>{idx + 1}</td>
+                                                  <td>{eleve.nom}</td>
+                                                  <td>{eleve.prenom}</td>
+                                                  <td>{eleve.numeroIncorporation}</td>
+                                                  <td>{eleve.escadron}</td>
+                                                  <td>{eleve.peloton}</td>
+                                                </tr>
+                                              ))
+                                            ) : (
+                                              <tr>
+                                                <td colSpan="6" className="text-center text-muted">
+                                                  Aucun élève ne correspond à la recherche.
+                                                </td>
+                                              </tr>
+                                            )}
+                                          </tbody>
+                                        </table>
+                                      </div>
+
+                                      {/* Bouton Export Excel */}
+                                      <div className="d-flex justify-content-end mt-3">
+                                        <button
+                                          className="btn btn-success btn-sm"
+                                          onClick={() => exportToExcel(selectedMotif)}
+                                          disabled={filteredEleves.length === 0}
+                                        >
+                                          Exporter en Excel
+                                        </button>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div className="text-muted">Aucun élève pour ce motif.</div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          )}
 
 
-</div>
+
+
+
+                                {/* Pagination */}
+                                <nav className="mt-3">
+                                  <ul className="pagination pagination-sm justify-content-end">
+                                    <li className={`page-item ${currentPageMotif === 1 ? 'disabled' : ''}`}>
+                                      <button className="page-link" onClick={() => setCurrentPageMotif(currentPageMotif - 1)}>Précédent</button>
+                                    </li>
+                                    {Array.from({ length: totalPages }).map((_, index) => (
+                                      <li key={index} className={`page-item ${currentPageMotif === index + 1 ? 'active' : ''}`}>
+                                        <button className="page-link" onClick={() => setCurrentPageMotif(index + 1)}>{index + 1}</button>
+                                      </li>
+                                    ))}
+                                    <li className={`page-item ${currentPageMotif === totalPages ? 'disabled' : ''}`}>
+                                      <button className="page-link" onClick={() => setCurrentPageMotif(currentPageMotif + 1)}>Suivant</button>
+                                    </li>
+                                  </ul>
+                                </nav>
+                              </>
+                            );
+                          })()
+                        )}
+                      </div>
+                    </div>
+
+
+
+
+                    </div>
 
 
                         </div>
@@ -685,9 +972,20 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
                             <input
                               type="date"
                               className="form-control"
-                              value={selectedDate}
-                              onChange={(e) => setSelectedDate(e.target.value)}
+                              value={dateDebut}
+                              onChange={(e) => setDateDebut(e.target.value)}
                             />
+                            
+                          </div>
+                          <div className="col-md-6">
+                            <label className="form-label">Date fin</label>
+                            <input
+                              type="date"
+                              className="form-control"
+                              value={dateFin}
+                              onChange={(e) => setDateFin(e.target.value)}
+                            />
+                            
                           </div>
                           <div className="col-md-6">
                             <label className="form-label">Numéro d'incorporation</label>
@@ -718,81 +1016,182 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
 
 
 
-                  {/* FIN SPA*/}
-                    {/* MODAL ICI – À L'EXTÉRIEUR DU DATATABLE */}
-                    {selectedRow && (
-                      <div className="modal-overlayy">
-                        <div className="modal-content">
-                          <h4>INFORMATION EVASAN</h4>
-                          <div className="modal-fields">
-                            <p><strong>Nom:</strong> {selectedRow.Eleve?.nom}</p>
-                            <p><strong>Prénom:</strong> {selectedRow.Eleve?.prenom}</p>
-                            <p><strong>Escadron:</strong> {selectedRow.Eleve?.escadron}</p>
-                            <p><strong>Peloton:</strong> {selectedRow.Eleve?.peloton}</p>
-                            <p><strong>Incorporation:</strong> {selectedRow.Eleve?.numeroIncorporation}</p>
-                            <p><strong>Date Départ:</strong> {selectedRow.dateDepart}</p>
-                            <p><strong>Date Arrivée:</strong> {selectedRow.dateArrive || "-"}</p>
-                            <p><strong>Service Médical:</strong> {selectedRow.service || "-"}</p>
-                            <p><strong>Référé:</strong> {selectedRow.refere}</p>
-                            <p><strong>Nom Cadre:</strong> {selectedRow.Cadre?.nom}</p>
-                            <p><strong>Téléphone Cadre:</strong> {selectedRow.phone}</p>
-                            <p><strong>Status:</strong> {selectedRow.status}</p>
-                          </div>
-                          <button className="btn btn-danger mt-3" onClick={closeModal}>Fermer</button>
-                        </div>
-                      </div>
-                    )}
-                   </div>
+                          {/* FIN SPA*/}
+                            {/* MODAL ICI – À L'EXTÉRIEUR DU DATATABLE */}
+                                         {selectedRow && (
+                                         <div className="modal-overlayy" onClick={closeModal} style={{
+                                          position: 'fixed',
+                                          top: 0, left: 0, right: 0, bottom: 0,
+                                          backgroundColor: 'rgba(0,0,0,0.5)',
+                                          display: 'flex',
+                                          justifyContent: 'center',
+                                          alignItems: 'center',
+                                          zIndex: 1050,
+                                        }}>
+                                          <div
+                                            className="modal-content"
+                                            onClick={e => e.stopPropagation()}
+                                            style={{
+                                              backgroundColor: 'white',
+                                              padding: '2rem',
+                                              borderRadius: '8px',
+                                              display: 'flex',
+                                              gap: '2rem',
+                                              maxWidth: '700px',
+                                              width: '90%',
+                                            }}
+                                          >
+                                            {/* Infos à gauche */}
+                                            <div style={{ flex: 1 }}>
+                                            <div style={{ flexBasis: '150px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                              {selectedRow.Eleve?.image ? (
+                                                <img
+                                                src={`${API_URL}${selectedRow.Eleve.image}`}
+                                          
+                                                  style={{
+                                                    width: '150px',
+                                                    height: '150px',
+                                                    borderRadius: '50%',
+                                                    objectFit: 'cover',
+                                                    border: '2px solid #666',
+                                                  }}
+                                                  onClick={() => setIsImageOpen(true)}
+                                                />
+                                              ) : (
+                                                <div
+                                                  style={{
+                                                    width: '150px',
+                                                    height: '150px',
+                                                    borderRadius: '50%',
+                                                    border: '2px solid #666',
+                                                    display: 'flex',
+                                                    justifyContent: 'center',
+                                                    alignItems: 'center',
+                                                    color: '#666',
+                                                    fontStyle: 'italic',
+                                                    textAlign: 'center',
+                                                    padding: '10px',
+                                                  }}
+                                                >
+                                                  Pas d'image disponible
+                                                </div>
+                                                
+                                                
+                                              )}
+                                              
+                                            </div>
+                                              <h4>INFORMATION EVASAN</h4>
+                                              <div className="modal-fields">
+                                                <p><strong>Nom:</strong> {selectedRow.Eleve?.nom}</p>
+                                                <p><strong>Prénom:</strong> {selectedRow.Eleve?.prenom}</p>
+                                                <p><strong>Escadron:</strong> {selectedRow.Eleve?.escadron}</p>
+                                                <p><strong>Peloton:</strong> {selectedRow.Eleve?.peloton}</p>
+                                                <p><strong>Incorporation:</strong> {selectedRow.Eleve?.numeroIncorporation}</p>
+                                                <p><strong>Date Départ:</strong> {selectedRow.dateDepart}</p>
+                                                <p><strong>Date Arrivée:</strong> {selectedRow.dateArrive || "-"}</p>
+                                                <p><strong>Service Médical:</strong> {selectedRow.service || "-"}</p>
+                                                <p><strong>Référé:</strong> {selectedRow.refere}</p>
+                                                <p><strong>Nom Cadre:</strong> {selectedRow.Cadre?.nom}</p>
+                                                <p><strong>Téléphone Cadre:</strong> {selectedRow.phone}</p>
+                                                <p><strong>Status:</strong> <span style={{ color: selectedRow.status === "EVASAN" ? "red" : "black", fontWeight: "bold" }}>{selectedRow.status}</span></p>
+                                              </div>
+                                              <button className="btn btn-danger mt-3" onClick={closeModal}>Fermer</button>
+                                            </div>
+                                               {isImageOpen && (
+                                            <div
+                                              onClick={() => setIsImageOpen(false)}
+                                              style={{
+                                                position: "fixed",
+                                                top: 0,
+                                                left: 0,
+                                                right: 0,
+                                                bottom: 0,
+                                                backgroundColor: "rgba(0,0,0,0.8)",
+                                                display: "flex",
+                                                justifyContent: "center",
+                                                alignItems: "center",
+                                                zIndex: 2000,
+                                                cursor: "zoom-out",
+                                              }}
+                                            >
+                                              <img
+                                                src={`${API_URL}${selectedRow.Eleve.image}`}
+                                                alt={`Photo agrandie de ${selectedRow.Eleve.nom}`}
+                                                style={{
+                                                  maxHeight: "90%",
+                                                  maxWidth: "90%",
+                                                  borderRadius: "10px",
+                                                  boxShadow: "0 0 15px #000",
+                                                }}
+                                              />
+                                            </div>
+                                          )}
+                                                                                
+
+                                            {/* Image à droite */}
+                                           
+                                          </div>
+                                          
+                                          </div>
+                                        
+                                        
+                                        
+                                      )}
+                                      
+
+                                </div>
+                                
                   
-    
-              </div>
-              
-              </div>
-              
-              
-            );
-          };
-          const customStyles = {
-            headCells: {
-              style: {
-                backgroundColor: "#0d6efd", // Bleu Bootstrap
-                color: "white",
-                fontWeight: "bold",
-                height:"40px",
-                fontSize: "16px",
-              },
-            },
-            rows: {
-              style: {
-                fontSize: "13px",
-                minHeight: "50px",
-              },
-            },
-            cells: {
-              style: {
-                padding: "px",
-              },
-            },
-            header: {
-              style: {
-                fontSize: "20px",
-                fontWeight: "bold",
-                padding: "10px",
-                color: "#0d6efd",
-              },
-            },
-            pagination: {
-              style: {
-                borderTop: "1px solid #ccc",
-                padding: "10px",
-              },
-            },
-            highlightOnHoverStyle: {
-              backgroundColor: "#f1f1f1",
-              borderBottomColor: "#cccccc",
-              outline: "1px solid #dddddd",
-            },
-          };
+                            </div>
+                            
+                            
+                            </div>
+                            
+                            
+                            
+                          );
+                        };
+                        const customStyles = {
+                          headCells: {
+                            style: {
+                              backgroundColor: "#0d6efd", // Bleu Bootstrap
+                              color: "white",
+                              fontWeight: "bold",
+                              height:"40px",
+                              fontSize: "16px",
+                            },
+                          },
+                          rows: {
+                            style: {
+                              fontSize: "13px",
+                              minHeight: "50px",
+                            },
+                          },
+                          cells: {
+                            style: {
+                              padding: "px",
+                            },
+                          },
+                          header: {
+                            style: {
+                              fontSize: "20px",
+                              fontWeight: "bold",
+                              padding: "10px",
+                              color: "#0d6efd",
+                            },
+                          },
+                          pagination: {
+                            style: {
+                              borderTop: "1px solid #ccc",
+                              padding: "10px",
+                            },
+                          },
+                          highlightOnHoverStyle: {
+                            backgroundColor: "#f1f1f1",
+                            borderBottomColor: "#cccccc",
+                            outline: "1px solid #dddddd",
+                          },
+                        };
 
 
 export default StatePage;
