@@ -194,17 +194,62 @@ const ElevePage = () => {
 
 
   // Fonction pour gérer l'importation de l'image
- const handleImageChange = (e) => {
-  const file = e.target.files[0];
-  if (file) {
-    setFormData({ ...formData, image: file }); // Stocke directement le fichier (pas en base64)
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result); // Pour prévisualiser l'image
-    };
-    reader.readAsDataURL(file);
-  }
-};
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+  
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const maxWidth = 500;
+          const maxHeight = 500;
+          let width = img.width;
+          let height = img.height;
+  
+          // Redimensionnement proportionnel
+          if (width > height) {
+            if (width > maxWidth) {
+              height *= maxWidth / width;
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width *= maxHeight / height;
+              height = maxHeight;
+            }
+          }
+  
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+  
+          // Choisir un type et une qualité selon l'extension
+          const isJPEG = file.type === 'image/jpeg' || file.type === 'image/jpg';
+          const mimeType = isJPEG ? 'image/jpeg' : 'image/png';
+          const quality = isJPEG ? 0.7 : 1.0; // compression pour JPEG
+  
+          canvas.toBlob((blob) => {
+            const resizedFile = new File([blob], file.name, {
+              type: mimeType,
+              lastModified: Date.now(),
+            });
+  
+            setFormData({ ...formData, image: resizedFile });
+            setImagePreview(URL.createObjectURL(resizedFile));
+          }, mimeType, quality);
+        };
+        img.src = event.target.result;
+      };
+  
+      reader.readAsDataURL(file);
+    } else {
+      alert('Veuillez sélectionner un fichier image valide (png, jpg, jpeg, webp)');
+    }
+  };
+  
 
   
   const handleChange = (e, index = null) => {

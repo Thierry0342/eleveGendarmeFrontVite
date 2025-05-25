@@ -392,8 +392,8 @@ const handleExportExcel = async () => {
   
 
   return (
-    <div className="container mt-5">
-     *
+    <div className="container mt-5" >
+     
      <h1 className="text-center fw-bold mb-4">
   <i className="fa fa-users me-2 text-primary"></i>
   Liste des Élèves Gendarmes
