@@ -623,26 +623,26 @@ const handleSave = async () => {
                 value={eleve.fady}
                 onChange={onChange}
               >
-                <option value="">Foko</option>
-                <option value="ANTAIFASY">Antaifasy</option>
-                <option value="Antaimoro">Antaimoro</option>
-                <option value="Antambahoaka">Antambahoaka</option>
-                <option value="Antandroy">Antandroy</option>
-                <option value="Antanosy">Antanosy</option>
-                <option value="Antikarana">Antakarana</option>
-                <option value="Bara">Bara</option>
-                <option value="Bezanozano">Bezanozano</option>
-                <option value="Betsileo">Betsileo</option>
-                <option value="Betsimisaraka">Betsimisaraka</option>
-                <option value="Masikoro">Masikoro</option>
-                <option value="Mahafaly">Mahafaly</option>
-                <option value="Merina">Merina</option>
-                <option value="Mikea">Mikea</option>
-                <option value="Sakalava">Sakalava</option>
-                <option value="Sihanaka">Sihanaka</option>
-                <option value="Tanala">Tanala</option>
-                <option value="Tsimihety">Tsimihety</option>
-                <option value="Vezo">Vezo</option>
+               <option value="">FOKO</option>
+                <option value="ANTAIFASY">ANTAIFASY</option>
+                <option value="ANTAIMORO">ANTAIMORO</option>
+                <option value="ANTAMBAHOAKA">ANTAMBAHOAKA</option>
+                <option value="ANTANDROY">ANTANDROY</option>
+                <option value="ANTANOSY">ANTANOSY</option>
+                <option value="ANTAKARANA">ANTAKARANA</option>
+                <option value="BARA">BARA</option>
+                <option value="BEZANOZANO">BEZANOZANO</option>
+                <option value="BETSILEO">BETSILEO</option>
+                <option value="BETSIMISARAKA">BETSIMISARAKA</option>
+                <option value="MAHAFALY">MAHAFALY</option>
+                <option value="MERINA">MERINA</option>
+                <option value="MIKEA">MIKEA</option>
+                <option value="SAKALAVA">SAKALAVA</option>
+                <option value="SIHANAKA">SIHANAKA</option>
+                <option value="TANALA">TANALA</option>
+                <option value="TSIMIHETY">TSIMIHETY</option>
+                <option value="VEZO">VEZO</option>
+
               </select>
             </div>
               </div>
