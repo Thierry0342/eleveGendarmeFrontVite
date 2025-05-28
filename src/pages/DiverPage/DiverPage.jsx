@@ -29,7 +29,7 @@ const DiverPage = () => {
   const ethnies = [
     "ANTAIFASY", "ANTAIMORO", "ANTAMBAHOAKA", "ANTANDROY", "ANTANOSY", "ANTAKARANA",
 "BARA", "BEZANOZANO", "BETSILEO", "BETSIMISARAKA", "MAHAFALY", "MERINA", 
-"MIKEA", "SAKALAVA", "SIHANAKA", "TANALA", "TSIMIHETY", "VEZO"
+"MIKEA", "SAKALAVA", "SIHANAKA", "TANALA", "TSIMIHETY", "VEZO","ANTESAKA","MASIKORO"
 
   ];
   
@@ -104,20 +104,27 @@ const DiverPage = () => {
   const filteredEleves = eleves.filter(e => {
     const age = dayjs().diff(dayjs(e.dateNaissance), 'year');
     const matchSpecialiste = filter.genreConcours !== 'specialiste' 
-    || (e.genreConcours === 'specialiste' && (!filter.specialiste || e.Specialiste === filter.specialiste));
-
+      || (e.genreConcours === 'specialiste' && (!filter.specialiste || e.Specialiste === filter.specialiste));
+  
+    const fadyMatch = filter.fady
+      ? filter.fady === 'AUTRES'
+        ? !ethnies.includes(e.fady?.toUpperCase())
+        : e.fady?.toUpperCase() === filter.fady
+      : true;
+  
     return (
       (filter.cour ? e.cour?.toString() === filter.cour : true) &&
       (filter.diplome ? e.niveau === filter.diplome : true) &&
       (filter.religion ? e.religion === filter.religion : true) &&
-      (filter.fady ? e.fady === filter.fady : true) && 
+      fadyMatch &&
       (filter.ageRange ? age >= filter.ageRange.min && age <= filter.ageRange.max : true) &&
       (filter.genreConcours ? e.genreConcours === filter.genreConcours : true) &&
-      // Si un type de spécialité est sélectionné, on le filtre (ex: Informatique), sinon on ignore
       (filter.Specialiste ? e.Specialiste === filter.Specialiste : true) &&
       matchSpecialiste
     );
   });
+  
+  
   
   //age 
   // Traitement des âges
@@ -648,30 +655,53 @@ const exportPDF = () => {
 <h5 className="mt-5 fw-bold text-primary text-uppercase">Filtrer par Foko</h5>
 
 <div className="d-flex justify-content-center flex-wrap gap-3 mt-4">
-  {ethnies.map((foko) => {
-    const isActive = filter.fady === foko;
-    const count = eleves.filter(e =>
-      e.fady === foko &&
-      (!filter.diplome || e.niveau === filter.diplome) &&
-      (!filter.cour || e.cour?.toString() === filter.cour) &&
-      (!filter.religion || e.religion === filter.religion)
-    ).length;
+{ethnies.map((foko) => {
+  const isActive = filter.fady === foko;
+  const count = eleves.filter(e =>
+    e.fady?.toUpperCase() === foko &&
+    (!filter.diplome || e.niveau === filter.diplome) &&
+    (!filter.cour || e.cour?.toString() === filter.cour) &&
+    (!filter.religion || e.religion === filter.religion)
+  ).length;
 
-    return (
-      <div
-        key={foko}
-        className={`card text-center shadow-sm border-0 ${isActive ? 'bg-success-subtle border-success' : 'bg-white'}`}
-        style={{ cursor: 'pointer', width: '160px', transition: 'all 0.3s' }}
-        onClick={() => setFilter({ ...filter, fady: foko })}
-      >
-        <div className="card-body p-3">
-          <h6 className="fw-semibold mb-1">{foko}</h6>
-          <p className="text-muted small mb-0">{count} élève(s)</p>
-        </div>
+  return (
+    <div
+      key={foko}
+      className={`card text-center shadow-sm border-0 ${isActive ? 'bg-success-subtle border-success' : 'bg-white'}`}
+      style={{ cursor: 'pointer', width: '160px', transition: 'all 0.3s' }}
+      onClick={() => setFilter({ ...filter, fady: foko })}
+    >
+      <div className="card-body p-3">
+        <h6 className="fw-semibold mb-1">{foko}</h6>
+        <p className="text-muted small mb-0">{count} élève(s)</p>
       </div>
-    );
-  })}
+    </div>
+  );
+})}
 
+{/* Carte pour afficher les élèves dont le fady N'EST PAS dans la liste ethnies */}
+<div
+  className={`card text-center shadow-sm border-0 ${filter.fady === 'AUTRES' ? 'bg-success-subtle border-success' : 'bg-light'}`}
+  style={{ cursor: 'pointer', width: '160px', transition: 'all 0.3s' }}
+  onClick={() => setFilter({ ...filter, fady: 'AUTRES' })}
+>
+  <div className="card-body p-3">
+    <h6 className="fw-semibold mb-1">AUTRES</h6>
+    <p className="text-muted small mb-0">
+      {
+        eleves.filter(e =>
+          !ethnies.includes(e.fady?.toUpperCase()) &&
+          (!filter.diplome || e.niveau === filter.diplome) &&
+          (!filter.cour || e.cour?.toString() === filter.cour) &&
+          (!filter.religion || e.religion === filter.religion)
+        ).length
+      } élève(s)
+    </p>
+  </div>
+</div>
+
+
+  {/* Carte TOUT AFFICHER */}
   <div
     className="card text-center shadow-sm border-0 bg-light"
     style={{ cursor: 'pointer', width: '160px', transition: 'all 0.3s' }}
@@ -689,6 +719,7 @@ const exportPDF = () => {
     </div>
   </div>
 </div>
+
 
 
 
