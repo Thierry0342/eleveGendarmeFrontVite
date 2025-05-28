@@ -516,7 +516,10 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
                         filteredJoursParEleve.map((item, index) => (
                             <tr key={index}>
                                 <td>{item.nom}</td>
-                                <td><strong>{item.jours}</strong> jour(s)</td>
+                                <td style={{ color: item.jours > 40 ? 'red' : 'black' }}>
+                                  <strong>{item.jours}</strong> jour(s)
+                                </td>
+
                             </tr>
                         ))
                     )}
@@ -615,7 +618,14 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
                                                 <strong>{nom} {prenom}</strong><br />
                                                 <small className="text-muted">ID: {item.id}</small>
                                             </div>
-                                            <span className="badge bg-primary rounded-pill"   style={{ cursor: 'pointer' }}  onClick={() => handleBadgeClick(item)} >{item.jours} jour(s)</span>
+                                            <span
+                                            className={`badge rounded-pill ${item.jours > 40 ? 'bg-danger' : 'bg-primary'}`}
+                                            style={{ cursor: 'pointer' }}
+                                            onClick={() => handleBadgeClick(item)}
+                                          >
+                                            {item.jours} jour(s)
+                                          </span>
+
                                         </li>
                                     );
                                 })}

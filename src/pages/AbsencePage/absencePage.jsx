@@ -16,6 +16,7 @@ const user = JSON.parse(localStorage.getItem('user'));
 
 
 
+
   const SaisieAbsence = () => {
 
   const [incorporation, setIncorporation] = useState('');
@@ -674,6 +675,7 @@ const handleMotifChange = (e) => {
       'CONFINES EN CHAMBRE',
       'GARDE MALADE IG',
       'DONNEUR DE SANG',
+      'SALLE DE POLICE'
     ];
     const isIndisponible = (motif) => {
       if (!motif) return false;
@@ -839,7 +841,8 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
       "REPOS SANITAIRE",
       "CONFINES EN CHAMBRE",
       "GARDE MALADE IG",
-      "DONNEUR DE SANG"
+      "DONNEUR DE SANG",
+      "SALLE DE POLICE"
     ];
   
     const isIndisponible = (motif) => {
@@ -1090,6 +1093,7 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                           <option value="DONNEUR DE SANG">DONNEUR DE SANG</option>
                           <option value="CONFINES EN CHAMBRE">CONFINES EN CHAMBRE</option>
                           <option value="ADMIS CLINIC MANIA">ADMIS CLINIC MANIA</option>
+                          <option value="SALLE DE POLICE">SALLE DE POLICE</option>
                           <option value="AD COM DLI">AD COM DLI</option>
                           <option value="AD COM DQG SPORT">AD COM DQG SPORT</option>
                           <option value="PERMISSION">PERMISSION</option>
@@ -1104,6 +1108,7 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                           <option value="AD CEGN">AD CEGN</option>
                           <option value="TOBY FANDRIANA">TOBY FANDRIANA</option>
                           <option value="DEFILE TANA">DEFILE TANA</option>
+                          
                           <option value="DEFILE AMBOSITRA">DEFILE AMBOSITRA</option>
                           <option value="S.O">S.O</option>
                           <option value="AUTRE">Autre...</option>
@@ -1284,7 +1289,7 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                                               ⚔️ Situation de Prise d'Arme (SPA)
                                             </button>
                                       
-                                            {user?.type !== 'user' && (
+                                            {(user?.type !== 'user' && user?.type !== 'spa' )&&  (
                                             <button
                                               className="btn btn-outline-success w-100 w-md-auto"
                                               onClick={() => setShowSpaSpecialeModal(true)}
