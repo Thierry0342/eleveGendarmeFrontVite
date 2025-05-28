@@ -624,7 +624,7 @@ const handleSave = async () => {
                 onChange={onChange}
               >
                 <option value="">Foko</option>
-                <option value="Antaifasy">Antaifasy</option>
+                <option value="ANTAIFASY">Antaifasy</option>
                 <option value="Antaimoro">Antaimoro</option>
                 <option value="Antambahoaka">Antambahoaka</option>
                 <option value="Antandroy">Antandroy</option>
@@ -634,6 +634,7 @@ const handleSave = async () => {
                 <option value="Bezanozano">Bezanozano</option>
                 <option value="Betsileo">Betsileo</option>
                 <option value="Betsimisaraka">Betsimisaraka</option>
+                <option value="Masikoro">Masikoro</option>
                 <option value="Mahafaly">Mahafaly</option>
                 <option value="Merina">Merina</option>
                 <option value="Mikea">Mikea</option>

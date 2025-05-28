@@ -27,9 +27,10 @@ const DiverPage = () => {
     'BACC +8'
   ];
   const ethnies = [
-    "Antaifasy", "Antaimoro", "Antambahoaka", "Antandroy", "Antanosy", "Antakarana",
-    "Bara", "Bezanozano", "Betsileo", "Betsimisaraka", "Mahafaly", "Merina", 
-    "Mikea", "Sakalava", "Sihanaka", "Tanala", "Tsimihety", "Vezo"
+    "ANTAIFASY", "ANTAIMORO", "ANTAMBAHOAKA", "ANTANDROY", "ANTANOSY", "ANTAKARANA",
+"BARA", "BEZANOZANO", "BETSILEO", "BETSIMISARAKA", "MAHAFALY", "MERINA", 
+"MIKEA", "SAKALAVA", "SIHANAKA", "TANALA", "TSIMIHETY", "VEZO"
+
   ];
   
   const genresConcours = ['ordinaire', 'specialiste', 'veuve', 'orphelin', 'ex-militaire'];
