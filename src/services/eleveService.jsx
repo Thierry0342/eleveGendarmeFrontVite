@@ -6,6 +6,9 @@ class EleveService  {
     get(){
         return axios.get(API_URL + "/api/eleve");
     }
+    getPaginated(limit = 500, offset = 0){
+        return axios.get(`${API_URL}/api/eleve?limit=${limit}&offset=${offset}`);
+    }
    
     post(data){
         return axiosInstance.post(API_URL + "/api/eleve", data,);

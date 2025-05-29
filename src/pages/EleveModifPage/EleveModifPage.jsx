@@ -344,7 +344,7 @@ const handleSave = async () => {
     }
 
     // Appel du service avec les bonnes données
-    //console.log("FormData avant envoi : ", formDataToSend);
+    console.log("FormData avant envoi : ", formDataToSend);
     const response = await eleveService.put(eleve.id, formDataToSend);
     onClose();
     

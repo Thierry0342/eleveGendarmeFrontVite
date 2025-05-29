@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState,useRef } from 'react';
 import EleveService from '../../services/eleveService'; // 
 import NoteService from '../../services/note-service'; // ajuste le chemin selon ton projet
 
@@ -10,6 +10,8 @@ import courService from '../../services/courService';
 const user = JSON.parse(localStorage.getItem('user'));
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import ProgressBar from 'react-bootstrap/ProgressBar';
+
 
 
 
@@ -32,6 +34,10 @@ const ListeElevePge = () => {
     rangfinstage:'',
 
   });
+  
+  const [isLoading, setIsLoading] = useState(true);
+ const [progress, setProgress] = useState(0);
+ const isFirstLoad = useRef(true)
   
   const handleOpenNoteModal = (eleve) => {
     setSelectedEleve(eleve);
@@ -166,25 +172,46 @@ const ListeElevePge = () => {
   
 // maka donne rehetra
 useEffect(() => {
-  const intervalId = setInterval(() => {
-    EleveService.get()
-      .then(response => {
-        if (Array.isArray(response.data)) {
-          setEleves(response.data);
-          console.log("Données mises à jour :", response.data); // Affiche les nouvelles données dans la console
-        } else {
-          console.error("Données inattendues :", response.data);
-        }
-      })
-      .catch(error => {
-        console.error("Erreur lors du chargement des élèves :", error);
-      });
-  }, 1000); // Appeler toutes les 1 secondes (1000 ms)
+  let allEleves = [];
+  let currentOffset = 0;
+  const limit = 500;
 
-  // Nettoyer l'intervalle lorsque le composant est démonté
+  const fetchAllData = async () => {
+    if (isFirstLoad.current) setIsLoading(true);
+
+    allEleves = [];
+    currentOffset = 0;
+
+    try {
+      while (true) {
+        const response = await EleveService.getPaginated(limit, currentOffset);
+        const data = response.data;
+
+        if (!Array.isArray(data) || data.length === 0) break;
+
+        allEleves = [...allEleves, ...data];
+        currentOffset += limit;
+
+        if (data.length < limit) break;
+      }
+
+      setEleves(allEleves);
+    } catch (error) {
+      console.error("Erreur de chargement :", error);
+    } finally {
+      if (isFirstLoad.current) {
+        setIsLoading(false);
+        isFirstLoad.current = false; // ne plus afficher le loader après la 1ère fois
+      }
+    }
+  };
+
+  fetchAllData(); // 1er appel
+
+  const intervalId = setInterval(fetchAllData, 3000); // tous les 5 sec
   return () => clearInterval(intervalId);
+}, []);
 
-}, []); // L'effet s'exécute une seule fois au montage du composant
 
   const handleOpenModal = (eleve) => {
     setEleveActif(eleve);
@@ -502,28 +529,38 @@ const handleExportExcel = async () => {
 
             </div>
 
-            <DataTable
-              columns={columns}
-              data={elevesAAfficher}
-              pagination
-              paginationPerPage={50}
-              paginationRowsPerPageOptions={[50, 100]}
-              highlightOnHover
-              striped
-              noDataComponent="Aucun élève à afficher"
-              customStyles={customStyles}
-            />
-           {noteModalOpen && (
-            <div className="modal-overlay">
-              <div
-                className="modal-content"
-                style={{
-                  maxWidth: '600px',
-                  background: 'white',
-                  borderRadius: '10px',
-                  padding: '20px',
-                  position: 'relative',
-                }}
+            <div>
+   
+
+              {isLoading ? (
+                <div className="text-center my-4">
+                  <ProgressBar now={60} label="Chargement..." animated striped />
+                </div>
+              ) : (
+                <DataTable
+                  columns={columns}
+                  data={elevesAAfficher}
+                  pagination
+                  paginationPerPage={50}
+                  paginationRowsPerPageOptions={[50, 100]}
+                  highlightOnHover
+                  striped
+                  noDataComponent="Aucun élève à afficher"
+                  customStyles={customStyles}
+                />
+              )}
+                  </div>
+                        {noteModalOpen && (
+                          <div className="modal-overlay">
+                            <div
+                              className="modal-content"
+                              style={{
+                                maxWidth: '600px',
+                                background: 'white',
+                                borderRadius: '10px',
+                                padding: '20px',
+                                position: 'relative',
+                              }}
               >
                 <button className="modal-close-btn" onClick={handleCloseNoteModal}>
                   ×

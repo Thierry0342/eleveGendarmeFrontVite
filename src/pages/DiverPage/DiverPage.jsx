@@ -60,18 +60,40 @@ const DiverPage = () => {
   }, []);
 
   useEffect(() => {
-    EleveService.get()
-      .then(response => {
-        if (Array.isArray(response.data)) {
-          setEleves(response.data);
-        } else {
-          console.error("Données inattendues :", response.data);
+    let isMounted = true;
+    const limit = 500;
+    let currentOffset = 0;
+    let allEleves = [];
+  
+    const fetchAllEleves = async () => {
+      try {
+        while (true) {
+          const response = await EleveService.getPaginated(limit, currentOffset);
+          const data = response.data;
+  
+          if (!Array.isArray(data) || data.length === 0) break;
+  
+          allEleves = [...allEleves, ...data];
+          currentOffset += limit;
+  
+          if (data.length < limit) break; // dernier lot atteint
         }
-      })
-      .catch(error => {
+  
+        if (isMounted) {
+          setEleves(allEleves);
+        }
+      } catch (error) {
         console.error("Erreur lors du chargement des élèves :", error);
-      });
+      }
+    };
+  
+    fetchAllEleves();
+  
+    return () => {
+      isMounted = false;
+    };
   }, []);
+  
 
   //get pointure 
   useEffect(() => {
