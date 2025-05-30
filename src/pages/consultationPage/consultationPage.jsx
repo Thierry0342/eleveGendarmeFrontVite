@@ -28,7 +28,8 @@ import { saveAs } from "file-saver";
   const [eleveData, setEleveData] = useState({});
   const [cadres, setCadres] = useState([]);
   const [formData, setFormData] = useState({
-    status:"EVASAN"
+    status:"EVASAN",
+    phone: ''
     
   });
   //Modal 
@@ -42,6 +43,15 @@ import { saveAs } from "file-saver";
     //console.log(selectedConsultation)
     setShowModal(true);
   };
+  //mametaka autom num cadre 
+  useEffect(() => {
+    if (cadres) {
+      setFormData((prev) => ({
+        ...prev,
+        phone: cadres.phone || ''
+      }));
+    }
+  }, [cadres]); // Ce useEffect se déclenche lorsque cadres change
 
  
   //fin 

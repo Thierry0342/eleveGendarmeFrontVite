@@ -13,7 +13,7 @@ import { fr } from "date-fns/locale";
 import { format } from 'date-fns';
 import './style.css'
 const user = JSON.parse(localStorage.getItem('user'));
-
+import { Modal, Button } from 'react-bootstrap';
 
 
 
@@ -47,23 +47,93 @@ const user = JSON.parse(localStorage.getItem('user'));
   const [autreMotif, setAutreMotif] = useState("");
   const [typeMotif, setTypeMotif] = useState("");
   const [showOptions, setShowOptions] = useState(false);
- 
-  const handleExportPDF = () => {
-    Swal.fire({
-      title: 'Choisissez le format d\'impression',
-      showDenyButton: true,
-      showCancelButton: true,
-      confirmButtonText: '📄 PDF Simple',
-      denyButtonText: '📻 Message Radio',
-      cancelButtonText: 'Annuler',
-    }).then((result) => {
-      if (result.isConfirmed) {
-       handleExportPDFSimple();
-      } else if (result.isDenied) {
-        handleExportPDFNarratif();
-      }
+  //modif en bas de page sur pdf 
+   
+
+   const [footerLines, setFooterLines] = useState({
+
+      line1: `NR   EGNA/2-DI/C-A Ambositra, le_${spaDate}`,
+      line2: "Le chef d'escadron, Donatiens RAYMOND",
+      line3: "Commandant du cours A de formation des élèves gendarmes",
     });
+    //utile pour temporaire 
+    const [absencesTemporaires, setAbsencesTemporaires] = useState([]);
+    // État pour contrôler l'ouverture du modal
+     const [showModale, setShowModale] = useState(false);
+// Ouvre/ferme le modal
+   const handleOpenModal = () => setShowModale(true);
+   const handleCloseModal = () => setShowModale(false);
+   //sup modal temporaire 
+   const handleSupprimerTemporaire = (index) => {
+    const nouvelleListe = [...absencesTemporaires];
+    nouvelleListe.splice(index, 1);
+    setAbsencesTemporaires(nouvelleListe);
   };
+  //regroup motif tempraire 
+   // Regroupe les absences par motif
+   const absencesParMotif = absencesTemporaires.reduce((groups, absence) => {
+    const key = absence.motif || 'Sans motif';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(absence);
+    return groups;
+  }, {});
+  
+ 
+    const handleExportPDF = () => {
+      Swal.fire({
+        title: 'Choisissez le format d\'impression',
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonText: '📄 PDF Simple',
+        denyButtonText: '📻 Message Radio',
+        cancelButtonText: 'Annuler',
+      }).then((result) => {
+        if (result.isConfirmed) {
+          // Avant de lancer le PDF simple, demander si on veut modifier les lignes
+          Swal.fire({
+            title: 'Modifier le pied du document ?',
+            text: "Souhaitez-vous modifier les lignes de signature ?",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Oui',
+            cancelButtonText: 'Non',
+          }).then((res) => {
+            if (res.isConfirmed) {
+              // Afficher les champs à modifier
+              Swal.fire({
+                title: 'Modifier le pied',
+                html: `
+                  <input id="line1" class="swal2-input" value="${footerLines.line1}" placeholder="Ligne 1">
+                  <input id="line2" class="swal2-input" value="${footerLines.line2}" placeholder="Ligne 2">
+                  <input id="line3" class="swal2-input" value="${footerLines.line3}" placeholder="Ligne 3">
+
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                preConfirm: () => {
+                  const line1 = document.getElementById('line1').value;
+                  const line2 = document.getElementById('line2').value;
+                  const line3 = document.getElementById('line3').value;
+                    return { line1, line2, line3 }; // 
+                }
+              }).then((swalResult) => {
+                if (swalResult.isConfirmed && swalResult.value) {
+                  const { line1, line2, line3 } = swalResult.value;
+                  setFooterLines({ line1, line2, line3 }); // facultatif si tu veux garder l'état global
+                  handleExportPDFSimple({ line1, line2, line3 }); // <-- passer les valeurs ici
+                }
+              });
+            } else {
+              handleExportPDFSimple(); // sans modification
+            }
+          });
+    
+        } else if (result.isDenied) {
+          handleExportPDFNarratif();
+        }
+      });
+    };
+    
 
 
 
@@ -239,14 +309,10 @@ const user = JSON.parse(localStorage.getItem('user'));
   //ajout absence 
   const handleSubmit = (e) => {
     e.preventDefault();
-  //console.log("******id ve",eleveData?.eleve?.id);
-  //console.log("******id ve",absences.eleveId);
-    // Vérifie s'il existe déjà une absence avec la même date et le même élève
-    const absenceExistante = absences.some(abs => {
+  
+    const absenceExistante = [...listeAbsence, ...absencesTemporaires].some(abs => {
       const sameDate = new Date(abs.date).toISOString().split('T')[0] === new Date(date).toISOString().split('T')[0];
-      
       const sameEleve = abs.eleveId === eleveData?.eleve?.id;
-      
       return sameDate && sameEleve;
     });
     
@@ -261,58 +327,83 @@ const user = JSON.parse(localStorage.getItem('user'));
         timer: 3000,
         timerProgressBar: true,
       });
-      return; // Ne pas continuer si déjà existant
+      return;
     }
+  
     const finalMotif = motif === "AUTRE" 
-    ? `${autreMotif} (${typeMotif})` 
-    : motif;
+      ? `${autreMotif} (${typeMotif})` 
+      : motif;
+  
+    const dataToAdd = {
+      eleveId: eleveData.eleve.id,
+      date,
+      motif: finalMotif,
+      nom: eleveData.eleve.nom, // utile pour l'affichage
+      prenom: eleveData.eleve.prenom,
+      escadron: eleveData.eleve.escadron,
+      peloton: eleveData.eleve.peloton,
+      numeroIncorporation:eleveData.eleve.numeroIncorporation,
+      
+    }
+  
+    setAbsencesTemporaires(prev => [...prev, dataToAdd]);
+    setIncorporation('');
   
     Swal.fire({
-      title: 'Confirmer l\'enregistrement',
-      text: 'Voulez-vous enregistrer cette absence ?',
+      toast: true,
+      position: 'top-end',
+      icon: 'success',
+      title: 'Absence ajoutée temporairement.',
+      showConfirmButton: false,
+      timer: 2000,
+      timerProgressBar: true,
+    });
+  };
+  //envoie tous 
+  const handleEnvoyerTout = () => {
+    if (absencesTemporaires.length === 0) return;
+  
+    Swal.fire({
+      title: 'Confirmer l\'envoi',
+      text: `Voulez-vous enregistrer les ${absencesTemporaires.length} absences ?`,
       icon: 'question',
       showCancelButton: true,
       confirmButtonText: 'Oui, enregistrer',
-      cancelButtonText: 'Annuler',
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33'
+      cancelButtonText: 'Annuler'
     }).then((result) => {
       if (result.isConfirmed) {
-        const dataToSend = {
-          
-          eleveId: eleveData.eleve.id,
-          date,
-          motif:finalMotif
-        };
-  
-        absenceService.post(dataToSend)
-          .then(response => {
-            console.log('Absence enregistrée avec succès:', response.data);
-            setAbsences([...absences, response.data]);
-            setIncorporation('');
-  
+        Promise.all(absencesTemporaires.map(abs =>
+          absenceService.post(abs)
+        ))
+          .then(results => {
             Swal.fire({
               toast: true,
               position: 'top-end',
               icon: 'success',
-              title: 'L\'absence a été enregistrée.',
+              title: 'Toutes les absences ont été enregistrées.',
               showConfirmButton: false,
               timer: 3000,
-              timerProgressBar: true,
             });
+            setAbsencesTemporaires([]);
+            absenceService.getAll()
+              .then(res => setListeAbsence(res.data))
+              .catch(err => console.error("Erreur lors de la mise à jour :", err));
           })
           .catch(error => {
-            console.error('Erreur lors de l\'enregistrement de l\'absence:', error);
+            console.error("Erreur lors de l'enregistrement en masse :", error);
             Swal.fire({
               icon: 'error',
               title: 'Erreur',
-              text: 'Une erreur est survenue lors de l\'enregistrement.',
-              confirmButtonColor: '#d33',
+              text: 'Un problème est survenu lors de l\'enregistrement.',
             });
           });
       }
+      
+      
     });
   };
+  
+  
   
  //date aujourdhui
 useEffect(() => {
@@ -459,7 +550,7 @@ const handleMotifChange = (e) => {
   // -----------------------------------------------
   ///En pdf 
 
-  const handleExportPDFSimple =()=>{
+  const handleExportPDFSimple = (footer = footerLines) => {
     try {
       const doc = new jsPDF({ format: "a4" });
       const pageWidth = doc.internal.pageSize.getWidth();
@@ -624,9 +715,10 @@ const handleMotifChange = (e) => {
       doc.text("(EGNA/SAF)", 45, finalY + 67);
   
       doc.text("- Aux archives,", 7, finalY + 71);
-      doc.text(`NR        EGNA/2-DI/C-A Ambositra,le ${formattedDate} `,120 ,finalY+7);
-      doc.text("Le chef d'escadron,Donatiens RAYMOND",130,finalY+17)
-      doc.text("Commandant du cours A de formation des élèves gendarmes",114,finalY+23)
+      doc.text(footerLines.line1, 120, finalY + 7);
+      doc.text(footerLines.line2, 130, finalY + 17);
+      doc.text(footerLines.line3, 114, finalY + 23);
+
   
       // Sauvegarde du PDF
       doc.save(`SPA DU_${spaDate}.pdf`);
@@ -979,7 +1071,8 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                   </label>
                   <select
                     id="cour2"
-                    className="form-select border-0 shadow-sm"
+                    className="form-select border border-secondary shadow-sm"
+
                     value={cour2}
                     onChange={(e) => setCour2(e.target.value)}
                     required
@@ -1000,7 +1093,8 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                   <input
                     id="incorporation"
                     type="text"
-                    className="form-control border-0 shadow-sm"
+                    className="form-select border border-secondary shadow-sm"
+
                     value={incorporation}
                     onChange={(e) => setIncorporation(e.target.value)}
                     required
@@ -1161,8 +1255,15 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                           >
                             <i className="fas fa-save me-2"></i>Enregistrer Absence
                           </button>
-                        </div>
-                      )}
+                          <br></br>
+                          <br></br>
+                                   {absencesTemporaires.length > 0 && (
+                                          <Button variant="warning" onClick={handleOpenModal}>
+                                            Voir absences en attente ({absencesTemporaires.length})
+                                          </Button>
+                                        )}
+                            </div>
+                            )}
                                         </>
                                       )}
                                     </form>
@@ -1581,11 +1682,79 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                                             
                                           </div>
                                         )}
+                                       
+                                        
+
+    
+
 
 
 
                                         </div>
                                       </div>
+                                      <Modal show={showModale} onHide={handleCloseModal} size="xl" centered>
+                                      <Modal.Header closeButton>
+                                        <Modal.Title>Absences en attente d’envoi</Modal.Title>
+                                      </Modal.Header>
+                                      <Modal.Body>
+                                        <div style={{ display: 'flex', gap: '20px', overflowX: 'auto', paddingBottom: '10px' }}>
+                                          {Object.entries(absencesParMotif).map(([motif, absences]) => (
+                                            <div 
+                                              key={motif} 
+                                              style={{ 
+                                                minWidth: '250px', 
+                                                border: '1px solid #ddd', 
+                                                borderRadius: '5px', 
+                                                padding: '10px', 
+                                                backgroundColor: '#f9f9f9' 
+                                              }}
+                                            >
+                                              <h5 style={{ borderBottom: '1px solid #ccc', paddingBottom: '5px' }}>
+                                                {motif} ({absences.length})
+                                              </h5>
+                                              <ul className="list-group" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                                                {absences.map((a, idx) => (
+                                                  <li
+                                                    key={idx}
+                                                    className="list-group-item d-flex justify-content-between align-items-center"
+                                                    style={{ padding: '5px 10px' }}
+                                                  >
+                                                    <div style={{ fontSize: '1em' }}>
+                                                      <strong>{a.numeroIncorporation} {a.escadron}{"/"}{a.peloton}</strong> {a.nom} {a.prenom} <br />
+                                                      <small>{new Date(a.date).toLocaleDateString()}</small>
+                                                    </div>
+                                                    <button
+                                                      className="btn btn-sm btn-danger"
+                                                      onClick={() => handleSupprimerTemporaire(a)}
+                                                      style={{ height: '30px', padding: '0 8px' }}
+                                                    >
+                                                      ×
+                                                    </button>
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </Modal.Body>
+
+                                      <Modal.Footer>
+                                        <Button variant="secondary" onClick={handleCloseModal}>
+                                          Fermer
+                                        </Button>
+                                        <Button
+                                          variant="success"
+                                          onClick={() => {
+                                            handleEnvoyerTout();
+                                            handleCloseModal();
+                                          }}
+                                          disabled={absencesTemporaires.length === 0}
+                                        >
+                                          Enregistrer tout
+                                        </Button>
+                                      </Modal.Footer>
+                                    </Modal>
+
                                       {showModal && (
                                         <>
                                           {/* Overlay backdrop */}

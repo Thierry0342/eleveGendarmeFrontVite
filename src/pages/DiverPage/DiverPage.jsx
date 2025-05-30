@@ -126,7 +126,7 @@ const DiverPage = () => {
   const filteredEleves = eleves.filter(e => {
     const age = dayjs().diff(dayjs(e.dateNaissance), 'year');
     const matchSpecialiste = filter.genreConcours !== 'specialiste' 
-      || (e.genreConcours === 'specialiste' && (!filter.specialiste || e.Specialiste === filter.specialiste));
+      || (e.genreConcours === 'specialiste' && (!filter.Specialiste || e.Specialiste === filter.Specialiste));
   
     const fadyMatch = filter.fady
       ? filter.fady === 'AUTRES'
