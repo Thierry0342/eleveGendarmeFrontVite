@@ -575,7 +575,7 @@ const handleMotifChange = (e) => {
       const formattedDate = format(new Date(spaDate), "d MMMM yyyy", { locale: fr });
 
 // Capitaliser la première lettre du mois (ex : "mai" -> "Mai")
-     const capitalizedDate = formattedDate.replace(/\b\p{L}/u, c => c.toUpperCase());
+     const capitalizedDate = formattedDate.replace(/\b\p{L}/u, c => c.toLowerCase());
   
       // Entête
       doc.setFontSize(10);
