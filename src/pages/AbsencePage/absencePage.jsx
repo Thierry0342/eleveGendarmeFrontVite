@@ -809,7 +809,10 @@ const handleMotifChange = (e) => {
       'CONFINES EN CHAMBRE',
       'GARDE MALADE IG',
       'DONNEUR DE SANG',
-      'SALLE DE POLICE'
+      'SALLE DE POLICE',
+      'A REVOIR CHRR',
+      'A REVOIR CLINIC MANIA'
+
     ];
     const isIndisponible = (motif) => {
       if (!motif) return false;
@@ -881,7 +884,8 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
       const eleve = abs.Eleve;
       const nom = eleve?.nom?.toUpperCase() || 'INCONNU';
       const numero = eleve?.numeroIncorporation || 'N/A';
-      content += `${(i + 1).toString().padStart(2, '0')} / ${nom} NR ${numero} -  `;
+      const prenom = eleve?.prenom || 'N/A';
+      content += `${(i + 1).toString().padStart(2, '0')} /EG ${nom} ${prenom} NR ${numero} -  `;
     });
 
     indexSectionAbsent++;
