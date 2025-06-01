@@ -40,19 +40,22 @@ import { Modal, Button } from 'react-bootstrap';
   const [totalA,setTotalA] = useState(0);
   const [spaNumber, setSpaNumber] = useState(1499); // Valeur par défaut
   const [showSpaSpecialeModal, setShowSpaSpecialeModal] = useState(false);
-  const [newSpaSpeciale, setNewSpaSpeciale] = useState({ motif: '', nombre: '', date: '' });
+  const [newSpaSpeciale, setNewSpaSpeciale] = useState({ motif: '', nombre: '', date:'' });
   //motif autre 
   const [incorporationSPA, setIncorporationSPA] = useState('');
   const [eleveSPAInfo, setEleveSPAInfo] = useState(null);
   const [autreMotif, setAutreMotif] = useState("");
   const [typeMotif, setTypeMotif] = useState("");
   const [showOptions, setShowOptions] = useState(false);
+  //temp speciale 
+  const [spaSpecialeTempList, setSpaSpecialeTempList] = useState([]);
+
   //modif en bas de page sur pdf 
    
 
    const [footerLines, setFooterLines] = useState({
 
-      line1: `NR   EGNA/2-DI/C-A Ambositra, le_${spaDate}`,
+      line1: `NR   EGNA/2-DI/C-A Ambositra, le ${spaDate}`,
       line2: "Le chef d'escadron, Donatiens RAYMOND",
       line3: "Commandant du cours A de formation des élèves gendarmes",
     });
@@ -64,11 +67,20 @@ import { Modal, Button } from 'react-bootstrap';
    const handleOpenModal = () => setShowModale(true);
    const handleCloseModal = () => setShowModale(false);
    //sup modal temporaire 
-   const handleSupprimerTemporaire = (index) => {
-    const nouvelleListe = [...absencesTemporaires];
-    nouvelleListe.splice(index, 1);
+   const handleSupprimerTemporaire = (absenceASupprimer) => {
+    const nouvelleListe = absencesTemporaires.filter(
+      (a) =>
+        !(
+          a.numeroIncorporation === absenceASupprimer.numeroIncorporation &&
+          a.nom === absenceASupprimer.nom &&
+          a.prenom === absenceASupprimer.prenom &&
+          a.date === absenceASupprimer.date
+        )
+    );
+  
     setAbsencesTemporaires(nouvelleListe);
   };
+  
   //regroup motif tempraire 
    // Regroupe les absences par motif
    const absencesParMotif = absencesTemporaires.reduce((groups, absence) => {
@@ -412,6 +424,8 @@ useEffect(() => {
       setDate(response.data.today);
       setFilter((prev) => ({ ...prev, date: response.data.today }));
       setSpaDate(response.data.today);
+         // Met à jour newSpaSpeciale avec la date récupérée
+         setNewSpaSpeciale(prev => ({ ...prev, date: response.data.today }));
     })
     .catch(error => {
       console.error("Erreur lors de la récupération de la date serveur :", error);
@@ -469,7 +483,7 @@ useEffect(() => {
   }, {});
   //ppour SPA 
   const handleAfficherIndispo = () => {
-    const motifsI =["IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG"];
+    const motifsI =["IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG","A REVOIR CHRR","A REVOIR CLINIC MANIA"];
     // ISO pour comparaison de dates
   const spaDateISO = new Date(spaDate).toISOString().slice(0, 10);
 
@@ -527,7 +541,7 @@ useEffect(() => {
     return matchDate && matchCour;
   });
   
-console.log("spa speciale veee",spaSpeciale)
+//console.log("spa speciale veee",spaSpeciale)
 // Pagination des motifs filtrés
 const totalSpaPages = Math.ceil(spaFiltered.length / ITEMS_PER_PAGE);
 const paginatedSpa = spaFiltered.slice(
@@ -558,24 +572,27 @@ const handleMotifChange = (e) => {
       const marginBottom = 20; // marge en bas pour éviter d’écrire trop bas
       
       // Formatage de la date
-      const formattedDate = format(new Date(spaDate), "d MMMM yyyy");
+      const formattedDate = format(new Date(spaDate), "d MMMM yyyy", { locale: fr });
+
+// Capitaliser la première lettre du mois (ex : "mai" -> "Mai")
+     const capitalizedDate = formattedDate.replace(/\b\p{L}/u, c => c.toUpperCase());
   
       // Entête
-      doc.setFontSize(11);
+      doc.setFontSize(10);
       doc.setFont("Times", "normal");
       doc.text("ECOLE DE LA GENDARMERIE NATIONALE", 5, 15);
       doc.text("AMBOSITRA", 35, 22);
       doc.text("----------------------", 32, 25);
       doc.text("DIRECTION DE L'INSTRUCTION", 17, 32);
       doc.text("----------------------", 32, 35);
-      doc.text("COURS DE FORMATION DES ELEVES GENDARME", 5, 42);
+      doc.text("COURS DE FORMATIONS DES ELEVES GENDARME", 5, 42);
       doc.text("-----------------------", 32, 45);
       doc.text("REPOBLIKAN'I MADAGASCAR", 150, 15);
       doc.text("Fitiavana - Tanindrazana - Fandrosoana", 145, 22);
       doc.text("-----------------------", 165, 25);
   
-      doc.setFontSize(12);
-      doc.text(`Situation de Prise d'Arme du ${filter.cour} CFEG du ${formattedDate} `, 90, 55);
+      doc.setFontSize(10);
+      doc.text(`Situation de Prise d'Arme du ${filter.cour} CFEG du ${capitalizedDate} `, 90, 55);
   
       // Calcul des données spaSpeciale du jour
       const spaDateISO = new Date(spaDate).toISOString().slice(0, 10);
@@ -605,7 +622,7 @@ const handleMotifChange = (e) => {
   
       // Préparation du tableau détaillé des absences
       const absencesDuJour = absenceafficher.filter(abs => abs.date === spaDate);
-      const specificMotifs = ["IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG"];
+      const specificMotifs = ["IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG","A REVOIR CHRR","A REVOIR CLINIC MANIA"];
      // Fonction pour identifier un motif "indisponible"
       const isIndisponible = (motif) => {
         if (!motif) return false;
@@ -626,7 +643,7 @@ const handleMotifChange = (e) => {
   
       // En-tête motifs absents
       bodyDetails.push(['', { content: 'MOTIFS DES ABSENTS', styles: { fontStyle: 'bold' } }, '', '', '', '']);
-      bodyDetails.push(['', '', '', '', '', '']);
+      
   
       // Ajout des spaSpeciale
       spaSpecialesDuJour.forEach(spa => {
@@ -651,7 +668,7 @@ const handleMotifChange = (e) => {
         }
       });
   
-      bodyDetails.push(['', '', '', '', '', '']);
+      
       bodyDetails.push(['', { content: 'MOTIFS DES INDISPONIBLES', styles: { fontStyle: 'bold' } }, '', '', '', '']);
   
      // Ajout des motifs "indisponibles"
@@ -680,25 +697,50 @@ const handleMotifChange = (e) => {
        
         styles: {
           fontSize: 10,
-          halign: 'center',
+          halign: 'left',
+          cellPadding:1
         },
         headStyles: {
           fontStyle: 'bold',
         },
         showHead: 'firstPage',
+        margin: { left: 5, right: 5 }, 
+        columnStyles: {
+          0: { cellWidth: 52 }, 
+          
+          4:{cellWidth:11},
+          5:{cellWidth:11}
+        },
+        didParseCell: function (data) {
+          if (data.column.index === 0 && data.cell.raw.includes(':')) {
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+        
+       
       });
   
       // Texte final "DESTINATAIRES"
       let finalY = doc.lastAutoTable.finalY + 10;
-      const spaceNeeded = 90; // hauteur estimée nécessaire
+      const lineHeight = 3;
+      const destinataireLines = 13; // 13 lignes de texte écrites en tout
+      const spaceNeeded = lineHeight * destinataireLines;
+      
   
       if (finalY + spaceNeeded > pageHeight - marginBottom) {
         doc.addPage();
-        finalY = 20;
+        finalY = 10;
       }
   
-      doc.setFontSize(11);
-      doc.text("DESTINATAIRES", 5, finalY);
+      doc.setFontSize(10);
+      const text = "DESTINATAIRES";
+      const x = 5;
+      const y = finalY;
+      doc.text(text, x, y);
+      const textWidth = doc.getTextWidth(text);
+
+      // Dessine une ligne juste en dessous du texte (ajuste `+1` si besoin)
+      doc.line(x, y + 1, x + textWidth, y + 1);
       doc.text("- Monsieur le COLONEL ,", 7, finalY + 7);
       doc.text(" Commandant de l'Ecole de la Gendarmerie nationale ,", 7, finalY + 12);
       doc.text("-AMBOSITRA-", 70, finalY + 18);
@@ -1187,6 +1229,7 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                           <option value="ADMIS HOMI">ADMIS HOMI</option>
                           <option value="DONNEUR DE SANG">DONNEUR DE SANG</option>
                           <option value="CONFINES EN CHAMBRE">CONFINES EN CHAMBRE</option>
+                          <option value="A REVOIR CLINIC MANIA">A REVOIR CLINIC MANIA</option>
                           <option value="ADMIS CLINIC MANIA">ADMIS CLINIC MANIA</option>
                           <option value="SALLE DE POLICE">SALLE DE POLICE</option>
                           <option value="AD COM DLI">AD COM DLI</option>
@@ -1195,6 +1238,7 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                           <option value="VATOVORY">VATOVORY</option>
                           <option value="SPORT">SPORT</option>
                           <option value="AD MDG">AD MDG</option>
+                          <option value="ANM">ANM</option>
                           <option value="REPOS SANITAIRE">REPOS SANITAIRE</option>
                           <option value="STAGE">STAGE</option>
                           <option value="ARTS MARTIAUX">ARTS MARTIAUX</option>
@@ -1446,60 +1490,121 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                                                   </div>
                                                   <div className="d-flex justify-content-between">
                                                   <button
-                                                      type="button"
-                                                      className="btn btn-success"
-                                                      onClick={() => {
-                                                        if (!newSpaSpeciale.motif || !newSpaSpeciale.nombre || !newSpaSpeciale.date) {
-                                                          Swal.fire({
-                                                            icon: 'warning',
-                                                            title: 'Champs manquants',
-                                                            text: 'Veuillez remplir tous les champs requis (motif, nombre, date).',
-                                                          });
-                                                          return;
-                                                        }
-
+                                                    type="button"
+                                                    className="btn btn-success"
+                                                    onClick={() => {
+                                                      if (!newSpaSpeciale.motif || !newSpaSpeciale.nombre || !newSpaSpeciale.date) {
                                                         Swal.fire({
-                                                          title: 'Confirmer l\'ajout',
-                                                          text: 'Voulez-vous vraiment ajouter ce motif spécial ?',
-                                                          icon: 'question',
-                                                          showCancelButton: true,
-                                                          confirmButtonText: 'Oui, ajouter',
-                                                          cancelButtonText: 'Annuler',
-                                                          confirmButtonColor: '#3085d6',
-                                                          cancelButtonColor: '#d33'
-                                                        }).then((result) => {
-                                                          if (result.isConfirmed) {
-                                                            newSpaSpeciale.cour=filter.cour
-                                                            spaspecialeService.post(newSpaSpeciale)
-                                                              .then(() => {
-                                                                Swal.fire({
-                                                                  icon: 'success',
-                                                                  title: 'Ajouté avec succès',
-                                                                  showConfirmButton: false,
-                                                                  timer: 1500
-                                                                });
-
-                                                                setNewSpaSpeciale({ motif: "", nombre: "", date: "" });
-
-                                                                spaspecialeService.getAll().then(res => setSpaSpeciale(res.data || []));
-                                                              })
-                                                              .catch((err) => {
-                                                                console.error(err);
-                                                                Swal.fire({
-                                                                  icon: 'error',
-                                                                  title: 'Erreur',
-                                                                  text: 'Erreur lors de l\'ajout. Veuillez réessayer.',
-                                                                });
-                                                              });
-                                                          }
+                                                          icon: 'warning',
+                                                          title: 'Champs manquants',
+                                                          text: 'Veuillez remplir tous les champs requis (motif, nombre, date).',
                                                         });
-                                                      }}
-                                                    >
-                                                      Ajouter
-                                                    </button>
+                                                        return;
+                                                      }
+
+                                                      // Ajout au tableau temporaire
+                                                      const newEntry = { ...newSpaSpeciale, cour: filter.cour };
+
+                                                      setSpaSpecialeTempList(prev => [...prev, newEntry]);
+
+                                                      Swal.fire({
+                                                        icon: 'success',
+                                                        title: 'Ajouté au tableau temporaire',
+                                                        showConfirmButton: false,
+                                                        timer: 1000
+                                                      });
+
+                                                      // Réinitialise le formulaire
+                                                      setNewSpaSpeciale({ motif: "", nombre: "", date: date });
+                                                    }}
+                                                  >
+                                                    Ajouter
+                                                  </button>
+
+
 
                                                     <button className="btn btn-secondary" onClick={() => setShowSpaSpecialeModal(false)}>Fermer</button>
+                                                    
                                                   </div>
+                                                  <table className="table mt-3">
+                                                    <thead>
+                                                      <tr>
+                                                        <th>Motif</th>
+                                                        <th>Nombre</th>
+                                                        <th>Date</th>
+                                                        <th>Actions</th>
+                                                      </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                      {spaSpecialeTempList.map((item, index) => (
+                                                        <tr key={index}>
+                                                          <td>{item.motif}</td>
+                                                          <td>{item.nombre}</td>
+                                                          <td>{item.date}</td>
+                                                          <td>
+                                                            <button
+                                                              className="btn btn-danger btn-sm"
+                                                              onClick={() => {
+                                                                setSpaSpecialeTempList(prev => prev.filter((_, i) => i !== index));
+                                                              }}
+                                                            >
+                                                              Supprimer
+                                                            </button>
+                                                          </td>
+                                                        </tr>
+                                                      ))}
+                                                    </tbody>
+                                                  </table>
+                                                  <button
+                                                    className="btn btn-primary mt-3"
+                                                    onClick={() => {
+                                                      if (spaSpecialeTempList.length === 0) {
+                                                        Swal.fire({
+                                                          icon: 'info',
+                                                          title: 'Aucun motif à envoyer',
+                                                          text: 'Ajoutez au moins un motif avant de valider.',
+                                                        });
+                                                        return;
+                                                      }
+
+                                                      Swal.fire({
+                                                        title: 'Confirmer l\'envoi',
+                                                        text: 'Voulez-vous vraiment envoyer tous les motifs à la base de données ?',
+                                                        icon: 'question',
+                                                        showCancelButton: true,
+                                                        confirmButtonText: 'Oui, envoyer',
+                                                        cancelButtonText: 'Annuler'
+                                                      }).then((result) => {
+                                                        if (result.isConfirmed) {
+                                                          Promise.all(
+                                                            spaSpecialeTempList.map(item => spaspecialeService.post(item))
+                                                          )
+                                                            .then(() => {
+                                                              Swal.fire({
+                                                                icon: 'success',
+                                                                title: 'Tous les motifs ont été envoyés',
+                                                                showConfirmButton: false,
+                                                                timer: 1500
+                                                              });
+                                                              setSpaSpecialeTempList([]);
+                                                              spaspecialeService.getAll().then(res => setSpaSpeciale(res.data || []));
+                                                            })
+                                                            .catch(err => {
+                                                              console.error(err);
+                                                              Swal.fire({
+                                                                icon: 'error',
+                                                                title: 'Erreur',
+                                                                text: 'Erreur lors de l\'envoi. Veuillez réessayer.',
+                                                              });
+                                                            });
+                                                        }
+                                                      });
+                                                    }}
+                                                  >
+                                                    Valider et envoyer
+                                                  </button>
+
+
                                                 </form>
                                               </div>
 

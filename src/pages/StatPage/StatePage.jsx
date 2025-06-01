@@ -19,6 +19,7 @@ const StatePage = () => {
   const [selectedDate, setSelectedDate] = useState('');
   const [numIncorp, setNumIncorp] = useState('');
   const [currentPageMotif, setCurrentPageMotif] = useState(1);
+  const [currentPageMotif1, setCurrentPageMotif1] = useState(1);
   const [searchMotif, setSearchMotif] = useState('');
   const [dateDebut, setDateDebut] = useState('');
    const [dateFin, setDateFin] = useState('');
@@ -44,7 +45,9 @@ const StatePage = () => {
   }, [searchIncorp, selectedMotif]);
   
   const [currentPage, setCurrentPage] = useState(1); // Page actuelle
+  const [currentPage1, setCurrentPage1] = useState(1); // Page actuelle
   const [itemsPerPage] = useState(5); // Nombre d'éléments par page
+  
 
   //click row 
   const handleView = (row) => {
@@ -213,6 +216,9 @@ consultations.forEach(item => {
 
     const eleveId = item.Eleve.id;
     const nomPrenom = ` ${item.Eleve.prenom}`;
+    const numeroIncorporation=` ${item.Eleve.numeroIncorporation}`;
+    const escadron =` ${item.Eleve.escadron}`;
+    const peloton=` ${item.Eleve.peloton}`
 
     if (eleveJourMap.has(eleveId)) {
       eleveJourMap.get(eleveId).jours += jours;
@@ -220,6 +226,9 @@ consultations.forEach(item => {
       eleveJourMap.set(eleveId, {
         eleveId,
         nom: nomPrenom,
+        numeroIncorporation:numeroIncorporation,
+        escadron:escadron,
+        peloton:peloton,
         jours,
       });
     }
@@ -229,16 +238,21 @@ consultations.forEach(item => {
 const joursParEleve = Array.from(eleveJourMap.values());
 //filtre jour eleve 
 const filteredJoursParEleve = joursParEleve.filter(item =>
-    item.nom.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  const sortedData = [...joursParEleve].sort((a, b) => b.jours - a.jours); // tri décroissant
-  // Pagination
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = sortedData.slice(indexOfFirstItem, indexOfLastItem);
-    // Changer de page
-    const paginate = (pageNumber) => setCurrentPage(pageNumber);
-    const totalPages = Math.ceil(filteredJoursParEleve.length / itemsPerPage);
+  item.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  item.numeroIncorporation.toLowerCase().includes(searchTerm.toLowerCase())
+);
+
+// tri décroissant sur les données filtrées
+const sortedData = [...filteredJoursParEleve].sort((a, b) => b.jours - a.jours);
+
+// Pagination
+const indexOfLastItem = currentPage * itemsPerPage;
+const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+const currentItems = sortedData.slice(indexOfFirstItem, indexOfLastItem);
+
+// Total pages basé sur les données filtrées
+const totalPages = Math.ceil(filteredJoursParEleve.length / itemsPerPage);
+
 
   useEffect(() => {
     fetchCours();
@@ -508,22 +522,22 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
                     </tr>
                 </thead>
                 <tbody>
-                    {filteredJoursParEleve.length === 0 ? (
-                        <tr>
-                            <td colSpan="2" className="text-center text-muted">Aucun résultat</td>
-                        </tr>
-                    ) : (
-                        filteredJoursParEleve.map((item, index) => (
-                            <tr key={index}>
-                                <td>{item.nom}</td>
-                                <td style={{ color: item.jours > 40 ? 'red' : 'black' }}>
-                                  <strong>{item.jours}</strong> jour(s)
-                                </td>
-
-                            </tr>
-                        ))
-                    )}
+                  {currentItems.length === 0 ? (
+                    <tr>
+                      <td colSpan="2" className="text-center text-muted">Aucun résultat</td>
+                    </tr>
+                  ) : (
+                    currentItems.map((item, index) => (
+                      <tr key={index}>
+                        <td><strong>{'NR'}{item.numeroIncorporation}{"("}{item.escadron}{"/"}{item.peloton}{")"}{" " }{item.nom}</strong></td>
+                        <td style={{ color: item.jours > 45 ? 'red' : 'black' }}>
+                          <strong>{item.jours}</strong> jour(s)
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
+
             </table>
 
             {totalPages > 0 && (
@@ -589,9 +603,11 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
                         const consultation = consultations.find(c => c.id === item.id);
                         const nom = consultation?.Eleve?.nom?.toLowerCase() || "";
                         const prenom = consultation?.Eleve?.prenom?.toLowerCase() || "";
+                        const incorporation = consultation?.Eleve?.numeroIncorporation?.toLowerCase() || "";
                         return (
                             nom.includes(searchTerm.toLowerCase()) ||
-                            prenom.includes(searchTerm.toLowerCase())
+                            prenom.includes(searchTerm.toLowerCase()) ||
+                            incorporation.includes(searchTerm.toLowerCase())
                         );
                     });
 
@@ -599,7 +615,7 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
 
                     // Pagination
                     const itemsPerPage = 5;
-                    const indexOfLastItem = currentPage * itemsPerPage;
+                    const indexOfLastItem = currentPage1 * itemsPerPage;
                     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
                     const currentItems = sorted.slice(indexOfFirstItem, indexOfLastItem);
                     const totalPages = Math.ceil(sorted.length / itemsPerPage);
@@ -611,6 +627,7 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
                                     const consultation = consultations.find(c => c.id === item.id);
                                     const nom = consultation?.Eleve?.nom || "";
                                     const prenom = consultation?.Eleve?.prenom || "";
+                                    
 
                                     return (
                                         <li key={item.id} className="list-group-item d-flex justify-content-between align-items-center">
@@ -693,16 +710,16 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
                             {/* Pagination navigation */}
                             <nav className="mt-3">
                                 <ul className="pagination pagination-sm justify-content-end">
-                                    <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-                                        <button className="page-link" onClick={() => setCurrentPage(currentPage - 1)}>Précédent</button>
+                                    <li className={`page-item ${currentPage1 === 1 ? 'disabled' : ''}`}>
+                                        <button className="page-link" onClick={() => setCurrentPage(currentPage1 - 1)}>Précédent</button>
                                     </li>
                                     {Array.from({ length: totalPages }).map((_, index) => (
-                                        <li key={index} className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}>
-                                            <button className="page-link" onClick={() => setCurrentPage(index + 1)}>{index + 1}</button>
+                                        <li key={index} className={`page-item ${currentPage1 === index + 1 ? 'active' : ''}`}>
+                                            <button className="page-link" onClick={() => setCurrentPage1(index + 1)}>{index + 1}</button>
                                         </li>
                                     ))}
-                                    <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
-                                        <button className="page-link" onClick={() => setCurrentPage(currentPage + 1)}>Suivant</button>
+                                    <li className={`page-item ${currentPage1 === totalPages ? 'disabled' : ''}`}>
+                                        <button className="page-link" onClick={() => setCurrentPage1(currentPage + 1)}>Suivant</button>
                                     </li>
                                 </ul>
                             </nav>
@@ -934,6 +951,7 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
                                 dataKey="nom"
                                 angle={-45}
                                 textAnchor="end"
+                                hide
                                 height={70}
                                 interval={0}
                             />
