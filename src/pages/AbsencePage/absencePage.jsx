@@ -55,10 +55,27 @@ import { Modal, Button } from 'react-bootstrap';
 
    const [footerLines, setFooterLines] = useState({
 
-      line1: `NR   EGNA/2-DI/C-A Ambositra, le ${spaDate}`,
+      line1: ``,
       line2: "Le chef d'escadron, Donatiens RAYMOND",
       line3: "Commandant du cours A de formation des élèves gendarmes",
     });
+    useEffect(() => {
+      if (!spaDate) return; // éviter erreur si spaDate est vide
+    
+      try {
+        const formattedDate = format(new Date(spaDate), "d MMMM yyyy", { locale: fr });
+    
+        // Capitaliser la première lettre du mois (ex : "mai" -> "Mai")
+        const capitalizedDate = formattedDate.replace(/(?<=\d\s)(\p{L})/u, (c) => c.toUpperCase());
+    
+        setFooterLines((prev) => ({
+          ...prev,
+          line1: `NR   EGNA/2-DI/C-A Ambositra, le ${capitalizedDate}`,
+        }));
+      } catch (error) {
+        console.error("Erreur de formatage de date :", error);
+      }
+    }, [spaDate]);
     //utile pour temporaire 
     const [absencesTemporaires, setAbsencesTemporaires] = useState([]);
     // État pour contrôler l'ouverture du modal
@@ -131,7 +148,7 @@ import { Modal, Button } from 'react-bootstrap';
               }).then((swalResult) => {
                 if (swalResult.isConfirmed && swalResult.value) {
                   const { line1, line2, line3 } = swalResult.value;
-                  setFooterLines({ line1, line2, line3 }); // facultatif si tu veux garder l'état global
+                  setFooterLines({ line1, line2, line3 });
                   handleExportPDFSimple({ line1, line2, line3 }); // <-- passer les valeurs ici
                 }
               });
@@ -483,7 +500,7 @@ useEffect(() => {
   }, {});
   //ppour SPA 
   const handleAfficherIndispo = () => {
-    const motifsI =["IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG","A REVOIR CHRR","A REVOIR CLINIC MANIA"];
+    const motifsI =["IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG","A REVOIR CHRR","A REVOIR CLINIC MANIA","CHAMBRE DE SURETE"];
     // ISO pour comparaison de dates
   const spaDateISO = new Date(spaDate).toISOString().slice(0, 10);
 
@@ -622,7 +639,7 @@ const handleMotifChange = (e) => {
   
       // Préparation du tableau détaillé des absences
       const absencesDuJour = absenceafficher.filter(abs => abs.date === spaDate);
-      const specificMotifs = ["IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG","A REVOIR CHRR","A REVOIR CLINIC MANIA"];
+      const specificMotifs = ["IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG","A REVOIR CHRR","A REVOIR CLINIC MANIA","CHAMBRE DE SURETE"];
      // Fonction pour identifier un motif "indisponible"
       const isIndisponible = (motif) => {
         if (!motif) return false;
@@ -757,9 +774,9 @@ const handleMotifChange = (e) => {
       doc.text("(EGNA/SAF)", 45, finalY + 67);
   
       doc.text("- Aux archives,", 7, finalY + 71);
-      doc.text(footerLines.line1, 120, finalY + 7);
-      doc.text(footerLines.line2, 130, finalY + 17);
-      doc.text(footerLines.line3, 114, finalY + 23);
+     doc.text(footer.line1, 120, finalY + 7);
+      doc.text(footer.line2, 130, finalY + 17);
+      doc.text(footer.line3, 114, finalY + 23);
 
   
       // Sauvegarde du PDF
@@ -980,7 +997,9 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
       "CONFINES EN CHAMBRE",
       "GARDE MALADE IG",
       "DONNEUR DE SANG",
-      "SALLE DE POLICE"
+      "CHAMRE DE SURETE",
+      "A REVOIR CHRR",
+      "A REVOIR CLINIC MANIA"
     ];
   
     const isIndisponible = (motif) => {
@@ -1235,7 +1254,7 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                           <option value="CONFINES EN CHAMBRE">CONFINES EN CHAMBRE</option>
                           <option value="A REVOIR CLINIC MANIA">A REVOIR CLINIC MANIA</option>
                           <option value="ADMIS CLINIC MANIA">ADMIS CLINIC MANIA</option>
-                          <option value="SALLE DE POLICE">SALLE DE POLICE</option>
+                          <option value="CHAMBRE DE SURETE">CHAMBRE DE SURETE</option>
                           <option value="AD COM DLI">AD COM DLI</option>
                           <option value="AD COM DQG SPORT">AD COM DQG SPORT</option>
                           <option value="PERMISSION">PERMISSION</option>
