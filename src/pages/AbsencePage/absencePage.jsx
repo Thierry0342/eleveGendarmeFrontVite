@@ -507,7 +507,7 @@ useEffect(() => {
   }, {});
   //ppour SPA 
   const handleAfficherIndispo = () => {
-    const motifsI =["IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG","A REVOIR CHRR","A REVOIR CLINIC MANIA","CHAMBRE DE SURETE"];
+    const motifsI =["ADMIS IG","IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG","A REVOIR CHRR","A REVOIR CLINIC MANIA","CHAMBRE DE SURETE"];
     // ISO pour comparaison de dates
   const spaDateISO = new Date(spaDate).toISOString().slice(0, 10);
 
@@ -646,7 +646,7 @@ const handleMotifChange = (e) => {
   
       // Préparation du tableau détaillé des absences
       const absencesDuJour = absenceafficher.filter(abs => abs.date === spaDate);
-      const specificMotifs = ["IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG","A REVOIR CHRR","A REVOIR CLINIC MANIA","CHAMBRE DE SURETE"];
+      const specificMotifs = ["IG","ADMIS IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG","A REVOIR CHRR","A REVOIR CLINIC MANIA","CHAMBRE DE SURETE"];
      // Fonction pour identifier un motif "indisponible"
       const isIndisponible = (motif) => {
         if (!motif) return false;
@@ -827,6 +827,7 @@ const handleMotifChange = (e) => {
     // Fonctions d'aide
     const specificMotifs = [
       'IG',
+      "ADMIS IG",
       'CONSULTATION',
       'A REVOIR IG',
       'REPOS SANITAIRE',
@@ -999,6 +1000,7 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
   
     const specificMotifs = [
       "IG",
+      "ADMIS IG",
       "CONSULTATION",
       "A REVOIR IG",
       "REPOS SANITAIRE",
@@ -1259,7 +1261,7 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                             <option value="ADMIS CHRR">ADMIS CHRR</option>
                             <option value="ADMIS CLINIC MANIA">ADMIS CLINIC MANIA</option>
                             <option value="ADMIS HOMI">ADMIS HOMI</option>
-                            <option value="ADMIS IG">ADMIS IG</option>
+                            <option value="IG">ADMIS IG</option>
                             <option value="ANM">ANM</option>
                             <option value="ARTS MARTIAUX">ARTS MARTIAUX</option>
                             <option value="CHAMBRE DE SURETE">CHAMBRE DE SURETE</option>
