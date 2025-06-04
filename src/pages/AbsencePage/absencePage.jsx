@@ -211,7 +211,7 @@ import { Modal, Button } from 'react-bootstrap';
         cancelButtonText: 'Annuler'
       }).then((result) => {
         if (result.isConfirmed) {
-         console.log("id pox ve ee" +id);      
+       //  console.log("id pox ve ee" +id);      
           absenceService.delete(id)
             .then(() => {
               setListeAbsence(prev => prev.filter(e => e.id !== id));
@@ -319,14 +319,14 @@ import { Modal, Button } from 'react-bootstrap';
         setAllEleves(response.data);
         //console.log("reponse maka by incorportation"+eleveData)
       } else {
-        console.log('Élève non trouvé');
+      //  console.log('Élève non trouvé');
           
         alert("Elève non trouvé")
       }
     } catch (err) {
         setEleveData({});
         setAllEleves({});
-        console.error('Erreur lors de la récupération des données:', err);
+     //   console.error('Erreur lors de la récupération des données:', err);
     }
   };
 
@@ -452,7 +452,7 @@ useEffect(() => {
          setNewSpaSpeciale(prev => ({ ...prev, date: response.data.today }));
     })
     .catch(error => {
-      console.error("Erreur lors de la récupération de la date serveur :", error);
+     // console.error("Erreur lors de la récupération de la date serveur :", error);
     });
 }, []);
 
@@ -790,7 +790,7 @@ const handleMotifChange = (e) => {
       doc.save(`SPA DU_${spaDate}.pdf`);
   
     } catch (error) {
-      console.error("Erreur lors de l'exportation du PDF :", error);
+    //  console.error("Erreur lors de l'exportation du PDF :", error);
       alert("Une erreur est survenue lors de la génération du PDF.");
     }
   }
@@ -1663,7 +1663,7 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                                                                       setSpaSpeciale(spaSpeciale.filter(item => item.id !== spa.id));
                                                                     })
                                                                     .catch(err => {
-                                                                      console.error(err);
+                                                                     //console.error(err);
                                                                       alert("Erreur lors de la suppression.");
                                                                     });
                                                                 }

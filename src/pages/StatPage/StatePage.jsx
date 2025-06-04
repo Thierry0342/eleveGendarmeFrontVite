@@ -94,7 +94,7 @@ const StatePage = () => {
   const fetchConsultations = (selectedCour) => {
 
     if (!selectedCour) {
-        console.error("Aucun cours sélectionné.");
+       // console.error("Aucun cours sélectionné.");
         return;
       }
     consultationService.getByCour(selectedCour)
@@ -102,12 +102,14 @@ const StatePage = () => {
         setConsultations(res.data);
         calculerJoursEscadron(res.data);
       })
-      .catch(err => console.error("Erreur chargement consultations :", err));
+      .catch(err => {
+        
+      });
   };
   //get consultation_2
   const fetchConsultations2 = (selectedCour) => {
     if (!selectedCour) {
-      console.error("Aucun cours sélectionné.");
+    //  console.error("Aucun cours sélectionné.");
       return;
     }
   
@@ -118,9 +120,12 @@ const StatePage = () => {
         setConsultations2(consultationsEvasan); // n'affiche que les EVASAN
        
       })
-      .catch(err => console.error("Erreur chargement consultations :", err));
+      .catch(err => {
+        // Gestion silencieuse de l'erreur, sans affichage console
+      });
+      
   };
-  console.log('qsdfqsfqf',consultations2);
+//  console.log('qsdfqsfqf',consultations2);
   
   //initialise table consultation
   const columns = [
@@ -157,6 +162,8 @@ const StatePage = () => {
       'Incorporation': eleve.numeroIncorporation,
       'Escadron': eleve.escadron,
       'Peloton': eleve.peloton,
+      'Nombre de motifs': eleve.nombre || 1, 
+      
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(worksheetData);
@@ -197,7 +204,7 @@ const StatePage = () => {
             }
       
           } catch (err) {
-            console.error("Erreur lors du chargement des cours", err);
+          // console.error("Erreur lors du chargement des cours", err);
           }
         };
       
@@ -260,7 +267,7 @@ const totalPages = Math.ceil(filteredJoursParEleve.length / itemsPerPage);
     fetchAbsence();
    
   }, []);
-  console.log("abnsence rehetrea  aa",listeAbsence);
+// console.log("abnsence rehetrea  aa",listeAbsence);
   useEffect(() => {
     if (cour){
         fetchConsultations(cour);
@@ -277,11 +284,11 @@ const totalPages = Math.ceil(filteredJoursParEleve.length / itemsPerPage);
             setListeAbsence(response.data);
            // console.log("Données mises à jour :", response.absences); // Affiche les nouvelles données dans la console
           } else {
-            console.error("Données inattendues :", response.data);
+           // console.error("Données inattendues :", response.data);
           }
         })
         .catch(error => {
-          console.error("Erreur lors du chargement des absence :", error);
+      //    console.error("Erreur lors du chargement des absence :", error);
         });
 
 
@@ -389,60 +396,91 @@ const totalPages = Math.ceil(filteredJoursParEleve.length / itemsPerPage);
     },
   ];
   //tableau pour nombre par motif
-  // 1. Dictionnaire des regroupements
   const regroupementMotifs = {
     'CONSULTATION EXTERNE': 'CONSULTATION TANA',
     'EVASAN': 'CONSULTATION TANA',
     'A REVOIR CENHOSOA': 'CONSULTATION TANA',
-    
+    'A REVOIR CENHSOA': 'CONSULTATION TANA',
   };
   
-  const elevesParMotif = {};
+  const elevesParMotif = {}; // Map des élèves distincts par motif
+  const nombreOccurrencesParMotif = {}; // Nombre brut de lignes par motif
   
   filteredAbsences.forEach(abs => {
+    // Normaliser
     const motifRaw = abs.motif || 'Inconnu';
     const motifNormalise = motifRaw.trim().toUpperCase();
   
+    // Ajouter au compteur brut
+    if (!nombreOccurrencesParMotif[motifNormalise]) {
+      nombreOccurrencesParMotif[motifNormalise] = 0;
+    }
+    nombreOccurrencesParMotif[motifNormalise]++;
+  
+    // Élève
     const eleve = abs.Eleve;
     if (!eleve) return;
-  
     const eleveId = eleve.id || eleve._id || abs.eleveId;
     if (!eleveId) return;
   
-    // Ajouter dans le motif d’origine
+    // Ajout des élèves distincts
     if (!elevesParMotif[motifNormalise]) {
       elevesParMotif[motifNormalise] = new Map();
     }
-    elevesParMotif[motifNormalise].set(eleveId, {
-      nom: eleve.nom,
-      prenom: eleve.prenom,
-      numeroIncorporation: eleve.numeroIncorporation,
-      escadron: eleve.escadron,
-      peloton: eleve.peloton,
-    });
-  
-    // Ajouter aussi dans le regroupement s’il existe
-    const regroupement = regroupementMotifs[motifNormalise];
-    if (regroupement) {
-      if (!elevesParMotif[regroupement]) {
-        elevesParMotif[regroupement] = new Map();
-      }
-      elevesParMotif[regroupement].set(eleveId, {
+    if (!elevesParMotif[motifNormalise].has(eleveId)) {
+      elevesParMotif[motifNormalise].set(eleveId, {
         nom: eleve.nom,
         prenom: eleve.prenom,
         numeroIncorporation: eleve.numeroIncorporation,
         escadron: eleve.escadron,
         peloton: eleve.peloton,
+        nombre: 1
       });
+    } else {
+      const existant = elevesParMotif[motifNormalise].get(eleveId);
+      existant.nombre += 1;
     }
+    // Regroupement éventuel
+   // Regroupement éventuel
+const regroupement = regroupementMotifs[motifNormalise];
+if (regroupement) {
+  if (!nombreOccurrencesParMotif[regroupement]) {
+    nombreOccurrencesParMotif[regroupement] = 0;
+  }
+  nombreOccurrencesParMotif[regroupement]++;
+
+  if (!elevesParMotif[regroupement]) {
+    elevesParMotif[regroupement] = new Map();
+  }
+
+  if (!elevesParMotif[regroupement].has(eleveId)) {
+    elevesParMotif[regroupement].set(eleveId, {
+      nom: eleve.nom,
+      prenom: eleve.prenom,
+      numeroIncorporation: eleve.numeroIncorporation,
+      escadron: eleve.escadron,
+      peloton: eleve.peloton,
+      nombre: 1,  // initialisation à 1
+    });
+  } else {
+    // Incrémenter la propriété nombre au lieu d'écraser
+    const existant = elevesParMotif[regroupement].get(eleveId);
+    existant.nombre = (existant.nombre || 1) + 1;
+  }
+}
+
   });
   
+
   // Transformer en tableau
   const personneParMotifData = Object.entries(elevesParMotif).map(([motif, elevesMap]) => ({
     motif,
     nombrePersonnes: elevesMap.size,
+    nombreTotalOccurences: nombreOccurrencesParMotif[motif] || 0,
     eleves: Array.from(elevesMap.values()),
   }));
+  
+  
   
 
   
@@ -819,22 +857,29 @@ const totalPages = Math.ceil(filteredJoursParEleve.length / itemsPerPage);
 
                             return (
                               <>
-                            <ul className="list-group">
-                                {currentItems.map((item, index) => (
-                                  <li
-                                    key={index}
-                                    className="list-group-item d-flex justify-content-between align-items-center"
-                                    onClick={() => {
-                                      setSelectedMotif(item);
-                                      setShowModal(true);
-                                    }}
-                                    style={{ cursor: 'pointer' }}
-                                  >
-                                    <div><strong>{item.motif}</strong></div>
-                                    <span className="badge bg-success rounded-pill">{item.nombrePersonnes} personne(s)</span>
-                                  </li>
-                                ))}
-                           </ul>
+                          <ul className="list-group">
+                            {currentItems.map((item, index) => (
+                              <li
+                                key={index}
+                                className="list-group-item d-flex justify-content-between align-items-center"
+                                onClick={() => {
+                                  setSelectedMotif(item);
+                                  setShowModal(true);
+                                  setSearchIncorp(""); // optionnel : réinitialiser la recherche
+                                }}
+                                style={{ cursor: 'pointer' }}
+                              >
+                                <div>
+                                  <strong>{item.motif}</strong><br />
+                                  <small className="text-muted">{item.nombreTotalOccurences} consultation(s) au total</small>
+                                </div>
+                                <span className="badge bg-success rounded-pill">
+                                  {item.nombrePersonnes} élève(s)
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+
 
                            {selectedMotif && (
                             <div
@@ -874,11 +919,14 @@ const totalPages = Math.ceil(filteredJoursParEleve.length / itemsPerPage);
                                               <th>Incorporation</th>
                                               <th>Escadron</th>
                                               <th>Peloton</th>
+                                              <th>Nombre</th> {/* nouvelle colonne */}
                                             </tr>
                                           </thead>
                                           <tbody>
-                                            {filteredEleves.length > 0 ? (
-                                              filteredEleves.map((eleve, idx) => (
+                                          {filteredEleves.length > 0 ? (
+                                            [...filteredEleves] // copie pour éviter de muter l'original
+                                              .sort((a, b) => (b.nombre || 0) - (a.nombre || 0)) // tri décroissant
+                                              .map((eleve, idx) => (
                                                 <tr key={idx}>
                                                   <td>{idx + 1}</td>
                                                   <td>{eleve.nom}</td>
@@ -886,16 +934,18 @@ const totalPages = Math.ceil(filteredJoursParEleve.length / itemsPerPage);
                                                   <td>{eleve.numeroIncorporation}</td>
                                                   <td>{eleve.escadron}</td>
                                                   <td>{eleve.peloton}</td>
+                                                  <td>{eleve.nombre || 1}</td>
                                                 </tr>
                                               ))
-                                            ) : (
-                                              <tr>
-                                                <td colSpan="6" className="text-center text-muted">
-                                                  Aucun élève ne correspond à la recherche.
-                                                </td>
-                                              </tr>
-                                            )}
-                                          </tbody>
+                                          ) : (
+                                            <tr>
+                                              <td colSpan="7" className="text-center text-muted">
+                                                Aucun élève ne correspond à la recherche.
+                                              </td>
+                                            </tr>
+                                          )}
+                                        </tbody>
+
                                         </table>
                                       </div>
 
