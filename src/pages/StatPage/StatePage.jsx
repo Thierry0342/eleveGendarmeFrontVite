@@ -31,6 +31,7 @@ const StatePage = () => {
    const [isImageOpen, setIsImageOpen] = useState(false);
    const [selectedItem, setSelectedItem] = useState(null);
    const [showModal2, setShowModal2] = useState(false);
+   const [nomRecherche, setNomRecherche] = useState('');
   //paggination
   
   //filtre inc dans le tableau nombre eleve par motif 
@@ -361,11 +362,16 @@ const totalPages = Math.ceil(filteredJoursParEleve.length / itemsPerPage);
   
   const columns2 = [
     {
-      name:'inc',
-      selector: row => row.incorp,
-      sortable:true,
-
+      name: 'inc',
+      selector: row => parseInt(row.incorp, 10), // assure que ce soit bien un nombre
+      sortable: true,
+      sortFunction: (a, b) => {
+        const valA = parseInt(a.incorp, 10);
+        const valB = parseInt(b.incorp, 10);
+        return valA - valB;
+      }
     },
+    
     {
       name: "Élève",
       selector: row => row.nom,
@@ -383,28 +389,45 @@ const totalPages = Math.ceil(filteredJoursParEleve.length / itemsPerPage);
     },
   ];
   //tableau pour nombre par motif
+  // 1. Dictionnaire des regroupements
+  const regroupementMotifs = {
+    'CONSULTATION EXTERNE': 'CONSULTATION TANA',
+    'EVASAN': 'CONSULTATION TANA',
+    'A REVOIR CENHOSOA': 'CONSULTATION TANA',
+    
+  };
   
-  // 2. Calculer le nombre de personnes distinctes par motif
   const elevesParMotif = {};
-
+  
   filteredAbsences.forEach(abs => {
     const motifRaw = abs.motif || 'Inconnu';
-    const motif = motifRaw.trim().toUpperCase();
+    const motifNormalise = motifRaw.trim().toUpperCase();
   
     const eleve = abs.Eleve;
-    if (!eleve) return; // Ignore si pas d'élève
+    if (!eleve) return;
   
-    // Utiliser un id sûr pour chaque élève
-    const eleveId = eleve.id || eleve._id || abs.eleveId; 
-    if (!eleveId) return; // Ignore si pas d'id
+    const eleveId = eleve.id || eleve._id || abs.eleveId;
+    if (!eleveId) return;
   
-    if (!elevesParMotif[motif]) {
-      elevesParMotif[motif] = new Map();
+    // Ajouter dans le motif d’origine
+    if (!elevesParMotif[motifNormalise]) {
+      elevesParMotif[motifNormalise] = new Map();
     }
+    elevesParMotif[motifNormalise].set(eleveId, {
+      nom: eleve.nom,
+      prenom: eleve.prenom,
+      numeroIncorporation: eleve.numeroIncorporation,
+      escadron: eleve.escadron,
+      peloton: eleve.peloton,
+    });
   
-    // Ajouter seulement si cet élève n'est pas déjà ajouté
-    if (!elevesParMotif[motif].has(eleveId)) {
-      elevesParMotif[motif].set(eleveId, {
+    // Ajouter aussi dans le regroupement s’il existe
+    const regroupement = regroupementMotifs[motifNormalise];
+    if (regroupement) {
+      if (!elevesParMotif[regroupement]) {
+        elevesParMotif[regroupement] = new Map();
+      }
+      elevesParMotif[regroupement].set(eleveId, {
         nom: eleve.nom,
         prenom: eleve.prenom,
         numeroIncorporation: eleve.numeroIncorporation,
@@ -414,11 +437,14 @@ const totalPages = Math.ceil(filteredJoursParEleve.length / itemsPerPage);
     }
   });
   
+  // Transformer en tableau
   const personneParMotifData = Object.entries(elevesParMotif).map(([motif, elevesMap]) => ({
     motif,
     nombrePersonnes: elevesMap.size,
     eleves: Array.from(elevesMap.values()),
   }));
+  
+
   
     
 
@@ -810,7 +836,6 @@ const totalPages = Math.ceil(filteredJoursParEleve.length / itemsPerPage);
                                 ))}
                            </ul>
 
-
                            {selectedMotif && (
                             <div
                             className={`modal fade ${showModal ? 'show d-block' : ''}`}
@@ -1024,21 +1049,34 @@ const totalPages = Math.ceil(filteredJoursParEleve.length / itemsPerPage);
                               onChange={(e) => setNumIncorp(e.target.value)}
                             />
                           </div>
-                        </form>
+                                                        <div className="col-md-6">
+                                <label className="form-label">Nom</label>
+                                <input
+                                  type="text"
+                                  className="form-control"
+                                  value={nomRecherche}
+                                  onChange={(e) => setNomRecherche(e.target.value)}
+                                />
+                              </div>
 
-                        <DataTable
-                      
-                          columns={columns2}
-                          data={motifData}
-                          pagination
-                          highlightOnHover
-                          striped
-                          responsive
-                          noDataComponent="Aucune donnée"
-                          paginationPerPage={5} // Affiche au minimum 5 éléments par page
-                          paginationRowsPerPageOptions={[5, 10, 15, 20, 50]} // Options de pagination
-                          customStyles={customStyles}
-                        />
+                                                      </form>
+                                                      <DataTable
+                                columns={columns2}
+                                data={motifData.filter(row => {
+                                  const matchIncorp = numIncorp === '' || row.incorp.toString().includes(numIncorp.toString());
+                                  const matchNom = nomRecherche === '' || row.nom.toLowerCase().includes(nomRecherche.toLowerCase());
+                                  return matchIncorp && matchNom;
+                                })}
+                                pagination
+                                highlightOnHover
+                                striped
+                                responsive
+                                noDataComponent="Aucune donnée"
+                                paginationPerPage={5}
+                                paginationRowsPerPageOptions={[5, 10, 15, 20, 50]}
+                                customStyles={customStyles}
+                              />
+
                       </div>
 
 

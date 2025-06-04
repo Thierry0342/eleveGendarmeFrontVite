@@ -9,9 +9,9 @@ import { data } from 'react-router-dom';
 import courService from '../../services/courService';
 const user = JSON.parse(localStorage.getItem('user'));
 import ExcelJS from 'exceljs';
-import { saveAs } from 'file-saver';
 import ProgressBar from 'react-bootstrap/ProgressBar';
-
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 
 
@@ -55,6 +55,183 @@ const ListeElevePge = () => {
       rangfinstage:'',
     });
   };
+  //repartition 
+
+  
+
+
+
+  
+
+
+
+  function genererRepartitionEtExporter(eleves, incorporationRange = null) {
+    const structureSalles = [20, 24, 24, 35, 35, 36, 39, 40,32,29,26, ...Array(31).fill(35)];
+  
+    // 1. Filtrage (si une plage ou un seul numéro est fourni)
+    let elevesFiltres = [...eleves];
+    if (Array.isArray(incorporationRange)) {
+      const [min, max] = incorporationRange;
+      elevesFiltres = elevesFiltres.filter(e =>
+        e.numeroIncorporation >= min && e.numeroIncorporation <= max
+      );
+    } else if (typeof incorporationRange === 'number') {
+      elevesFiltres = elevesFiltres.filter(e =>
+        e.numeroIncorporation === incorporationRange
+      );
+    }
+  
+    // 2. Tri par numeroIncorporation croissant
+    elevesFiltres.sort((a, b) => a.numeroIncorporation - b.numeroIncorporation);
+  
+    // 3. Mélanger pour éviter les regroupements de noms semblables
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    }
+    shuffleArray(elevesFiltres);
+  
+    let elevesRestants = [...elevesFiltres];
+    const salles = [];
+    const escadronGlobalMap = {};
+  
+    const getRandomElevesPourSalle = (effectif) => {
+      let salle = [];
+      const escadronMap = {};
+      let essais = 0;
+      const maxEssais = 1000;
+  
+      while (salle.length < effectif && elevesRestants.length > 0 && essais < maxEssais) {
+        essais++;
+        const eleve = elevesRestants.shift();
+  
+        const countInSalle = escadronMap[eleve.escadron] || 0;
+        if (countInSalle >= 4) {
+          elevesRestants.push(eleve);
+          continue;
+        }
+  
+        salle.push(eleve);
+        escadronMap[eleve.escadron] = countInSalle + 1;
+  
+        if (!escadronGlobalMap[eleve.escadron]) escadronGlobalMap[eleve.escadron] = [];
+        escadronGlobalMap[eleve.escadron].push(eleve);
+      }
+  
+      return salle;
+    };
+  
+    // Répartition initiale selon structure
+    structureSalles.forEach((effectif, index) => {
+      if (elevesRestants.length === 0) return;
+  
+      const numeroSalle = index + 1;
+      const salle = getRandomElevesPourSalle(effectif);
+  
+      const groupes = Array.from({ length: 12 }, () => []);
+      salle.forEach((eleve, idx) => {
+        eleve.salle = numeroSalle;
+        eleve.groupe = (idx % 12) + 1;
+        groupes[idx % 12].push(eleve);
+      });
+  
+      salles.push({ numero: numeroSalle, effectif: salle.length, groupes });
+    });
+  
+    // Salles supplémentaires si besoin
+    let numeroSalle = salles.length + 1;
+    while (elevesRestants.length > 0) {
+      const effectif = Math.min(20 + Math.floor(Math.random() * 16), elevesRestants.length);
+      const salle = getRandomElevesPourSalle(effectif);
+  
+      const groupes = Array.from({ length: 12 }, () => []);
+      salle.forEach((eleve, idx) => {
+        eleve.salle = numeroSalle;
+        eleve.groupe = (idx % 12) + 1;
+        groupes[idx % 12].push(eleve);
+      });
+  
+      salles.push({ numero: numeroSalle, effectif: salle.length, groupes });
+      numeroSalle++;
+    }
+  
+    // RÉSUMÉ + FEUILLES
+    const totalEleves = elevesFiltres.length;
+    const totalSalles = salles.length;
+    const totalGroupes = totalSalles * 12;
+    const dateGeneration = new Date().toLocaleString("fr-FR");
+  
+    const repartitionParSalle = salles.map(
+      (s) => `Salle ${s.numero} : ${s.effectif} élèves`
+    );
+    const repartitionParEscadron = Object.entries(escadronGlobalMap).map(
+      ([escadron, liste]) => `Escadron ${escadron} : ${liste.length} élèves`
+    );
+  
+    const resumeData = [
+      { Clé: "Date de génération", Valeur: dateGeneration },
+      { Clé: "Total élèves à répartir", Valeur: totalEleves },
+      { Clé: "Nombre de salles", Valeur: totalSalles },
+      { Clé: "Total de groupes (12 par salle)", Valeur: totalGroupes },
+      { Clé: "Répartition par salle", Valeur: "" },
+      ...repartitionParSalle.map((line) => ({ Clé: "", Valeur: line })),
+      { Clé: "", Valeur: "" },
+      { Clé: "Répartition par escadron", Valeur: "" },
+      ...repartitionParEscadron.map((line) => ({ Clé: "", Valeur: line })),
+    ];
+  
+    const wb = XLSX.utils.book_new();
+    const wsResume = XLSX.utils.json_to_sheet(resumeData, { skipHeader: false });
+    XLSX.utils.book_append_sheet(wb, wsResume, "RÉSUMÉ");
+  
+    // FEUILLES PAR SALLE
+    salles.forEach((salle) => {
+      const data = [];
+      salle.groupes.forEach((groupe) => {
+        groupe.forEach((eleve) => {
+          data.push({
+            Nom: eleve.nom,
+            Prénom: eleve.prenom,
+            Incorporation: eleve.numeroIncorporation,
+            Escadron: eleve.escadron,
+            Peloton: eleve.peloton,
+            Salle: eleve.salle,
+          });
+        });
+      });
+      const ws = XLSX.utils.json_to_sheet(data);
+      XLSX.utils.book_append_sheet(wb, ws, `Salle ${salle.numero}`);
+    });
+  
+    // FEUILLES PAR ESCADRON
+    Object.entries(escadronGlobalMap).forEach(([escadron, liste]) => {
+      const wsData = liste.map((eleve) => ({
+        Nom: eleve.nom,
+        Prénom: eleve.prenom,
+        Incorporation: eleve.numeroIncorporation,
+        Escadron: eleve.escadron,
+        Peloton: eleve.peloton,
+        Salle: eleve.salle,
+        Groupe: eleve.groupe,
+      }));
+      const ws = XLSX.utils.json_to_sheet(wsData);
+      XLSX.utils.book_append_sheet(wb, ws, `Escadron ${escadron}`);
+    });
+  
+    // EXPORT
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    saveAs(
+      new Blob([wbout], { type: "application/octet-stream" }),
+      "repartition_salles_resume.xlsx"
+    );
+  }
+  
+  
+  
+  
+
   //verifier 
   useEffect(() => {
     if (noteModalOpen && selectedEleve) {
@@ -208,7 +385,7 @@ useEffect(() => {
 
   fetchAllData(); // 1er appel
 
-  const intervalId = setInterval(fetchAllData, 3000); // tous les 5 sec
+  const intervalId = setInterval(fetchAllData, 3000); // 
   return () => clearInterval(intervalId);
 }, []);
 
@@ -526,6 +703,8 @@ const handleExportExcel = async () => {
                   Exporter (.xlsx)
                 </button>
               )}
+             
+
 
             </div>
 

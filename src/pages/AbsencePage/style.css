@@ -45,4 +45,11 @@
   
     text-align: center;
   }
+  .swal-title-yellow {
+    color: rgb(22, 19, 233);
+  }
+  .swal-title-red{
+    color: rgb(233, 19, 19);
+  }
+ 
   

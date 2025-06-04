@@ -349,11 +349,14 @@ import { Modal, Button } from 'react-bootstrap';
     if (absenceExistante) {
       Swal.fire({
         toast: true,
-        position: 'top-end',
+        position: 'center',
         icon: 'warning',
         title: 'Cette absence existe déjà pour cette date.',
         showConfirmButton: false,
         timer: 3000,
+        customClass: {
+          title: 'swal-title-red'
+        },
         timerProgressBar: true,
       });
       return;
@@ -380,12 +383,16 @@ import { Modal, Button } from 'react-bootstrap';
   
     Swal.fire({
       toast: true,
-      position: 'top-end',
+      position: 'center',
       icon: 'success',
+      
       title: 'Absence ajoutée temporairement.',
       showConfirmButton: false,
       timer: 2000,
       timerProgressBar: true,
+      customClass: {
+        title: 'swal-title-yellow'
+      }
     });
   };
   //envoie tous 
@@ -407,7 +414,7 @@ import { Modal, Button } from 'react-bootstrap';
           .then(results => {
             Swal.fire({
               toast: true,
-              position: 'top-end',
+              position: 'center',
               icon: 'success',
               title: 'Toutes les absences ont été enregistrées.',
               showConfirmButton: false,
@@ -804,7 +811,7 @@ const handleMotifChange = (e) => {
     // Formatage de la date
     const formattedDate = format(new Date(spaDate), "d MMMM yyyy");
     doc.setFontSize(13);
-    let content = `OBJET  SPA ELEVE GENDARME ${filter.cour}EME CFEG X HVRC X DATE  DU ${formattedDate} X `;
+    let content = `OBJET  SPA ELEVE GENDARME 79 EME CFEG X HVRC X DATE  DU ${formattedDate} X `;
     const totalRealise = spaNumber || 0;
     const totalAbsent = totalA || 0;
     const totalPresent = spaNumber - totalA || 0;
@@ -826,9 +833,10 @@ const handleMotifChange = (e) => {
       'CONFINES EN CHAMBRE',
       'GARDE MALADE IG',
       'DONNEUR DE SANG',
-      'SALLE DE POLICE',
+      'CHAMBRE DE SURETE',
       'A REVOIR CHRR',
-      'A REVOIR CLINIC MANIA'
+      'A REVOIR CLINIC MANIA',
+
 
     ];
     const isIndisponible = (motif) => {
@@ -901,7 +909,7 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
       const eleve = abs.Eleve;
       const nom = eleve?.nom?.toUpperCase() || 'INCONNU';
       const numero = eleve?.numeroIncorporation || 'N/A';
-      const prenom = eleve?.prenom || 'N/A';
+      const prenom = eleve?.prenom.toUpperCase() || 'N/A';
       content += `${(i + 1).toString().padStart(2, '0')} /EG ${nom} ${prenom} NR ${numero} -  `;
     });
 
@@ -999,7 +1007,8 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
       "DONNEUR DE SANG",
       "CHAMRE DE SURETE",
       "A REVOIR CHRR",
-      "A REVOIR CLINIC MANIA"
+      "A REVOIR CLINIC MANIA",
+      "CHAMBRE DE SURETE"
     ];
   
     const isIndisponible = (motif) => {
@@ -1238,41 +1247,42 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                           required
                         >
                           <option value="">Sélectionner un motif</option>
-                          <option value="IG">ADMIS IG</option>
-                          <option value="CHRR">ADMIS CHRR</option>
-                          <option value="EVASAN">EVASAN</option>
-                          <option value="A REVOIR IG">A REVOIR IG</option>
-                          <option value="A REVOIR CHRR">A REVOIR CHRR</option>
-                          <option value="CONSULTATION">CONSULTATION</option>
-                          <option value="CONSULTATION EXTERNE">CONSULTATION EXTERNE</option>
-                          <option value="CONSULTATION CLINIC MANIA">CONSULTATION CLINIC MANIA</option>
-                          <option value="GARDE MALADE IG">GARDE MALADE IG</option>
                           <option value="A REVOIR CENHOSOA">A REVOIR CENHOSOA</option>
-                          <option value="ADMIS CENHOSOA">ADMIS CENHOSOA</option>
-                          <option value="ADMIS HOMI">ADMIS HOMI</option>
-                          <option value="DONNEUR DE SANG">DONNEUR DE SANG</option>
-                          <option value="CONFINES EN CHAMBRE">CONFINES EN CHAMBRE</option>
-                          <option value="A REVOIR CLINIC MANIA">A REVOIR CLINIC MANIA</option>
-                          <option value="ADMIS CLINIC MANIA">ADMIS CLINIC MANIA</option>
-                          <option value="CHAMBRE DE SURETE">CHAMBRE DE SURETE</option>
-                          <option value="AD COM DLI">AD COM DLI</option>
-                          <option value="AD COM DQG SPORT">AD COM DQG SPORT</option>
-                          <option value="PERMISSION">PERMISSION</option>
-                          <option value="VATOVORY">VATOVORY</option>
-                          <option value="SPORT">SPORT</option>
-                          <option value="AD MDG">AD MDG</option>
-                          <option value="ANM">ANM</option>
-                          <option value="REPOS SANITAIRE">REPOS SANITAIRE</option>
-                          <option value="STAGE">STAGE</option>
-                          <option value="ARTS MARTIAUX">ARTS MARTIAUX</option>
-                          <option value="MISSION">MISSION</option>
-                          <option value="MISSION TANA">MISSION TANA</option>
-                          <option value="AD CEGN">AD CEGN</option>
-                          <option value="TOBY FANDRIANA">TOBY FANDRIANA</option>
-                          <option value="DEFILE TANA">DEFILE TANA</option>
-                          
-                          <option value="DEFILE AMBOSITRA">DEFILE AMBOSITRA</option>
-                          <option value="S.O">S.O</option>
+                            <option value="A REVOIR CHRR">A REVOIR CHRR</option>
+                            <option value="A REVOIR CLINIC MANIA">A REVOIR CLINIC MANIA</option>
+                            <option value="A REVOIR IG">A REVOIR IG</option>
+                            <option value="AD CEGN">AD CEGN</option>
+                            <option value="AD COM DLI">AD COM DLI</option>
+                            <option value="AD COM DQG SPORT">AD COM DQG SPORT</option>
+                            <option value="AD MDG">AD MDG</option>
+                            <option value="ADMIS CENHOSOA">ADMIS CENHOSOA</option>
+                            <option value="ADMIS CHRR">ADMIS CHRR</option>
+                            <option value="ADMIS CLINIC MANIA">ADMIS CLINIC MANIA</option>
+                            <option value="ADMIS HOMI">ADMIS HOMI</option>
+                            <option value="ADMIS IG">ADMIS IG</option>
+                            <option value="ANM">ANM</option>
+                            <option value="ARTS MARTIAUX">ARTS MARTIAUX</option>
+                            <option value="CHAMBRE DE SURETE">CHAMBRE DE SURETE</option>
+                            <option value="CHRR">CHRR</option>
+                            <option value="CONFINES EN CHAMBRE">CONFINES EN CHAMBRE</option>
+                            <option value="CONSULTATION">CONSULTATION</option>
+                            <option value="CONSULTATION CLINIC MANIA">CONSULTATION CLINIC MANIA</option>
+                            <option value="CONSULTATION EXTERNE">CONSULTATION EXTERNE</option>
+                            <option value="DEFILE AMBOSITRA">DEFILE AMBOSITRA</option>
+                            <option value="DEFILE TANA">DEFILE TANA</option>
+                            <option value="DONNEUR DE SANG">DONNEUR DE SANG</option>
+                            <option value="EVASAN">EVASAN</option>
+                            <option value="GARDE MALADE IG">GARDE MALADE IG</option>
+                            <option value="MISSION">MISSION</option>
+                            <option value="MISSION TANA">MISSION TANA</option>
+                            <option value="PERMISSION">PERMISSION</option>
+                            <option value="REPOS SANITAIRE">REPOS SANITAIRE</option>
+                            <option value="S.O">S.O</option>
+                            <option value="SPORT">SPORT</option>
+                            <option value="STAGE">STAGE</option>
+                            <option value="TOBY FANDRIANA">TOBY FANDRIANA</option>
+                            <option value="VATOVORY">VATOVORY</option>
+
                           <option value="AUTRE">Autre...</option>
                         </select>
                       </div>
