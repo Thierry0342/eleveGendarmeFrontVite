@@ -131,7 +131,7 @@ const HomePage = () => {
       </div>
 
       <footer className="site-footer">
-      <span className="footer-left"> <h6>V1.0.3</h6></span>
+      <span className="footer-left"> <h6>V1.1.1</h6></span>
       <div className="footer-content">
         <p>© 2025 EGNA SIT INFO</p>
         <p>ÉCOLE DE LA GENDARMERIE NATIONALE AMBOSITRA</p>

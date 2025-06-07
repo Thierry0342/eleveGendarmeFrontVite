@@ -51,5 +51,8 @@
   .swal-title-red{
     color: rgb(233, 19, 19);
   }
- 
+  .modal2 {
+    height: auto;
+    margin-top: -10%;
+  }
   
