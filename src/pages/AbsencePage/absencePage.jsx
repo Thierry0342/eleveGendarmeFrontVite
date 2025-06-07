@@ -5,15 +5,19 @@ import courService from '../../services/courService';
 import absenceService from '../../services/absence-service';
 import spaspecialeService from'../../services/spaSpeciale-service';
 import dateService from'../../services/dateservice';
+import GardeMaladeService from '../../services/gardeMalade-service';
 import DataTable from 'react-data-table-component';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import consultationService from "../../services/consultation-service";
+import cadreService from "../../services/cadre-service";
 import * as XLSX from "xlsx";
 import { fr } from "date-fns/locale";
 import { format } from 'date-fns';
 import './style.css'
 const user = JSON.parse(localStorage.getItem('user'));
 import { Modal, Button } from 'react-bootstrap';
+import Select from 'react-select';
 
 
 
@@ -47,17 +51,240 @@ import { Modal, Button } from 'react-bootstrap';
   const [autreMotif, setAutreMotif] = useState("");
   const [typeMotif, setTypeMotif] = useState("");
   const [showOptions, setShowOptions] = useState(false);
-  //temp speciale 
-  const [spaSpecialeTempList, setSpaSpecialeTempList] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState("");
 
+  //cadre
+  const [cadres, setCadres] = useState([]);
+  const [selectedCadreId, setSelectedCadreId] = useState("");
+  const [newsGardeMalade, setNewsGardeMalade] = useState({
+    nom: "",
+    matricule: "",
+    grade: "",
+    service: "",
+    phone: "",
+  });
+  //garde malade 
+  const [gardesMalades, setGardesMalades] = useState([]);
+  useEffect(() => {
+    GardeMaladeService.getAll()
+      .then(res => {
+        setGardesMalades(res.data);
+      })
+      .catch(err => console.error(err));
+  }, []);
+  
+  const handleSelectCadre = (e) => {
+    const cadreId = e.target.value;
+    setSelectedCadreId(cadreId);
+
+    const selectedCadre = cadres.find(c => c.id === parseInt(cadreId));
+    if (selectedCadre) {
+      setNewsGardeMalade({
+        nom: selectedCadre.nom,
+        matricule: selectedCadre.matricule,
+        grade: selectedCadre.grade || "",
+        service: selectedCadre.service || "",
+        phone: selectedCadre.phone || "",
+      });
+    } else {
+      setNewsGardeMalade({
+        nom: "",
+        matricule: "",
+        grade: "",
+        service: "",
+        phone: "",
+      });
+    }
+  };
+
+    //consultation 
+    const [consultations, setConsultations] = useState([]);
+  //modif consultation 
+  //ca
+  const filteredConsultations = consultations
+  .filter(c => c.status === "EVASAN")
+  .filter(c =>
+    `${c.Eleve?.nom} ${c.Eleve?.prenom} ${c.Eleve?.numeroIncorporation}`.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  
+
+  const rowsPerPage = 5;
+
+  // Etat modal pour saisir service et garde malade
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedConsultation, setSelectedConsultation] = useState(null);
+
+  // Etat formulaire garde malade en bas du tableau
+  const [newGardeMalade, setNewGardeMalade] = useState({ nom: "", numero: "" });
+
+  // Pagination calculs
+  const totalPages1 = Math.ceil(filteredConsultations.length / rowsPerPage);
+  const startIndex1 = (currentPage - 1) * rowsPerPage;
+  const currentConsultations =filteredConsultations.slice(startIndex1, startIndex1 + rowsPerPage);
+
+  // Quand on clique sur checkbox hospitalisé
+  const handleHospitaliseChange = (consultation, checked) => {
+    if (checked) {
+      setSelectedConsultation({ ...consultation, hospitalise: true });
+      setModalVisible(true);
+    } else {
+      consultationService
+        .update(consultation.id, {
+          ...consultation,
+          hospitalise: false,
+         
+        })
+        .then(() => {
+          // Mettre à jour localement la liste
+          setConsultations(prev =>
+            prev.map(c =>
+              c.id === consultation.id
+                ? { ...c, hospitalise: false,  }
+                : c
+            )
+          );
+        })
+        .catch(err => console.error("Erreur de mise à jour :", err));
+    }
+  };
+  
+  
+
+  // Gestion du formulaire modal
+  const handleModalChange = (e) => {
+    const { name, value } = e.target;
+    setSelectedConsultation(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Enregistrement modal : mise à jour base et fermeture modal
+  
+  const handleSaveModal = () => {
+    if (!selectedConsultation.service || !selectedConsultation.cadreId) {
+      alert("Veuillez remplir le service et choisir un garde malade");
+      return;
+    }
+  
+    consultationService
+      .update(selectedConsultation.id, {
+        ...selectedConsultation,
+        hospitalise: true,
+      })
+      .then(() => {
+        setConsultations((prev) =>
+          prev.map((c) =>
+            c.id === selectedConsultation.id ? selectedConsultation : c
+          )
+        );
+        setModalVisible(false);
+        setSelectedConsultation(null);
+      })
+      .catch((err) => {
+        console.error("Erreur lors de la mise à jour :", err);
+        alert("Une erreur est survenue lors de l'enregistrement.");
+      });
+  };
+  
+  
+  
+  // Gestion formulaire garde malade en bas du tableau
+  const handleNewGardeChange = (e) => {
+    const { name, value } = e.target;
+    setNewsGardeMalade(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddGardeMalade = async () => {
+    try {
+      // Validation simple (optionnel)
+      if (!newsGardeMalade.nom || !newsGardeMalade.matricule) {
+        alert("Veuillez sélectionner un cadre valide.");
+        return;
+      }
+  
+      // Envoi des données
+       await GardeMaladeService.post(newsGardeMalade);
+  
+      // Succès
+      alert("Garde malade ajouté avec succès !");
+      
+      // Réinitialiser les champs
+      setNewsGardeMalade({
+        nom: "",
+        matricule: "",
+        grade: "",
+        service: "",
+        phone: "",
+      });
+  
+      setSelectedCadreId("");
+  
+      // Optionnel : rafraîchir une liste affichée
+      // fetchGardeMalades(); // à implémenter si besoin
+  
+    } catch (error) {
+      console.error("Erreur lors de l'ajout :", error);
+      alert("Échec de l'ajout du garde malade.");
+    }
+  };
+  //maka ny garde malade rehetra 
+  const gardeMaladesEVASAN = consultations
+  .filter(c => c.status === "EVASAN" && c.hospitalise === true && c.cadreId && c.Cadre)
+
+  .map(c => c.Cadre); // 
+
+// Supprimer les doublons par ID
+const uniqueGardeMalades = gardeMaladesEVASAN.filter(
+  (cadre, index, self) =>
+    index === self.findIndex(c => c.id === cadre.id)
+);
+
+
+  
   //modif en bas de page sur pdf 
    
+//consultation 
+const fetchConsultations = (cour2) => {
+  consultationService.getByCour(cour2)
+    .then(res => {
+      console.log("✅ Données consultations reçues :", res.data); // log ici
+      setConsultations(res.data);
+    })
+    .catch(err => console.error("❌ Erreur chargement consultations :", err));
+};
+//recup cadre 
+useEffect(() => {
+  const fetchCadres = async () => {
+    try {
+      const responseCadre = await cadreService.getAll();
+      setCadres(responseCadre.data); // ou responseCadre si c’est déjà un tableau
+    } catch (error) {
+      console.error("Erreur lors de la récupération des cadres :", error);
+    }
+  };
 
+  fetchCadres();
+}, []);
+//select cadre 
+const cadreOptions = cadres.map(cadre => ({
+  value: cadre.id,
+  label: `${cadre.nom}  (${cadre.matricule})`,
+}));
+
+
+
+
+useEffect(() => {
+  if (cour) {
+    fetchConsultations(cour);
+  }
+}, [cour]);
    const [footerLines, setFooterLines] = useState({
 
       line1: ``,
       line2: "Le chef d'escadron, Donatiens RAYMOND",
       line3: "Commandant du cours A de formation des élèves gendarmes",
+      line4:"PO Capitaine Malone BELONE"
     });
     useEffect(() => {
       if (!spaDate) return; // éviter erreur si spaDate est vide
@@ -135,6 +362,7 @@ import { Modal, Button } from 'react-bootstrap';
                   <input id="line1" class="swal2-input" value="${footerLines.line1}" placeholder="Ligne 1">
                   <input id="line2" class="swal2-input" value="${footerLines.line2}" placeholder="Ligne 2">
                   <input id="line3" class="swal2-input" value="${footerLines.line3}" placeholder="Ligne 3">
+                  <input id="line4" class="swal2-input" value="${footerLines.line4}" placeholder="Ligne 4">
 
                 `,
                 focusConfirm: false,
@@ -143,13 +371,15 @@ import { Modal, Button } from 'react-bootstrap';
                   const line1 = document.getElementById('line1').value;
                   const line2 = document.getElementById('line2').value;
                   const line3 = document.getElementById('line3').value;
-                    return { line1, line2, line3 }; // 
+                  const line4 = document.getElementById('line4').value;
+
+                    return { line1, line2, line3, line4 }; // 
                 }
               }).then((swalResult) => {
                 if (swalResult.isConfirmed && swalResult.value) {
-                  const { line1, line2, line3 } = swalResult.value;
+                  const { line1, line2, line3,line4 } = swalResult.value;
                   setFooterLines({ line1, line2, line3 });
-                  handleExportPDFSimple({ line1, line2, line3 }); // <-- passer les valeurs ici
+                  handleExportPDFSimple({ line1, line2, line3, line4 }); // <-- passer les valeurs ici
                 }
               });
             } else {
@@ -170,7 +400,7 @@ import { Modal, Button } from 'react-bootstrap';
    const [pageAbsence, setPageAbsence] = useState(1);
    const [pageSpa, setPageSpa] = useState(1);
    const ITEMS_PER_PAGE = 5;
-   const [currentPage, setCurrentPage] = useState(1);
+
    
   //ajout cour automatique
   useEffect(() => {
@@ -784,6 +1014,7 @@ const handleMotifChange = (e) => {
      doc.text(footer.line1, 120, finalY + 7);
       doc.text(footer.line2, 130, finalY + 17);
       doc.text(footer.line3, 114, finalY + 23);
+      doc.text(footer.line4, 130, finalY + 31);
 
   
       // Sauvegarde du PDF
@@ -911,7 +1142,7 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
       const nom = eleve?.nom?.toUpperCase() || 'INCONNU';
       const numero = eleve?.numeroIncorporation || 'N/A';
       const prenom = eleve?.prenom.toUpperCase() || 'N/A';
-      content += `${(i + 1).toString().padStart(2, '0')} /EG ${nom} ${prenom} NR ${numero} -  `;
+      content += `${(i + 1).toString().padStart(2, '0')}/EG ${nom} ${prenom} NR ${numero} X  `;
     });
 
     indexSectionAbsent++;
@@ -935,7 +1166,8 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
       const eleve = abs.Eleve;
       const nom = eleve?.nom?.toUpperCase() || 'INCONNU';
       const numero = eleve?.numeroIncorporation || 'N/A';
-      content += `${(i + 1).toString().padStart(2, '0')} / ${nom} NR ${numero} - `;
+      const prenom = eleve?.prenom.toUpperCase() || 'N/A';
+      content += `${(i + 1).toString().padStart(2, '0')}/EG ${nom} ${prenom} NR ${numero} X `;
     });
 
     indexSectionIndispo++;
@@ -1823,8 +2055,265 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                                             
                                           </div>
                                         )}
-                                       
-                                        
+                             <div className="mt-4">
+                             <h2>Liste des consultations EVASAN</h2>
+                             <div className="mb-3">
+  <input
+    type="text"
+    className="form-control"
+    placeholder="Rechercher un élève (nom ou prénom)"
+    value={searchTerm}
+    onChange={(e) => setSearchTerm(e.target.value)}
+  />
+</div>
+
+
+<table className="table table-bordered">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Date</th>
+      <th>Élève</th>
+      <th>Hospitalisé</th>
+    </tr>
+  </thead>
+  <tbody>
+  {currentConsultations.length === 0 ? (
+  <tr>
+    <td colSpan="4" className="text-center">Aucune consultation EVASAN</td>
+  </tr>
+) : (
+  currentConsultations.map((c, idx) => (
+    <tr key={c.id}>
+      <td>{startIndex + idx + 1}</td>
+      <td>{c.date}</td>
+      <td>{c.Eleve?.nom} {c.Eleve?.prenom}</td>
+      <td className="text-center">
+        <input
+          type="checkbox"
+          checked={c.hospitalise}
+          onChange={e => handleHospitaliseChange(c, e.target.checked)}
+        />
+      </td>
+    </tr>
+  ))
+)}
+
+  </tbody>
+</table>
+
+{/* Pagination */}
+<nav>
+  <ul className="pagination justify-content-center">
+    <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+      <button className="page-link" onClick={() => setCurrentPage(currentPage - 1)}>Précédent</button>
+    </li>
+    <li className="page-item disabled">
+      <span className="page-link">Page {currentPage} / {totalPages1}</span>
+    </li>
+    <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+      <button className="page-link" onClick={() => setCurrentPage(currentPage + 1)}>Suivant</button>
+    </li>
+  </ul>
+</nav>
+
+{/* Modal saisie service + garde malade */}
+<Modal show={modalVisible} onHide={() => setModalVisible(false)}>
+  <Modal.Header closeButton>
+    <Modal.Title>Saisie service et garde malade</Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    <div className="mb-3">
+      <label>Service</label>
+      <input
+        type="text"
+        name="service"
+        className="form-control"
+        value={selectedConsultation?.service || ""}
+        onChange={handleModalChange}
+      />
+    </div>
+    <div className="mb-3">
+  <label>Garde malade (cadre)</label>
+  <select
+    name="cadreId"
+    className="form-control"
+    value={selectedConsultation?.cadreId || ""}
+    onChange={handleModalChange}
+  >
+    <option value="">-- Sélectionner un cadre --</option>
+    {cadres.map(cadre => (
+      <option key={cadre.id} value={cadre.id}>
+        {cadre.nom} ({cadre.service}) ({cadre.matricule})
+      </option>
+    ))}
+  </select>
+
+
+
+    </div>
+  </Modal.Body>
+  <Modal.Footer>
+    <Button variant="secondary" onClick={() => setModalVisible(false)}>Annuler</Button>
+    <Button variant="primary" onClick={handleSaveModal}>Enregistrer</Button>
+  </Modal.Footer>
+</Modal>
+
+{/* Formulaire ajout garde malade en bas */}
+<div className="mt-4 p-3 border">
+      <h4>Ajouter un garde malade (parmi les cadres existants)</h4>
+
+      <div className="mb-3">
+        <select
+          name="cadreId"
+          className="form-control"
+          value={selectedCadreId}
+          onChange={handleSelectCadre}
+        >
+          <option value="">-- Sélectionner un cadre --</option>
+          {cadres.map(cadre => (
+            <option key={cadre.id} value={cadre.id}>
+              {cadre.nom} ({cadre.service}) ({cadre.matricule})
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mb-3">
+        <input
+          type="text"
+          name="nom"
+          placeholder="Nom"
+          className="form-control"
+          value={newsGardeMalade.nom}
+          readOnly
+        />
+      </div>
+
+      <div className="mb-3">
+        <input
+          type="number"
+          name="matricule"
+          placeholder="Matricule"
+          className="form-control"
+          value={newsGardeMalade.matricule}
+          readOnly
+        />
+      </div>
+
+      <div className="mb-3">
+        <input
+          type="text"
+          name="grade"
+          placeholder="Grade"
+          className="form-control"
+          value={newsGardeMalade.grade}
+          readOnly
+        />
+      </div>
+
+      <div className="mb-3">
+        <input
+          type="text"
+          name="service"
+          placeholder="Service"
+          className="form-control"
+          value={newsGardeMalade.service}
+          readOnly
+        />
+      </div>
+
+      <div className="mb-3">
+        <input
+          type="text"
+          name="phone"
+          placeholder="Téléphone"
+          className="form-control"
+          value={newsGardeMalade.phone}
+          readOnly
+        />
+      </div>
+
+      <button className="btn btn-success" onClick={handleAddGardeMalade}>
+        Ajouter
+      </button>
+    </div>
+    </div>
+
+<div className="mt-4">
+  <h4>Garde malade élève non hospitalisés</h4>
+  {uniqueGardeMalades.length === 0 ? (
+    <p>Aucun garde malade trouvé.</p>
+  ) : (
+    <table className="table table-striped table-bordered">
+      <thead>
+        <tr>
+          <th>Nom cadre</th>
+          <th>Service</th>
+          
+          <th>Numéro</th>
+          <th>Élève assigné</th>
+        </tr>
+      </thead>
+      <tbody>
+        {uniqueGardeMalades.map(cadre => {
+            
+          // Trouver l'élève lié au cadre via une consultation EVASAN
+          const consultationAssociee = consultations.find(
+            c => c.status === "EVASAN" && c.cadreId === cadre.id
+          );
+          const eleve = consultationAssociee?.Eleve;
+
+          return (
+            <tr key={cadre.id}>
+              <td>{cadre.nom}</td>
+              <td>{cadre.service}</td>
+              
+              <td>{cadre.phone}</td>
+              <td>
+                {eleve ? `${eleve.nom} ${eleve.prenom}` : "Élève non assigné"}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  )}
+</div>
+<div className="mt-4">
+  <h4>Garde malade – Élèves non hospitalisés</h4>
+
+  {gardesMalades.length === 0 ? (
+    <p>Aucun garde malade pour élèves non hospitalisés.</p>
+  ) : (
+    <table className="table table-bordered table-hover">
+      <thead className="table-light">
+        <tr>
+          <th>Nom</th>
+          <th>Matricule</th>
+          <th>Grade</th>
+          <th>Service</th>
+          <th>Numéro</th>
+        </tr>
+      </thead>
+      <tbody>
+        {gardesMalades.map(gm => (
+          <tr key={gm.id}>
+            <td>{gm.nom}</td>
+            <td>{gm.matricule}</td>
+            <td>{gm.grade || "-"}</td>
+            <td>{gm.service || "-"}</td>
+            <td>{gm.phone || "-"}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )}
+</div>
+
+
+
+
 
     
 
