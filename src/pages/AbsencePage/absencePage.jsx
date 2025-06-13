@@ -1342,7 +1342,24 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
     // Nettoyage espaces et retours ligne
     content = content.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
   
-    doc.text(content, 10, 10, { maxWidth: 190 });
+    const lineHeight = 7; // hauteur d'une ligne
+    const margin = 10;
+    const pageHeight = doc.internal.pageSize.height;
+    
+    // Divise le texte long en lignes compatibles avec la largeur de la page
+    const lines = doc.splitTextToSize(content, 190);
+    
+    let y = margin;
+    
+    lines.forEach((line) => {
+      if (y + lineHeight > pageHeight - margin) {
+        doc.addPage();
+        y = margin;
+      }
+      doc.text(line, margin, y);
+      y += lineHeight;
+    });
+    
     doc.save('spa.pdf');
   };
   //en excel 
