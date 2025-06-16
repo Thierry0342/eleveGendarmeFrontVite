@@ -373,6 +373,7 @@ useEffect(() => {
       }
 
       setEleves(allEleves);
+     
     } catch (error) {
       console.error("Erreur de chargement :", error);
     } finally {
@@ -384,6 +385,7 @@ useEffect(() => {
   };
 
   fetchAllData(); // 1er appel
+
 
   const intervalId = setInterval(fetchAllData, 3000); // 
   return () => clearInterval(intervalId);
@@ -553,7 +555,7 @@ const handleExportExcel = async () => {
 
       // Filtrer élèves de cet escadron
       const elevesEscadron = elevesAAfficher.filter(e => e.escadron === escadron);
-
+//console.log(elevesEscadron);
       // Ajouter chaque élève dans une ligne
       elevesEscadron.forEach(eleve => {
         worksheet.getRow(currentRow).values = [
