@@ -54,6 +54,8 @@ import Select from 'react-select';
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [spaSpecialeTempList, setSpaSpecialeTempList] = useState([]);
+  const [motifSelectionne, setMotifSelectionne] = useState('');
+  const [showModalGenerer, setShowModalGenerer] = useState(false);
 
 
   //cadre
@@ -154,6 +156,43 @@ import Select from 'react-select';
         .catch(err => console.error("Erreur de mise à jour :", err));
     }
   };
+  //entre quelque motif dans le tableau en attente 
+  const genererAbsencesPourAujourdhuiDepuisHier = () => {
+    if (!motifSelectionne || !date) return;
+  
+    // Calcule la date de la veille (hier)
+    const dateObj = new Date(date);
+    dateObj.setDate(dateObj.getDate() - 1);
+    const dateHier = dateObj.toISOString().split('T')[0]; // Format "YYYY-MM-DD"
+  
+    const dateAujourdhui = date; // Date du serveur
+  
+    const nouvellesAbsences = listeAbsence
+      .filter(abs => abs.motif === motifSelectionne && abs.date === dateHier)
+      .map(abs => ({
+        eleveId: abs.eleveId ?? abs.Eleve?.id,
+        numeroIncorporation: abs.Eleve.numeroIncorporation,
+        nom: abs.Eleve.nom,
+        prenom: abs.Eleve.prenom,
+        escadron: abs.Eleve.escadron,
+        peloton: abs.Eleve.peloton,
+        date: dateAujourdhui,
+        motif: abs.motif
+      }));
+  
+    setAbsencesTemporaires(prev => [
+      ...prev,
+      ...nouvellesAbsences.filter(nv =>
+        !prev.some(p =>
+          p.numeroIncorporation === nv.numeroIncorporation &&
+          p.date === nv.date &&
+          p.motif === nv.motif
+        )
+      )
+    ]);
+  };
+  
+  
   
   
 
@@ -264,7 +303,7 @@ const uniqueGardeMalades = gardeMaladesEVASAN.filter(
 const fetchConsultations = (cour2) => {
   consultationService.getByCour(cour2)
     .then(res => {
-      console.log("✅ Données consultations reçues :", res.data); // log ici
+     // console.log("✅ Données consultations reçues :", res.data); // log ici
       setConsultations(res.data);
     })
     .catch(err => console.error("❌ Erreur chargement consultations :", err));
@@ -776,6 +815,34 @@ useEffect(() => {
   //envoie tous 
   const handleEnvoyerTout = () => {
     if (absencesTemporaires.length === 0) return;
+    const doublons = absencesTemporaires.filter(absT => {
+      const dateT = new Date(absT.date).toISOString().split('T')[0];
+  
+      return [...listeAbsence, ...absencesTemporaires.filter(a => a !== absT)].some(abs => {
+        const dateAbs = new Date(abs.date).toISOString().split('T')[0];
+        return (
+          abs.eleveId === absT.eleveId &&
+          dateAbs === dateT
+        );
+      });
+    });
+  
+    const numIncoDoublons = [...new Set(doublons.map(d => d.numeroIncorporation))];
+  
+    if (numIncoDoublons.length > 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Doublons détectés',
+        html: `
+          <p>Les absences suivantes sont déjà présentes pour la même date :</p>
+          <ul style="text-align:left">
+            ${numIncoDoublons.map(n => `<li><strong>${n}</strong></li>`).join('')}
+          </ul>
+          <p>Veuillez les supprimer ou corriger avant l'envoi.</p>
+        `,
+      });
+      return;
+    }
   
     Swal.fire({
       title: 'Confirmer l\'envoi',
@@ -1677,6 +1744,7 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                             <option value="ARTS MARTIAUX">ARTS MARTIAUX</option>
                             <option value="CHAMBRE DE SURETE">CHAMBRE DE SURETE</option>
                             <option value="CHRR">CHRR</option>
+                            <option value="CONCOURS ACMIL">CONCOURS ACMIL</option>
                             <option value="CONFINES EN CHAMBRE">CONFINES EN CHAMBRE</option>
                             <option value="CONSULTATION">CONSULTATION</option>
                             <option value="CONSULTATION CLINIC MANIA">CONSULTATION CLINIC MANIA</option>
@@ -1688,10 +1756,10 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                             <option value="GARDE MALADE IG">GARDE MALADE IG</option>
                             <option value="MISSION">MISSION</option>
                             <option value="MISSION TANA">MISSION TANA</option>
-                            <option value="PERMISSION">PERMISSION</option>
+                            <option value="PERMISSIONAIRE">PERMISSION</option>
                             <option value="REPOS SANITAIRE">REPOS SANITAIRE</option>
                             <option value="S.O">S.O</option>
-                            <option value="SPORT">SPORT</option>
+                            <option value="SPORT TANA">SPORT TANA</option>
                             <option value="STAGE">STAGE</option>
                             <option value="TOBY FANDRIANA">TOBY FANDRIANA</option>
                             <option value="VATOVORY">VATOVORY</option>
@@ -1753,7 +1821,19 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                                             Voir absences en attente ({absencesTemporaires.length})
                                           </Button>
                                         )}
+                                        <br></br>
+                                        <br></br>
+                                        <Button
+                            variant="primary"
+                            onClick={() => setShowModalGenerer(true)}
+                          >
+                            🕒 Générer Absences existants
+                          </Button>
+
+
                             </div>
+                            
+                            
                             )}
                                         </>
                                       )}
@@ -2512,6 +2592,8 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                                       <Modal show={showModale} onHide={handleCloseModal} size="xl" centered>
                                       <Modal.Header closeButton>
                                         <Modal.Title>Absences en attente d’envoi</Modal.Title>
+  
+
                                       </Modal.Header>
                                       <Modal.Body>
                                         <div style={{ display: 'flex', gap: '20px', overflowX: 'auto', paddingBottom: '10px' }}>
@@ -2571,6 +2653,47 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                                         </Button>
                                       </Modal.Footer>
                                     </Modal>
+                                    <Modal show={showModalGenerer} onHide={() => setShowModalGenerer(false)} centered>
+  <Modal.Header closeButton>
+    <Modal.Title>Générer des absences </Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    <div className="mb-3">
+      <label htmlFor="motif-select" className="form-label">Choisir un motif :</label>
+      <select
+        id="motif-select"
+        className="form-select"
+        value={motifSelectionne}
+        onChange={(e) => setMotifSelectionne(e.target.value)}
+      >
+        <option value="">-- Sélectionner un motif --</option>
+        {Array.from(new Set(listeAbsence.map(abs => abs.motif))).map((motif, index) => (
+          <option key={index} value={motif}>{motif}</option>
+        ))}
+      </select>
+    </div>
+  </Modal.Body>
+  <Modal.Footer>
+    <Button variant="secondary" onClick={() => setShowModalGenerer(false)}>Annuler</Button>
+    <Button
+  variant="success"
+  onClick={() => {
+    genererAbsencesPourAujourdhuiDepuisHier();
+    setShowModalGenerer(false);
+    setMotifSelectionne('');
+  }}
+  disabled={!motifSelectionne}
+>
+  ✅ Générer les absences du jour précédent ({(() => {
+    const d = new Date(date);
+    d.setDate(d.getDate() - 1);
+    return d.toLocaleDateString();
+  })()}) pour aujourd’hui ({new Date(date).toLocaleDateString()})
+</Button>
+
+  </Modal.Footer>
+</Modal>
+
 
                                       {showModal && (
                                         <>
