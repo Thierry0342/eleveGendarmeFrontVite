@@ -1759,7 +1759,7 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                             <option value="PERMISSIONAIRE">PERMISSION</option>
                             <option value="REPOS SANITAIRE">REPOS SANITAIRE</option>
                             <option value="S.O">S.O</option>
-                            <option value="SPORT TANA">SPORT TANA</option>
+                            <option value="SPORT">SPORT</option>
                             <option value="STAGE">STAGE</option>
                             <option value="TOBY FANDRIANA">TOBY FANDRIANA</option>
                             <option value="VATOVORY">VATOVORY</option>
