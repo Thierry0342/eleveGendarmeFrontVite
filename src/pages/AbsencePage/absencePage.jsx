@@ -1371,7 +1371,7 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
       const nom = eleve?.nom?.toUpperCase() || 'INCONNU';
       const numero = eleve?.numeroIncorporation || 'N/A';
       const prenom = eleve?.prenom.toUpperCase() || 'N/A';
-      content += `${(i + 1).toString().padStart(2, '0')}/EG ${nom} ${prenom} NR ${numero} X  `;
+      content += `${(i + 1).toString().padStart(2, '0')} /EG ${nom} ${prenom} NR ${numero} -  `;
     });
 
     indexSectionAbsent++;
@@ -1396,7 +1396,7 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
       const nom = eleve?.nom?.toUpperCase() || 'INCONNU';
       const numero = eleve?.numeroIncorporation || 'N/A';
       const prenom = eleve?.prenom.toUpperCase() || 'N/A';
-      content += `${(i + 1).toString().padStart(2, '0')}/EG ${nom} ${prenom} NR ${numero} X `;
+      content += `${(i + 1).toString().padStart(2, '0')} /EG ${nom} ${prenom} NR ${numero} - `;
     });
 
     indexSectionIndispo++;
