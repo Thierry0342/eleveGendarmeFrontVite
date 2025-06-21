@@ -518,6 +518,14 @@ const handleExportExcel = async () => {
       { header: 'Matricule', key: 'matricule', width: 25 },
       { header: 'Escadron', key: 'escadron', width: 15 },
       { header: 'Peloton', key: 'peloton', width: 15 },
+ 
+      { header: 'NUMERO 1', key: 'numero', width: 15 },
+      { header: 'NUMERO 2', key: 'numero', width: 15 },
+      { header: 'NUMERO 3', key: 'numero', width: 15 },
+
+
+
+
       { header: 'Note FETTA', key: 'finfetta', width: 15 },
       { header: 'Rang FETTA', key: 'rangFinfetta', width: 15 },
       { header: 'Note Mi-Stage', key: 'mistage', width: 15 },
@@ -565,6 +573,12 @@ const handleExportExcel = async () => {
           eleve.matricule || '',
           eleve.escadron || '',
           eleve.peloton || '',
+
+          eleve.telephone1 || '',
+          eleve.telephone2 || '',
+          eleve.telephone3 || '',
+
+
           eleve.Note?.finfetta || '',
           eleve.Note?.rangfinfetta || '',
           eleve.Note?.mistage || '',
