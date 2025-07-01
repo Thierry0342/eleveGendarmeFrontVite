@@ -1,74 +1,56 @@
-/* Navbar de base */
 .navbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: #1f2937;
-  padding: 20px 30px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  position: fixed;
+  position: fixed !important;  /* Forcer si besoin */
   top: 0;
-  left: 50%;  
-  transform: translateX(-50%); /* Décale de 50% pour centrer parfaitement */
+  left: 0;
+  width: 100%;
+  height: 75px;
+  background-color: #1f2937;
   z-index: 1000;
-  transition: all 0.9s ease; /* Transition fluide */
-  width: 90%;
-  border-radius: 12px;
-  height: 75px; /* Fixe la hauteur du navbar */
-  margin-top: 10px;
-  
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 30px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
-/* Quand on scrolle, le navbar se réduit */
 .navbar.shrink {
-  width: 60%; /* Réduit la largeur */
-  padding: 10px 20px; /* Réduit le padding */
-  background-color: #111827; /* Change la couleur du fond quand réduit */
-  position: fixed;
-  border-radius: 12px;
-}
-/* Transparence quand on scrolle */
-.navbar.transparent {
-  background-color: rgba(31, 41, 55, 0.75); /* Couleur semi-transparente */
-  backdrop-filter: blur(6px); /* Ajoute un effet flou */
-  box-shadow: none;
-  transition: background-color 0.3s ease, backdrop-filter 0.6s ease;
+  padding: 10px 20px;
+  height: 60px;
+  background-color: #111827;
 }
 
 
-/* Le logo du navbar */
+body, #root, main {
+  padding-top: 20px; /* ou margin-top */
+}
+
 .logo a {
+  color: white;
   font-size: 24px;
-  color: #ffffff;
   text-decoration: none;
+  display: flex;
+  align-items: center;
   transition: font-size 0.3s ease;
 }
-.logo-icon{
+
+.logo-icon {
   height: 45px;
-  padding-left: 10px;
-  padding-bottom: 5px;
-  margin-left: 5px;
   margin-right: 10px;
 }
 
-/* Quand on scrolle, on réduit aussi la taille du logo */
 .navbar.shrink .logo a {
   font-size: 20px;
 }
 
-/* Les liens du navbar */
 .nav-links {
   display: flex;
   gap: 25px;
   list-style: none;
-  margin: 5px;
-  padding: 5px;
+  margin: 0;
+  padding: 0;
   align-items: center;
-  
-  
 }
 
-/* Style des liens */
 .nav-links a {
   color: white;
   text-decoration: none;
@@ -77,26 +59,11 @@
   transition: color 0.3s ease;
 }
 
-/* Effet au survol des liens */
 .nav-links a:hover {
   color: #61dafb;
 }
-/* Style du bouton de déconnexion */
-.nav-links .btn-logout {
-  background-color: #ff4d4d;
-  color: white;
-  border: none;
-  padding: 10px 15px;
-  font-size: 16px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
 
-.nav-links .btn-logout:hover {
-  background-color: #e60000;
-}
-/* Style du bouton de déconnexion avec icône */
-.nav-links .btn-logout {
+.btn-logout {
   background-color: #ff4d4d;
   color: white;
   border: none;
@@ -106,19 +73,23 @@
   transition: background-color 0.3s ease;
   display: flex;
   border-radius: 12px;
- 
-  
-  align-items: center; /* Aligne l'icône et le texte */
+  align-items: center;
 }
 
-.nav-links .btn-logout svg {
-  margin-right: 8px; /* Espacement entre l'icône et le texte */
-
-}
-
-.nav-links .btn-logout:hover {
+.btn-logout:hover {
   background-color: #e60000;
 }
 
-
-
+.user-panel {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  width: 220px;
+  z-index: 1100;
+  color: #333;
+}

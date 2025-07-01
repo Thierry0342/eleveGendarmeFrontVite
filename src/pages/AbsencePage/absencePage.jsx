@@ -16,7 +16,7 @@ import { fr } from "date-fns/locale";
 import { format } from 'date-fns';
 import './style.css'
 const user = JSON.parse(localStorage.getItem('user'));
-import { Modal, Button } from 'react-bootstrap';
+import { Modal, Button,Spinner  } from 'react-bootstrap';
 import Select from 'react-select';
 
 
@@ -50,13 +50,18 @@ import Select from 'react-select';
   const [eleveSPAInfo, setEleveSPAInfo] = useState(null);
   const [autreMotif, setAutreMotif] = useState("");
   const [typeMotif, setTypeMotif] = useState("");
+  //perm
+  const [lieuPermission, setLieuPermission] = useState('');
+  const [motifPermission, setMotifPermission] = useState('');
+
   const [showOptions, setShowOptions] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [spaSpecialeTempList, setSpaSpecialeTempList] = useState([]);
   const [motifSelectionne, setMotifSelectionne] = useState('');
   const [showModalGenerer, setShowModalGenerer] = useState(false);
-
+//load 
+const [isLoading, setIsLoading] = useState(false);
 
   //cadre
   const [cadres, setCadres] = useState([]);
@@ -511,6 +516,13 @@ useEffect(() => {
   
     setAbsencesTemporaires(nouvelleListe);
   };
+  //sup motif 
+  const handleSupprimerMotif = (motifASupprimer) => {
+    // Supprime toutes les absences de ce motif de absencesTemporaires
+    const nouvellesAbsences = absencesTemporaires.filter(abs => abs.motif !== motifASupprimer);
+    setAbsencesTemporaires(nouvellesAbsences);
+  };
+  
   
   //regroup motif tempraire 
    // Regroupe les absences par motif
@@ -792,6 +804,10 @@ useEffect(() => {
       escadron: eleveData.eleve.escadron,
       peloton: eleveData.eleve.peloton,
       numeroIncorporation:eleveData.eleve.numeroIncorporation,
+      ...(motif === "PERMISSIONAIRE" && {
+        lieuPerm: lieuPermission,
+        motifPerm: motifPermission
+      })
       
     }
   
@@ -843,7 +859,8 @@ useEffect(() => {
       });
       return;
     }
-  
+    setIsLoading(true); // Affiche spinner, désactive bouton
+    setTimeout(() => {
     Swal.fire({
       title: 'Confirmer l\'envoi',
       text: `Voulez-vous enregistrer les ${absencesTemporaires.length} absences ?`,
@@ -853,6 +870,7 @@ useEffect(() => {
       cancelButtonText: 'Annuler'
     }).then((result) => {
       if (result.isConfirmed) {
+        
         Promise.all(absencesTemporaires.map(abs =>
           absenceService.post(abs)
         ))
@@ -877,11 +895,20 @@ useEffect(() => {
               title: 'Erreur',
               text: 'Un problème est survenu lors de l\'enregistrement.',
             });
+          })
+          .finally(() => {
+            setIsLoading(false);  // <-- stop loading
+            handleCloseModal(); // ferme modal après traitement
           });
+          
+      }else {
+        // si annulation, on masque aussi le spinner
+        setIsLoading(false);
       }
       
       
     });
+  }, 1000);
   };
   
   
@@ -1804,6 +1831,40 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                           </div>
                         </>
                       )}
+                      {motif === 'PERMISSIONAIRE' && (
+                        <>
+                          <div className="mb-3">
+                            <label htmlFor="lieuPermission" className="form-label">
+                              <i className="fas fa-map-marker-alt me-2"></i>Lieu
+                            </label>
+                            <input
+                              type="text"
+                              id="lieuPermission"
+                              className="form-control border-0 shadow-sm"
+                              value={lieuPermission}
+                              onChange={(e) => setLieuPermission(e.target.value)}
+                              placeholder="Lieu de la permission"
+                              required
+                            />
+                          </div>
+
+                          <div className="mb-3">
+                            <label htmlFor="motifPermission" className="form-label">
+                              <i className="fas fa-comment-dots me-2"></i>Motif
+                            </label>
+                            <input
+                              type="text"
+                              id="motifPermission"
+                              className="form-control border-0 shadow-sm"
+                              value={motifPermission}
+                              onChange={(e) => setMotifPermission(e.target.value)}
+                              placeholder="Motif de la permission"
+                              required
+                            />
+                          </div>
+                        </>
+                      )}
+
 
                       {/* Bouton Enregistrer */}
                       {user?.type === 'saisie' && (
@@ -2314,385 +2375,407 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                                             
                                           </div>
                                         )}
-                            <>
-      <Button
-        className="mb-3"
-        variant="primary"
-        onClick={() => setMainModalVisible(true)}
-      >
-        🗂 Ouvrir la liste des consultations EVASAN
-      </Button>
+                                                              <>
+                                        <Button
+                                          className="mb-3"
+                                          variant="primary"
+                                          onClick={() => setMainModalVisible(true)}
+                                        >
+                                          🗂 Ouvrir la liste des consultations EVASAN
+                                        </Button>
 
-      <Modal
-        size="xl"
-        show={mainModalVisible}
-        onHide={() => setMainModalVisible(false)}
-        className='modal2'
-      
-      >
-        <Modal.Header closeButton>
-          <Modal.Title>📋 Liste des consultations EVASAN</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <div className="mb-3">
-            <input
-              type="text"
-              className="form-control shadow-sm"
-              placeholder="🔍 Rechercher un élève (nom ou prénom)"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+                                        <Modal
+                                          size="xl"
+                                          show={mainModalVisible}
+                                          onHide={() => setMainModalVisible(false)}
+                                          className='modal2'
+                                        
+                                        >
+                                          <Modal.Header closeButton>
+                                            <Modal.Title>📋 Liste des consultations EVASAN</Modal.Title>
+                                          </Modal.Header>
+                                          <Modal.Body>
+                                            <div className="mb-3">
+                                              <input
+                                                type="text"
+                                                className="form-control shadow-sm"
+                                                placeholder="🔍 Rechercher un élève (nom ou prénom)"
+                                                value={searchTerm}
+                                                onChange={(e) => setSearchTerm(e.target.value)}
+                                              />
+                                            </div>
 
-          <table className="table table-bordered table-hover table-striped shadow-sm">
-            <thead className="table-dark text-center">
-              <tr>
-                <th>#</th>
-                <th>Date</th>
-                <th>Élève</th>
-                <th>Hospitalisé</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentConsultations.length === 0 ? (
-                <tr>
-                  <td colSpan="4" className="text-center text-muted">
-                    Aucune consultation EVASAN
-                  </td>
-                </tr>
-              ) : (
-                currentConsultations.map((c, idx) => (
-                  <tr
-                    key={c.id}
-                    className={c.hospitalise ? "table-success" : ""}
-                  >
-                    <td>{startIndex + idx + 1}</td>
-                    <td>{c.date}</td>
-                    <td>
-                      {c.Eleve?.nom} {c.Eleve?.prenom}
-                    </td>
-                    <td className="text-center">
-                      <input
-                        type="checkbox"
-                        checked={c.hospitalise}
-                        onChange={(e) =>
-                          handleHospitaliseChange(c, e.target.checked)
-                        }
-                      />
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                                            <table className="table table-bordered table-hover table-striped shadow-sm">
+                                              <thead className="table-dark text-center">
+                                                <tr>
+                                                  <th>#</th>
+                                                  <th>Date</th>
+                                                  <th>Élève</th>
+                                                  <th>Hospitalisé</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody>
+                                                {currentConsultations.length === 0 ? (
+                                                  <tr>
+                                                    <td colSpan="4" className="text-center text-muted">
+                                                      Aucune consultation EVASAN
+                                                    </td>
+                                                  </tr>
+                                                ) : (
+                                                  currentConsultations.map((c, idx) => (
+                                                    <tr
+                                                      key={c.id}
+                                                      className={c.hospitalise ? "table-success" : ""}
+                                                    >
+                                                      <td>{startIndex + idx + 1}</td>
+                                                      <td>{c.date}</td>
+                                                      <td>
+                                                        {c.Eleve?.nom} {c.Eleve?.prenom}
+                                                      </td>
+                                                      <td className="text-center">
+                                                        <input
+                                                          type="checkbox"
+                                                          checked={c.hospitalise}
+                                                          onChange={(e) =>
+                                                            handleHospitaliseChange(c, e.target.checked)
+                                                          }
+                                                        />
+                                                      </td>
+                                                    </tr>
+                                                  ))
+                                                )}
+                                              </tbody>
+                                            </table>
 
-          {/* Pagination */}
-          <nav>
-            <ul className="pagination justify-content-center">
-              <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-                <button
-                  className="page-link"
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                >
-                  ⬅️ Précédent
-                </button>
-              </li>
-              <li className="page-item disabled">
-                <span className="page-link">
-                  Page {currentPage} / {totalPages1}
-                </span>
-              </li>
-              <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
-                <button
-                  className="page-link"
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                >
-                  Suivant ➡️
-                </button>
-              </li>
-            </ul>
-          </nav>
+                                            {/* Pagination */}
+                                            <nav>
+                                              <ul className="pagination justify-content-center">
+                                                <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                                                  <button
+                                                    className="page-link"
+                                                    onClick={() => setCurrentPage(currentPage - 1)}
+                                                  >
+                                                    ⬅️ Précédent
+                                                  </button>
+                                                </li>
+                                                <li className="page-item disabled">
+                                                  <span className="page-link">
+                                                    Page {currentPage} / {totalPages1}
+                                                  </span>
+                                                </li>
+                                                <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+                                                  <button
+                                                    className="page-link"
+                                                    onClick={() => setCurrentPage(currentPage + 1)}
+                                                  >
+                                                    Suivant ➡️
+                                                  </button>
+                                                </li>
+                                              </ul>
+                                            </nav>
 
-          {/* Modal saisie service + garde malade */}
-          <Modal show={modaleVisible} onHide={() => setModaleVisible(false)}>
-            <Modal.Header closeButton>
-              <Modal.Title>Saisie service et garde malade</Modal.Title>
-            </Modal.Header>
-            <Modal.Body>
-              <div className="mb-3">
-                <label>Service</label>
-                <input
-                  type="text"
-                  name="service"
-                  className="form-control"
-                  value={selectedConsultation?.service || ""}
-                  onChange={handleModalChange}
-                />
-              </div>
-              <div className="mb-3">
-                <label>Garde malade (cadre)</label>
-                <select
-                  name="cadreId"
-                  className="form-control"
-                  value={selectedConsultation?.cadreId || ""}
-                  onChange={handleModalChange}
-                >
-                  <option value="">-- Sélectionner un cadre --</option>
-                  {cadres.map((cadre) => (
-                    <option key={cadre.id} value={cadre.id}>
-                      {cadre.nom} ({cadre.service}) ({cadre.matricule})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </Modal.Body>
-            <Modal.Footer>
-              <Button variant="secondary" onClick={() => setModaleVisible(false)}>
-                Annuler
-              </Button>
-              <Button variant="primary" onClick={handleSaveModal}>
-                Enregistrer
-              </Button>
-            </Modal.Footer>
-          </Modal>
+                                            {/* Modal saisie service + garde malade */}
+                                            <Modal show={modaleVisible} onHide={() => setModaleVisible(false)}>
+                                              <Modal.Header closeButton>
+                                                <Modal.Title>Saisie service et garde malade</Modal.Title>
+                                              </Modal.Header>
+                                              <Modal.Body>
+                                                <div className="mb-3">
+                                                  <label>Service</label>
+                                                  <input
+                                                    type="text"
+                                                    name="service"
+                                                    className="form-control"
+                                                    value={selectedConsultation?.service || ""}
+                                                    onChange={handleModalChange}
+                                                  />
+                                                </div>
+                                                <div className="mb-3">
+                                                  <label>Garde malade (cadre)</label>
+                                                  <select
+                                                    name="cadreId"
+                                                    className="form-control"
+                                                    value={selectedConsultation?.cadreId || ""}
+                                                    onChange={handleModalChange}
+                                                  >
+                                                    <option value="">-- Sélectionner un cadre --</option>
+                                                    {cadres.map((cadre) => (
+                                                      <option key={cadre.id} value={cadre.id}>
+                                                        {cadre.nom} ({cadre.service}) ({cadre.matricule})
+                                                      </option>
+                                                    ))}
+                                                  </select>
+                                                </div>
+                                              </Modal.Body>
+                                              <Modal.Footer>
+                                                <Button variant="secondary" onClick={() => setModaleVisible(false)}>
+                                                  Annuler
+                                                </Button>
+                                                <Button variant="primary" onClick={handleSaveModal}>
+                                                  Enregistrer
+                                                </Button>
+                                              </Modal.Footer>
+                                            </Modal>
 
-          {/* Formulaire ajout garde malade */}
-          <div className="mt-5 p-3 border rounded shadow-sm bg-light">
-            <h4 className="text-success">Ajouter un garde malade (cadre)</h4>
-            <div className="mb-2">
-              <select
-                name="cadreId"
-                className="form-control"
-                value={selectedCadreId}
-                onChange={handleSelectCadre}
-              >
-                <option value="">-- Sélectionner un cadre --</option>
-                {cadres.map((cadre) => (
-                  <option key={cadre.id} value={cadre.id}>
-                    {cadre.nom} ({cadre.service}) ({cadre.matricule})
-                  </option>
-                ))}
-              </select>
-            </div>
-            {["nom", "matricule", "grade", "service", "phone"].map((field, i) => (
-              <div className="mb-2" key={i}>
-                <input
-                  type={field === "matricule" ? "number" : "text"}
-                  name={field}
-                  placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-                  className="form-control"
-                  value={newsGardeMalade[field]}
-                  readOnly
-                />
-              </div>
-            ))}
-            <button
-              className="btn btn-success w-100"
-              onClick={handleAddGardeMalade}
-            >
-              ➕ Ajouter
-            </button>
-          </div>
+                                            {/* Formulaire ajout garde malade */}
+                                            <div className="mt-5 p-3 border rounded shadow-sm bg-light">
+                                              <h4 className="text-success">Ajouter un garde malade (cadre)</h4>
+                                              <div className="mb-2">
+                                                <select
+                                                  name="cadreId"
+                                                  className="form-control"
+                                                  value={selectedCadreId}
+                                                  onChange={handleSelectCadre}
+                                                >
+                                                  <option value="">-- Sélectionner un cadre --</option>
+                                                  {cadres.map((cadre) => (
+                                                    <option key={cadre.id} value={cadre.id}>
+                                                      {cadre.nom} ({cadre.service}) ({cadre.matricule})
+                                                    </option>
+                                                  ))}
+                                                </select>
+                                              </div>
+                                              {["nom", "matricule", "grade", "service", "phone"].map((field, i) => (
+                                                <div className="mb-2" key={i}>
+                                                  <input
+                                                    type={field === "matricule" ? "number" : "text"}
+                                                    name={field}
+                                                    placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+                                                    className="form-control"
+                                                    value={newsGardeMalade[field]}
+                                                    readOnly
+                                                  />
+                                                </div>
+                                              ))}
+                                              <button
+                                                className="btn btn-success w-100"
+                                                onClick={handleAddGardeMalade}
+                                              >
+                                                ➕ Ajouter
+                                              </button>
+                                            </div>
 
-          {/* Liste garde malade élèves hospitalisés */}
-          <div className="mt-5">
-            <h4>🧑‍⚕️ Garde malade – Élèves hospitalisés</h4>
-            {uniqueGardeMalades.length === 0 ? (
-              <p>Aucun garde malade trouvé.</p>
-            ) : (
-              <table className="table table-striped table-bordered shadow-sm">
-                <thead className="table-primary">
-                  <tr>
-                    <th>Nom cadre</th>
-                    <th>Service</th>
-                    <th>Numéro</th>
-                    <th>Élève assigné</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {uniqueGardeMalades.map((cadre) => {
-                    const consultationAssociee = consultations.find(
-                      (c) => c.status === "EVASAN" && c.cadreId === cadre.id
-                    );
-                    const eleve = consultationAssociee?.Eleve;
-                    return (
-                      <tr key={cadre.id}>
-                        <td>{cadre.nom}</td>
-                        <td>{cadre.service}</td>
-                        <td>{cadre.phone}</td>
-                        <td>
-                          {eleve
-                            ? `${eleve.nom} ${eleve.prenom}`
-                            : "Élève non assigné"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
+                                            {/* Liste garde malade élèves hospitalisés */}
+                                            <div className="mt-5">
+                                              <h4>🧑‍⚕️ Garde malade – Élèves hospitalisés</h4>
+                                              {uniqueGardeMalades.length === 0 ? (
+                                                <p>Aucun garde malade trouvé.</p>
+                                              ) : (
+                                                <table className="table table-striped table-bordered shadow-sm">
+                                                  <thead className="table-primary">
+                                                    <tr>
+                                                      <th>Nom cadre</th>
+                                                      <th>Service</th>
+                                                      <th>Numéro</th>
+                                                      <th>Élève assigné</th>
+                                                    </tr>
+                                                  </thead>
+                                                  <tbody>
+                                                    {uniqueGardeMalades.map((cadre) => {
+                                                      const consultationAssociee = consultations.find(
+                                                        (c) => c.status === "EVASAN" && c.cadreId === cadre.id
+                                                      );
+                                                      const eleve = consultationAssociee?.Eleve;
+                                                      return (
+                                                        <tr key={cadre.id}>
+                                                          <td>{cadre.nom}</td>
+                                                          <td>{cadre.service}</td>
+                                                          <td>{cadre.phone}</td>
+                                                          <td>
+                                                            {eleve
+                                                              ? `${eleve.nom} ${eleve.prenom}`
+                                                              : "Élève non assigné"}
+                                                          </td>
+                                                        </tr>
+                                                      );
+                                                    })}
+                                                  </tbody>
+                                                </table>
+                                              )}
+                                            </div>
 
-          {/* Liste garde malade élèves non hospitalisés */}
-          <div className="mt-5">
-            <h4>👥 Garde malade – Élèves non hospitalisés</h4>
-            {gardesMalades.length === 0 ? (
-              <p>Aucun garde malade pour élèves non hospitalisés.</p>
-            ) : (
-              <table className="table table-bordered table-hover shadow-sm">
-                <thead className="table-light">
-                  <tr>
-                    <th>Nom</th>
-                    <th>Matricule</th>
-                    <th>Grade</th>
-                    <th>Service</th>
-                    <th>Numéro</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {gardesMalades.map((gm) => (
-                    <tr key={gm.id}>
-                      <td>{gm.nom}</td>
-                      <td>{gm.matricule}</td>
-                      <td>{gm.grade || "-"}</td>
-                      <td>{gm.service || "-"}</td>
-                      <td>{gm.phone || "-"}</td>
-                      <td>
-                        <button
-                          className="btn btn-sm btn-danger"
-                          onClick={() => handleDeleteGardemalade(gm.id)}
-                        >
-                          ❌
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+                                            {/* Liste garde malade élèves non hospitalisés */}
+                                            <div className="mt-5">
+                                              <h4>👥 Garde malade – Élèves non hospitalisés</h4>
+                                              {gardesMalades.length === 0 ? (
+                                                <p>Aucun garde malade pour élèves non hospitalisés.</p>
+                                              ) : (
+                                                <table className="table table-bordered table-hover shadow-sm">
+                                                  <thead className="table-light">
+                                                    <tr>
+                                                      <th>Nom</th>
+                                                      <th>Matricule</th>
+                                                      <th>Grade</th>
+                                                      <th>Service</th>
+                                                      <th>Numéro</th>
+                                                      <th>Action</th>
+                                                    </tr>
+                                                  </thead>
+                                                  <tbody>
+                                                    {gardesMalades.map((gm) => (
+                                                      <tr key={gm.id}>
+                                                        <td>{gm.nom}</td>
+                                                        <td>{gm.matricule}</td>
+                                                        <td>{gm.grade || "-"}</td>
+                                                        <td>{gm.service || "-"}</td>
+                                                        <td>{gm.phone || "-"}</td>
+                                                        <td>
+                                                          <button
+                                                            className="btn btn-sm btn-danger"
+                                                            onClick={() => handleDeleteGardemalade(gm.id)}
+                                                          >
+                                                            ❌
+                                                          </button>
+                                                        </td>
+                                                      </tr>
+                                                    ))}
+                                                  </tbody>
+                                                </table>
+                                              )}
+                                            </div>
 
-          <button className="btn btn-outline-primary mt-4" onClick={handleExportPDFGarde}>
-            📤 Exporter en PDF
-          </button>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setMainModalVisible(false)}>
-            Fermer
-          </Button>
-        </Modal.Footer>
-      </Modal>
-    </>
+                                            <button className="btn btn-outline-primary mt-4" onClick={handleExportPDFGarde}>
+                                              📤 Exporter en PDF
+                                            </button>
+                                          </Modal.Body>
+                                          <Modal.Footer>
+                                            <Button variant="secondary" onClick={() => setMainModalVisible(false)}>
+                                              Fermer
+                                            </Button>
+                                          </Modal.Footer>
+                                        </Modal>
+                                      </>
 
 
 
                                         </div>
                                       </div>
-                                      <Modal show={showModale} onHide={handleCloseModal} size="xl" centered>
+                                      <Modal show={showModale} onHide={handleCloseModal} size="xl"     >
                                       <Modal.Header closeButton>
                                         <Modal.Title>Absences en attente d’envoi</Modal.Title>
   
 
                                       </Modal.Header>
                                       <Modal.Body>
-                                        <div style={{ display: 'flex', gap: '20px', overflowX: 'auto', paddingBottom: '10px' }}>
-                                          {Object.entries(absencesParMotif).map(([motif, absences]) => (
-                                            <div 
-                                              key={motif} 
-                                              style={{ 
-                                                minWidth: '250px', 
-                                                border: '1px solid #ddd', 
-                                                borderRadius: '5px', 
-                                                padding: '10px', 
-                                                backgroundColor: '#f9f9f9' 
-                                              }}
-                                            >
-                                              <h5 style={{ borderBottom: '1px solid #ccc', paddingBottom: '5px' }}>
+                                      <div style={{ display: 'flex', gap: '20px', overflowX: 'auto', paddingBottom: '10px' }}>
+                                        {Object.entries(absencesParMotif).map(([motif, absences]) => (
+                                          <div 
+                                            key={motif} 
+                                            style={{ 
+                                              minWidth: '250px', 
+                                              border: '1px solid #ddd', 
+                                              borderRadius: '5px', 
+                                              padding: '10px', 
+                                              backgroundColor: '#f9f9f9' 
+                                            }}
+                                          >
+                                            <div className="d-flex justify-content-between align-items-center mb-2" style={{ borderBottom: '1px solid #ccc', paddingBottom: '5px' }}>
+                                              <h5 style={{ margin: 0 }}>
                                                 {motif} ({absences.length})
                                               </h5>
-                                              <ul className="list-group" style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                                                {absences.map((a, idx) => (
-                                                  <li
-                                                    key={idx}
-                                                    className="list-group-item d-flex justify-content-between align-items-center"
-                                                    style={{ padding: '5px 10px' }}
-                                                  >
-                                                    <div style={{ fontSize: '1em' }}>
-                                                      <strong>{a.numeroIncorporation} {a.escadron}{"/"}{a.peloton}</strong> {a.nom} {a.prenom} <br />
-                                                      <small>{new Date(a.date).toLocaleDateString()}</small>
-                                                    </div>
-                                                    <button
-                                                      className="btn btn-sm btn-danger"
-                                                      onClick={() => handleSupprimerTemporaire(a)}
-                                                      style={{ height: '30px', padding: '0 8px' }}
-                                                    >
-                                                      ×
-                                                    </button>
-                                                  </li>
-                                                ))}
-                                              </ul>
+                                              <button 
+                                                className="btn btn-sm btn-danger"
+                                                onClick={() => handleSupprimerMotif(motif)}
+                                                title={`Supprimer le motif "${motif}" et toutes ses absences`}
+                                                style={{ height: '30px', padding: '0 8px' }}
+                                              >
+                                                ×
+                                              </button>
                                             </div>
-                                          ))}
-                                        </div>
-                                      </Modal.Body>
+
+                                            <ul className="list-group" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                                              {absences.map((a, idx) => (
+                                                <li
+                                                  key={idx}
+                                                  className="list-group-item d-flex justify-content-between align-items-center"
+                                                  style={{ padding: '5px 10px' }}
+                                                >
+                                                  <div style={{ fontSize: '1em' }}>
+                                                    <strong>{a.numeroIncorporation} {a.escadron}/{a.peloton}</strong> {a.nom} {a.prenom} <br />
+                                                    <small>{new Date(a.date).toLocaleDateString()}</small>
+                                                  </div>
+                                                  <button
+                                                    className="btn btn-sm btn-danger"
+                                                    onClick={() => handleSupprimerTemporaire(a)}
+                                                    style={{ height: '30px', padding: '0 8px' }}
+                                                  >
+                                                    ×
+                                                  </button>
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </Modal.Body>
+
 
                                       <Modal.Footer>
-                                        <Button variant="secondary" onClick={handleCloseModal}>
+                                        <Button variant="secondary" onClick={handleCloseModal} disabled={isLoading}>
                                           Fermer
                                         </Button>
                                         <Button
                                           variant="success"
-                                          onClick={() => {
-                                            handleEnvoyerTout();
-                                            handleCloseModal();
-                                          }}
-                                          disabled={absencesTemporaires.length === 0}
+                                          onClick={handleEnvoyerTout}
+                                          disabled={absencesTemporaires.length === 0 || isLoading}
                                         >
-                                          Enregistrer tout
+                                          {isLoading ? (
+                                            <>
+                                              <Spinner
+                                                as="span"
+                                                animation="border"
+                                                size="sm"
+                                                role="status"
+                                                aria-hidden="true"
+                                              />{' '}
+                                               Chargement...
+                                            </>
+                                          ) : (
+                                            'Enregistrer tout'
+                                          )}
                                         </Button>
                                       </Modal.Footer>
                                     </Modal>
                                     <Modal show={showModalGenerer} onHide={() => setShowModalGenerer(false)} centered>
-  <Modal.Header closeButton>
-    <Modal.Title>Générer des absences </Modal.Title>
-  </Modal.Header>
-  <Modal.Body>
-    <div className="mb-3">
-      <label htmlFor="motif-select" className="form-label">Choisir un motif :</label>
-      <select
-        id="motif-select"
-        className="form-select"
-        value={motifSelectionne}
-        onChange={(e) => setMotifSelectionne(e.target.value)}
-      >
-        <option value="">-- Sélectionner un motif --</option>
-        {Array.from(new Set(listeAbsence.map(abs => abs.motif))).map((motif, index) => (
-          <option key={index} value={motif}>{motif}</option>
-        ))}
-      </select>
-    </div>
-  </Modal.Body>
-  <Modal.Footer>
-    <Button variant="secondary" onClick={() => setShowModalGenerer(false)}>Annuler</Button>
-    <Button
-  variant="success"
-  onClick={() => {
-    genererAbsencesPourAujourdhuiDepuisHier();
-    setShowModalGenerer(false);
-    setMotifSelectionne('');
-  }}
-  disabled={!motifSelectionne}
->
-  ✅ Générer les absences du jour précédent ({(() => {
-    const d = new Date(date);
-    d.setDate(d.getDate() - 1);
-    return d.toLocaleDateString();
-  })()}) pour aujourd’hui ({new Date(date).toLocaleDateString()})
-</Button>
+                                        <Modal.Header closeButton>
+                                          <Modal.Title>Générer des absences </Modal.Title>
+                                        </Modal.Header>
+                                        <Modal.Body>
+                                          <div className="mb-3">
+                                            <label htmlFor="motif-select" className="form-label">Choisir un motif :</label>
+                                            <select
+                                              id="motif-select"
+                                              className="form-select"
+                                              value={motifSelectionne}
+                                              onChange={(e) => setMotifSelectionne(e.target.value)}
+                                            >
+                                              <option value="">-- Sélectionner un motif --</option>
+                                              {Array.from(new Set(listeAbsence.map(abs => abs.motif))).map((motif, index) => (
+                                                <option key={index} value={motif}>{motif}</option>
+                                              ))}
+                                            </select>
+                                          </div>
+                                        </Modal.Body>
+                                        <Modal.Footer>
+                                          <Button variant="secondary" onClick={() => setShowModalGenerer(false)}>Annuler</Button>
+                                          <Button
+                                        variant="success"
+                                        onClick={() => {
+                                          genererAbsencesPourAujourdhuiDepuisHier();
+                                          setShowModalGenerer(false);
+                                          setMotifSelectionne('');
+                                        }}
+                                        disabled={!motifSelectionne}
+                                      >
+                                        ✅ Générer les absences du jour précédent ({(() => {
+                                          const d = new Date(date);
+                                          d.setDate(d.getDate() - 1);
+                                          return d.toLocaleDateString();
+                                        })()}) pour aujourd’hui ({new Date(date).toLocaleDateString()})
+                                      </Button>
 
-  </Modal.Footer>
-</Modal>
+                                        </Modal.Footer>
+                                      </Modal>
 
 
                                       {showModal && (

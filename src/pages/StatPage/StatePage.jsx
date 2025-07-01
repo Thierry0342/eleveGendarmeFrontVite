@@ -1,12 +1,13 @@
 import React, { useEffect, useState ,useRef } from "react";
 import consultationService from "../../services/consultation-service"; // ajuste le chemin si besoin
 import courService from "../../services/courService";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,Cell  } from 'recharts';
 import DataTable from 'react-data-table-component';
 import "./EvasanModal.css"
 import absenceService from "../../services/absence-service";
 import * as XLSX from 'xlsx';
 import { API_URL } from '../../config/root/modules';
+import { Modal, Button } from 'react-bootstrap';
 const StatePage = () => {
   const [consultations, setConsultations] = useState([]);
   const [consultations2, setConsultations2] = useState([]);
@@ -32,6 +33,9 @@ const StatePage = () => {
    const [selectedItem, setSelectedItem] = useState(null);
    const [showModal2, setShowModal2] = useState(false);
    const [nomRecherche, setNomRecherche] = useState('');
+   const [selectedEleve, setSelectedEleve] = useState(null);
+   const [showModal3, setShowModal3] = useState(false);
+
   //paggination
   
   //filtre inc dans le tableau nombre eleve par motif 
@@ -49,6 +53,17 @@ const StatePage = () => {
   const [currentPage1, setCurrentPage1] = useState(1); // Page actuelle
   const [itemsPerPage] = useState(5); // Nombre d'éléments par page
   
+//clcik graphe 
+const handleBarClick = (data) => {
+  setSelectedEleve(data);
+ // console.log(data);
+  setShowModal3(true);
+};
+
+const handleClose = () => {
+  setShowModal3(false);
+  setSelectedEleve(null);
+};
 
   //click row 
   const handleView = (row) => {
@@ -224,26 +239,48 @@ consultations.forEach(item => {
 
     const eleveId = item.Eleve.id;
     const nomPrenom = ` ${item.Eleve.prenom}`;
-    const numeroIncorporation=` ${item.Eleve.numeroIncorporation}`;
-    const escadron =` ${item.Eleve.escadron}`;
-    const peloton=` ${item.Eleve.peloton}`
+    const numeroIncorporation = ` ${item.Eleve.numeroIncorporation}`;
+    const escadron = ` ${item.Eleve.escadron}`;
+    const peloton = ` ${item.Eleve.peloton}`;
+    const image =  ` ${item.Eleve.image}`
 
     if (eleveJourMap.has(eleveId)) {
-      eleveJourMap.get(eleveId).jours += jours;
+      const eleve = eleveJourMap.get(eleveId);
+      eleve.jours += jours;
+      eleve.consultations.push({
+        id: item.id,
+        motif: item.motif,
+        jours,
+        dateDepart: item.dateDepart,
+        dateArrive: item.dateArrive,
+      });
     } else {
       eleveJourMap.set(eleveId, {
         eleveId,
         nom: nomPrenom,
-        numeroIncorporation:numeroIncorporation,
-        escadron:escadron,
-        peloton:peloton,
+        numeroIncorporation: numeroIncorporation,
+        escadron: escadron,
+        peloton: peloton,
         jours,
+        image:image,
+        consultations: [
+          {
+            id: item.id,
+            motif: item.motif,
+            jours,
+            dateDepart: item.dateDepart,
+            dateArrive: item.dateArrive,
+          }
+        ],
       });
     }
   }
 });
 
 const joursParEleve = Array.from(eleveJourMap.values());
+
+// Puis filtres / tris / pagination comme avant
+
 //filtre jour eleve 
 const filteredJoursParEleve = joursParEleve.filter(item =>
   item.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -252,6 +289,7 @@ const filteredJoursParEleve = joursParEleve.filter(item =>
 
 // tri décroissant sur les données filtrées
 const sortedData = [...filteredJoursParEleve].sort((a, b) => b.jours - a.jours);
+
 
 // Pagination
 const indexOfLastItem = currentPage * itemsPerPage;
@@ -700,7 +738,7 @@ if (regroupement) {
                                                 <small className="text-muted">ID: {item.id}</small>
                                             </div>
                                             <span
-                                            className={`badge rounded-pill ${item.jours > 40 ? 'bg-danger' : 'bg-primary'}`}
+                                            className={`badge rounded-pill ${item.jours > 45 ? 'bg-danger' : 'bg-primary'}`}
                                             style={{ cursor: 'pointer' }}
                                             onClick={() => handleBadgeClick(item)}
                                           >
@@ -1011,36 +1049,136 @@ if (regroupement) {
                             📊 Jours de consultation par élève 
                         </h5>
                         <ResponsiveContainer width="100%" height={350}>
-                            <BarChart
-                            data={sortedData}
-                            margin={{ top: 20, right: 30, left: 0, bottom: 50 }}
+                    <BarChart
+                      data={sortedData}
+                      margin={{ top: 20, right: 30, left: 0, bottom: 50 }}
+                      barCategoryGap="20%" 
+                    >
+                      <defs>
+                        <linearGradient id="colorJour" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#007bff" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="#66b2ff" stopOpacity={0.6} />
+                        </linearGradient>
+                      </defs>
+
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="nom"
+                        angle={-45}
+                        textAnchor="end"
+                        hide
+                        height={70}
+                        interval={0}
+                      />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend verticalAlign="top" height={36} />
+
+                      <Bar
+                        dataKey="jours"
+                        radius={[10, 10, 0, 0]}
+                        
+                        name="Nombre de jours"
+                        onClick={(data) => handleBarClick(data)}
+                      >
+                        {sortedData.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={entry.jours > 45 ? '#ff4d4f' : 'url(#colorJour)'}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                   {/* Modal Bootstrap */}
+                   <Modal show={showModal3} onHide={handleClose} centered>
+                  <Modal.Header closeButton>
+                    <Modal.Title>Informations de l'élève</Modal.Title>
+                  </Modal.Header>
+                  <Modal.Body>
+                    {selectedEleve && (
+                      <>
+                      {selectedEleve.image ? (
+                  (() => {
+                    const imageUrl = `${API_URL.replace(/\/$/, "")}/${selectedEleve.image.replace(/^\s*\//, "")}`;
+
+
+                    return (
+                      <div className="text-center mb-3">
+                        <img
+                          src={imageUrl}
+                          alt={`Photo de ${selectedEleve.nom}`}
+                          style={{
+                            width: "120px",
+                            height: "120px",
+                            objectFit: "cover",
+                            borderRadius: "50%",
+                            border: "3px solid #007bff",
+                          }}
+                        />
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <div
+                    className="text-center mb-3"
+                    style={{
+                      width: "120px",
+                      height: "120px",
+                      borderRadius: "50%",
+                      backgroundColor: "#ccc",
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      color: "#555",
+                      fontStyle: "italic",
+                      margin: "0 auto 1rem",
+                    }}
+                  >
+                    Pas d'image disponible
+                  </div>
+                )}
+
+
+                  <p style={{ color: selectedEleve.jours > 45 ? 'red' : 'black' }}>
+                    <strong>Total des jours :</strong> {selectedEleve.jours}
+                  </p>
+
+                       
+
+                        <hr />
+
+                        <h6>Jours par consultation :</h6>
+
+                        <ul>
+                          {selectedEleve.consultations.map((c, i) => (
+                            <li
+                              key={i}
+                              style={{
+                                marginBottom: "10px",
+                                color: c.jours > 45 ? "red" : "inherit"
+                              }}
                             >
-                            <defs>
-                                <linearGradient id="colorJour" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#007bff" stopOpacity={0.8} />
-                                <stop offset="95%" stopColor="#66b2ff" stopOpacity={0.6} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis
-                                dataKey="nom"
-                                angle={-45}
-                                textAnchor="end"
-                                hide
-                                height={70}
-                                interval={0}
-                            />
-                            <YAxis />
-                            <Tooltip content={<CustomTooltip />} />
-                            <Legend verticalAlign="top" height={36} />
-                            <Bar
-                                dataKey="jours"
-                                fill="url(#colorJour)"
-                                radius={[10, 10, 0, 0]}
-                                name="Nombre de jours"
-                            />
-                            </BarChart>
-                        </ResponsiveContainer>
+                              <strong>{c.motif || ""}</strong> — ID: {c.id} — {c.jours} jour(s)<br />
+                              <small style={{ color: "#555" }}>
+                                Départ : {new Date(c.dateDepart).toLocaleDateString()} — 
+                                Arrivée : {new Date(c.dateArrive).toLocaleDateString()}
+                              </small>
+                            </li>
+                          ))}
+                        </ul>
+
+                      </>
+                    )}
+                  </Modal.Body>
+                  <Modal.Footer>
+                    <Button variant="secondary" onClick={handleClose}>
+                      Fermer
+                    </Button>
+                  </Modal.Footer>
+                </Modal>
+
+
                         </div>
                     </div>
                    

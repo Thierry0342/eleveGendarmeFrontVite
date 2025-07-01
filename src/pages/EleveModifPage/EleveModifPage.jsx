@@ -387,7 +387,7 @@ const handleSave = async () => {
 
 
   return (
-    <Modal show={show} onHide={onClose} size="xl" dialogClassName="large-modal" >
+    <Modal show={show} onHide={onClose} size="xl" className='modal-overlay' >
       <Modal.Header closeButton>
         <Modal.Title>Modifier les informations de l'élève</Modal.Title>
       </Modal.Header>
