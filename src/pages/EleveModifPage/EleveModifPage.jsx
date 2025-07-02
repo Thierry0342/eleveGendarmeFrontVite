@@ -41,6 +41,8 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave }) => {
           Football: "Football",
           Basketball: "Basketball",
           Volley_ball: "Volley_ball",
+          Musculation:"Musculation",
+          Rugby:"Rugby",
           Athletisme: "Athletisme",
           Tennis: "Tennis",
           ArtsMartiaux: "ArtsMartiaux",
@@ -502,7 +504,10 @@ const handleSave = async () => {
                   <input className="form-check-input" type="radio" name="Specialiste" value="sport" checked={formData.Specialiste === 'sport'} onChange={handleChange} />
                   <label className="form-check-label">Sport</label>
                 </div>
-              
+                <div className="form-check">
+                  <input className="form-check-input" type="radio" name="Specialiste" value="plombier" checked={formData.Specialiste === 'plombier'} onChange={handleChange} />
+                  <label className="form-check-label">Plombier</label>
+                </div>
               </div>
             )}
 
@@ -542,9 +547,21 @@ const handleSave = async () => {
                   <div className="col">
                     <input type="text" className="form-control" name="lieuDelivrance" placeholder="Lieu de délivrance" value={eleve.lieuDelivrance} onChange={onChange} />
                   </div>
+                  
+                
+              
+                </div>
+                 {/* Ligne 8 */}
+                 <div className="row mb-3">
+                 <div className="col">
+                <input type="date" className="form-control" name="duplicata" placeholder="Duplicata (si applicable)" value={eleve.duplicata} onChange={onChange} />
+              </div>
+              
                   <div className="col">
-                    <input type="text" className="form-control" name="duplicata" placeholder="Duplicata (si applicable)" value={eleve.duplicata} onChange={onChange} />
+                    <input type="text" className="form-control" name="lieuDuplicata" placeholder="Lieu de duplicata" value={eleve.lieuDuplicata} onChange={onChange} />
                   </div>
+                  
+                
                 </div>
                 {/* Sexe */}
               <div className="mb-3">
@@ -614,7 +631,7 @@ const handleSave = async () => {
                 </div>
 
                 <div className="col">
-                  <input type="text" className="form-control" name="facebook" placeholder="facebook" value={eleve.facebook} onChange={onChange} />
+                  <input type="text" className="form-control" name="facebook" placeholder="LOISIRS" value={eleve.facebook} onChange={onChange} />
                 </div>
                 <div className="col">
               <select
@@ -668,7 +685,7 @@ const handleSave = async () => {
           <div className="mb-3">
         <label className="form-label">Sport(s) pratiqué(s)</label>
         <div className="d-flex flex-wrap gap-3">
-          {["Football", "Basketball", "Volley_ball", "Athletisme", "Tennis","ArtsMartiaux", "Autre"].map((sport) => (
+          {["Football", "Basketball", "Volley_ball", "Musculation","Rugby","Athletisme", "Tennis","ArtsMartiaux", "Autre"].map((sport) => (
             <div className="form-check form-check-inline" key={sport}>
               <input
                 className="form-check-input"
@@ -697,7 +714,7 @@ const handleSave = async () => {
     <div className="mb-3">
       <label className="form-label">Religion</label>
       <div className="d-flex flex-wrap gap-3">
-      {["EKAR", "FJKM", "FLM", "Islam", "Autre"].map((religion) => (
+      {["EKAR", "FJKM", "FLM", "ISLAM", "Autre"].map((religion) => (
         <div className="form-check form-check-inline" key={religion}>
           <input
             className="form-check-input"
@@ -736,14 +753,31 @@ const handleSave = async () => {
     {/* Niveau d’étude */}
     <div className="mb-3">
       <label className="form-label">Dernière classe suivie</label>
-      <input
-        type="text"
+      <select
         className="form-control"
         name="niveau"
         value={formData.niveau}
         onChange={handleChange}
-      />
+      >
+        <option value="">-- Sélectionner le niveau --</option>
+        <option value="BACC">BACC</option>
+        <option value="BACC +1">BACC +1</option>
+        <option value="BACC +2">BACC +2</option>
+        <option value="BACC +3">BACC +3</option>
+        <option value="BACC +4">BACC +4</option>
+        <option value="BACC +5">BACC +5</option>
+        <option value="BACC +6">BACC +6</option>
+        <option value="BACC +7">BACC +7</option>
+        <option value="BACC +8">BACC +8</option>
+      </select>
+
     </div>
+    <div className="col">
+              <p>En</p>
+              </div>
+    <div className="col">
+     <input type="texte" className="form-control" name="niveaufiliere" value={eleve.niveaufiliere} onChange={onChange} />
+      </div>
 
  {/* Diplômes obtenus (checkbox) */}
  <div className="mb-3">
@@ -754,6 +788,7 @@ const handleSave = async () => {
       { label: "BEPC", key: "BEPC" },
       { label: "BACC S", key: "BACC_S" },
       { label: "BACC L", key: "BACC_L" },
+      { label: "BACC_TECHNIQUE", key: "BACC_TECHNIQUE" },
       { label: "Licence", key: "Licence" },
       { label: "Master One", key: "MasterOne" },
       { label: "Master Two", key: "MasterTwo" },

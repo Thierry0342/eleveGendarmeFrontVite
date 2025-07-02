@@ -2650,14 +2650,14 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
 
                                         </div>
                                       </div>
-                                      <Modal show={showModale} onHide={handleCloseModal} size="xl"     >
+                                      <Modal show={showModale} onHide={handleCloseModal} size="xl"  className='modal-attente'   >
                                       <Modal.Header closeButton>
                                         <Modal.Title>Absences en attente d’envoi</Modal.Title>
   
 
                                       </Modal.Header>
                                       <Modal.Body>
-                                      <div style={{ display: 'flex', gap: '20px', overflowX: 'auto', paddingBottom: '10px' }}>
+                                      <div style={{ display: 'flex', gap: '20px', overflowX: 'auto', marginRight:'80px' }}>
                                         {Object.entries(absencesParMotif).map(([motif, absences]) => (
                                           <div 
                                             key={motif} 

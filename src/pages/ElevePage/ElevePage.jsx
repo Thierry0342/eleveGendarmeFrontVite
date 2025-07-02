@@ -34,11 +34,13 @@ const ElevePage = () => {
     CIN: '',
     dateDelivrance: '',
     lieuDelivrance: '',
+    lieuDuplicata:'',
     duplicata: '',
     sports:'',
     loisir:'',
     religion:'',
     niveau:'',
+    niveaufiliere:'',
     groupeSaguin:'',
     fady:'',
     sexe:'',
@@ -619,6 +621,10 @@ const ElevePage = () => {
                   <input className="form-check-input" type="radio" name="Specialiste" value="sport" onChange={handleChange} />
                   <label className="form-check-label">Sport</label>
                 </div>
+                <div className="form-check">
+                  <input className="form-check-input" type="radio" name="Specialiste" value="plombier" onChange={handleChange} />
+                  <label className="form-check-label">Plombier</label>
+                </div>
                 
               </div>
             )}
@@ -653,15 +659,27 @@ const ElevePage = () => {
               </div>
             </div>
 
-            {/* Ligne 7 */}
-            <div className="row mb-3">
-              <div className="col">
-                <input type="text" className="form-control" name="lieuDelivrance" placeholder="Lieu de délivrance" value={formData.lieuDelivrance} onChange={handleChange} />
-              </div>
-              <div className="col">
+             {/* Ligne 7 */}
+             <div className="row mb-3">
+                  <div className="col">
+                    <input type="text" className="form-control" name="lieuDelivrance" placeholder="Lieu de délivrance" value={formData.lieuDelivrance} onChange={handleChange} />
+                  </div>
+                  
+                
+              
+                </div>
+                 {/* Ligne 8 */}
+                 <div className="row mb-3">
+                 <div className="col">
                 <input type="date" className="form-control" name="duplicata" placeholder="Duplicata (si applicable)" value={formData.duplicata} onChange={handleChange} />
               </div>
-            </div>
+              
+                  <div className="col">
+                    <input type="text" className="form-control" name="lieuDuplicata" placeholder="Lieu de duplicata" value={formData.lieuDuplicata} onChange={handleChange} />
+                  </div>
+                  
+                
+                </div>
             {/* Sexe (Checkbox) */}
             <div className="row mb-3">
               <label className="form-label">Sexe :</label>
@@ -845,7 +863,7 @@ const ElevePage = () => {
     <div className="mb-3">
   <label className="form-label">Sport(s) pratiqué(s)</label>
   <div className="d-flex flex-wrap gap-3">
-    {["Football", "Basketball", "Volley-ball", "Athlétisme", "Tennis","arts martiaux", "Autre"].map((sport) => (
+    {["Football", "Basketball", "Volley-ball","Musculation", "Rugby","Athlétisme", "Tennis","arts martiaux", "Autre"].map((sport) => (
       <div className="form-check form-check-inline" key={sport}>
         <input
           className="form-check-input"
@@ -932,12 +950,19 @@ const ElevePage = () => {
       </select>
 
     </div>
+    <div className="col">
+              <p>En</p>
+              </div>
+    <div className="col">
+     <input type="texte" placeholder="filiére" className="form-control" name="niveaufiliere" value={formData.niveaufiliere} onChange={handleChange} />
+      </div>
+      
 
  {/* Diplômes obtenus (checkbox) */}
 <div className="mb-3">
   <label className="form-label">Diplômes obtenus</label>
   <div className="d-flex flex-wrap gap-3">
-    {["CEPE", "BEPC", "BACC S", "BACC L", "Licence", "Master One", "Master Two", "Doctorat"].map((diplome) => (
+    {["CEPE", "BEPC", "BACC S", "BACC L","BACC_TECHNIQUE", "Licence", "Master One", "Master Two", "Doctorat"].map((diplome) => (
       <div className="form-check" key={diplome}>
         <input
           className="form-check-input"

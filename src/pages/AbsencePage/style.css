@@ -56,4 +56,9 @@
     margin-top: -10%;
     
   }
-  
+  .modal-attente{
+    overflow: auto;
+    margin-left: -200px;
+
+ 
+  }
