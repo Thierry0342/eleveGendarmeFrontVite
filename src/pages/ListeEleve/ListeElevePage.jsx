@@ -24,6 +24,7 @@ const ListeElevePge = () => {
   const [selectedEleve, setSelectedEleve] = useState(null);
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [noteId,setNoteId]=useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [filter, setFilter] = useState({ escadron: '', peloton: '' ,search:'' ,cour:''});
   const [notes, setNotes] = useState({
     finfetta: '',
@@ -59,8 +60,11 @@ const ListeElevePge = () => {
 
   
 
-
-
+  const handleUpdateSuccess = () => {
+    setRefreshKey(prev => prev + 1); // va relancer le useEffect
+    handleCloseModal(); // ferme le modal après succès
+  };
+  
   
 
 
@@ -346,51 +350,42 @@ const ListeElevePge = () => {
       }
     });
   };
+
+  useEffect(() => {
+    fetchAllData();
+  }, [refreshKey]); // ✅ ça relance le fetch quand refreshKey change
+  
   
 // maka donne rehetra
-useEffect(() => {
+const fetchAllData = async () => {
+  if (isFirstLoad.current) setIsLoading(true);
   let allEleves = [];
   let currentOffset = 0;
   const limit = 500;
 
-  const fetchAllData = async () => {
-    if (isFirstLoad.current) setIsLoading(true);
+  try {
+    while (true) {
+      const response = await EleveService.getPaginated(limit, currentOffset);
+      const data = response.data;
 
-    allEleves = [];
-    currentOffset = 0;
+      if (!Array.isArray(data) || data.length === 0) break;
 
-    try {
-      while (true) {
-        const response = await EleveService.getPaginated(limit, currentOffset);
-        const data = response.data;
+      allEleves = [...allEleves, ...data];
+      currentOffset += limit;
 
-        if (!Array.isArray(data) || data.length === 0) break;
-
-        allEleves = [...allEleves, ...data];
-        currentOffset += limit;
-
-        if (data.length < limit) break;
-      }
-
-      setEleves(allEleves);
-     
-    } catch (error) {
-      console.error("Erreur de chargement :", error);
-    } finally {
-      if (isFirstLoad.current) {
-        setIsLoading(false);
-        isFirstLoad.current = false; // ne plus afficher le loader après la 1ère fois
-      }
+      if (data.length < limit) break;
     }
-  };
 
-  fetchAllData(); // 1er appel
-
-
-  const intervalId = setInterval(fetchAllData, 3000); // 
-  return () => clearInterval(intervalId);
-}, []);
-
+    setEleves(allEleves);
+  } catch (error) {
+    console.error("Erreur de chargement :", error);
+  } finally {
+    if (isFirstLoad.current) {
+      setIsLoading(false);
+      isFirstLoad.current = false;
+    }
+  }
+};
 
   const handleOpenModal = (eleve) => {
     setEleveActif(eleve);
@@ -871,6 +866,8 @@ const handleExportExcel = async () => {
                                 eleve={eleveActif}
                                 onChange={handleChange}
                                 onSave={handleSave}
+                                onUpdateSuccess={handleUpdateSuccess}
+
                               />
                             )}
                             

@@ -8,7 +8,7 @@ import { toast } from 'react-toastify';
 
 const user = JSON.parse(localStorage.getItem('user'));
 
-const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave }) => {
+const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave ,onUpdateSuccess }) => {
   //initie donne
   const [formData, setFormData] = useState({})
   const [previewImage, setPreviewImage] = useState(""); // <== Aperçu de l'image
@@ -68,7 +68,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave }) => {
       setPreviewImage(eleve.image);
     }
 
-    console.log(eleve);
+   // console.log(eleve);
   }
 }, [eleve]);
 
@@ -324,15 +324,13 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave }) => {
   //envoie donne 
   
 
-const handleSave = async () => {
+  const handleSave = async () => {
   try {
     const formDataToSend = new FormData();
 
-    // Ne pas ajouter l'image dans cette boucle (elle sera ajoutée à part)
     for (const key in formData) {
       if (key !== "image" && formData[key] !== undefined && formData[key] !== null) {
-        // Pour les objets complexes
-        if (["famille", "Diplome", "sports","Filiere","Pointure"].includes(key)) {
+        if (["famille", "Diplome", "sports", "Filiere", "Pointure"].includes(key)) {
           formDataToSend.append(key, JSON.stringify(formData[key]));
         } else {
           formDataToSend.append(key, formData[key]);
@@ -340,52 +338,26 @@ const handleSave = async () => {
       }
     }
 
-    // Ajouter l'image si présente
     if (formData.image && typeof formData.image === "object") {
       formDataToSend.append("image", formData.image);
     }
 
-    // Appel du service avec les bonnes données
-    console.log("FormData avant envoi : ", formDataToSend);
     const response = await eleveService.put(eleve.id, formDataToSend);
-    onClose();
-    
-    
+
     if (response.status === 200) {
-      Swal.fire({
-        icon: 'success',
-        title: 'Succès',
-        text: 'Élève mis à jour avec succès !',
-        timer: 2000,
-        showConfirmButton: false,
-      });
-  
-      toast.success('Élève mis à jour avec succès !');
+      toast.success("Élève mis à jour avec succès !");
+
+      // Délai pour laisser le toast s'afficher
+      setTimeout(() => {
+        if (onUpdateSuccess) onUpdateSuccess();  // par ex. fermer modal et refresh liste
+      }, 600);
     } else {
-      Swal.fire({
-        icon: 'error',
-        title: 'Erreur',
-        text: "Erreur lors de la mise à jour de l'élève.",
-      });
-  
-      toast.error("Erreur lors de la mise à jour de l'élève.");
+      toast.error("Erreur lors de la mise à jour.");
     }
   } catch (error) {
-    console.error("Erreur serveur :", error);
-  
-    Swal.fire({
-      icon: 'error',
-      title: 'Erreur Serveur',
-      text: 'Une erreur s’est produite sur le serveur.',
-    });
-  
-    toast.error('Erreur serveur lors de la mise à jour.');
+    toast.error("Erreur serveur lors de la mise à jour.");
   }
 };
-
-  
-  
-  
 
 
   return (
