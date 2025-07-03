@@ -325,40 +325,51 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave ,onUpda
   
 
   const handleSave = async () => {
-  try {
-    const formDataToSend = new FormData();
-
-    for (const key in formData) {
-      if (key !== "image" && formData[key] !== undefined && formData[key] !== null) {
-        if (["famille", "Diplome", "sports", "Filiere", "Pointure"].includes(key)) {
-          formDataToSend.append(key, JSON.stringify(formData[key]));
-        } else {
-          formDataToSend.append(key, formData[key]);
+    try {
+      const formDataToSend = new FormData();
+  
+      for (const key in formData) {
+        if (key !== "image" && formData[key] !== undefined && formData[key] !== null) {
+          if (["famille", "Diplome", "sports", "Filiere", "Pointure"].includes(key)) {
+            formDataToSend.append(key, JSON.stringify(formData[key]));
+          } else {
+            formDataToSend.append(key, formData[key]);
+          }
         }
       }
+  
+      if (formData.image && typeof formData.image === "object") {
+        formDataToSend.append("image", formData.image);
+      }
+  
+      const response = await eleveService.put(eleve.id, formDataToSend);
+  
+      if (response.status === 200) {
+        await Swal.fire({
+          icon: 'success',
+          title: 'Succès',
+          text: 'Élève mis à jour avec succès !',
+          timer: 2000,
+          showConfirmButton: false,
+        });
+  
+        if (onUpdateSuccess) onUpdateSuccess();
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Erreur',
+          text: 'Erreur lors de la mise à jour.',
+        });
+      }
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Erreur serveur',
+        text: 'Erreur serveur lors de la mise à jour.',
+      });
     }
-
-    if (formData.image && typeof formData.image === "object") {
-      formDataToSend.append("image", formData.image);
-    }
-
-    const response = await eleveService.put(eleve.id, formDataToSend);
-
-    if (response.status === 200) {
-      toast.success("Élève mis à jour avec succès !");
-
-      // Délai pour laisser le toast s'afficher
-      setTimeout(() => {
-        if (onUpdateSuccess) onUpdateSuccess();  // par ex. fermer modal et refresh liste
-      }, 600);
-    } else {
-      toast.error("Erreur lors de la mise à jour.");
-    }
-  } catch (error) {
-    toast.error("Erreur serveur lors de la mise à jour.");
-  }
-};
-
+  };
+  
 
   return (
     <Modal show={show} onHide={onClose} size="xl" className='modal-overlay' >

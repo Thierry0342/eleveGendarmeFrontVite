@@ -15,6 +15,10 @@ margin-left: -10%;
 
 
 }
+.swal2-container {
+  z-index: 20000 !important;
+}
+
 /* Bouton de fermeture */
 .modal-close-btn {
   position: absolute;

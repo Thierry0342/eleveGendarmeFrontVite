@@ -28,4 +28,53 @@
     from { opacity: 0; transform: scale(0.95); }
     to { opacity: 1; transform: scale(1); }
   }
+  @keyframes pulse {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.08);
+      opacity: 0.85;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
   
+  .badge-pulse {
+    animation: pulse 2.5s ease-in-out infinite;
+  }
+/* Bordure du modal */
+.custom-modal-border .modal-content {
+  border: 2px solid #007bff;
+  border-radius: 10px;
+  box-shadow: 0 0 15px rgba(0, 123, 255, 0.25);
+}
+
+/* Flou du background */
+.modal-backdrop-blur {
+  backdrop-filter: blur(4px);
+  background-color: rgba(0, 0, 0, 0.6); /* léger foncé + flou */
+}
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.1);
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.badge-animate {
+  animation: pulse 1.5s infinite;
+}

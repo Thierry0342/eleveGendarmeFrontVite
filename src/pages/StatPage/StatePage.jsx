@@ -8,6 +8,8 @@ import absenceService from "../../services/absence-service";
 import * as XLSX from 'xlsx';
 import { API_URL } from '../../config/root/modules';
 import { Modal, Button } from 'react-bootstrap';
+import { BsPeopleFill, BsCalendarCheck } from "react-icons/bs";
+import dateService from'../../services/dateservice';
 const StatePage = () => {
   const [consultations, setConsultations] = useState([]);
   const [consultations2, setConsultations2] = useState([]);
@@ -35,6 +37,10 @@ const StatePage = () => {
    const [nomRecherche, setNomRecherche] = useState('');
    const [selectedEleve, setSelectedEleve] = useState(null);
    const [showModal3, setShowModal3] = useState(false);
+   const [showModal4, setShowModal4] = useState(false);
+   const [dateServeur, setDateServeur] = useState(null);
+const [recentEleves, setRecentEleves] = useState([]);
+const [totalEscadron, setTotalEscadron] = useState(0);
 
   //paggination
   
@@ -57,6 +63,11 @@ const StatePage = () => {
 const handleBarClick = (data) => {
   setSelectedEleve(data);
  // console.log(data);
+  setShowModal3(true);
+};
+
+const handleRowClick = (eleve) => {
+  setSelectedEleve(eleve);
   setShowModal3(true);
 };
 
@@ -104,7 +115,33 @@ const handleClose = () => {
     setShowModal2(false);
     setSelectedItem(null);
   };
+//miverina 
+  // Vérifie si date d'arrivée est dans les 4 derniers jours
+ // Trouver les élèves "récents" arrivés
 
+ useEffect(() => {
+  dateService.getServerDate()
+    .then(res => {
+      setDateServeur(res.data.today);
+    })
+    .catch(err => console.error(err));
+}, []);
+
+useEffect(() => {
+  if (!dateServeur) return;
+
+  const total = consultations.filter(c => c.status === "Escadron").length;
+  setTotalEscadron(total);
+
+  const recent = consultations.filter(c => {
+    if (c.status !== "Escadron" || !c.dateArrive) return false;
+    const arrive = new Date(c.dateArrive);
+    const now = new Date(dateServeur);
+    const diff = (now - arrive) / (1000 * 60 * 60 * 24);
+    return diff >= 0 && diff <= 4;
+  });
+  setRecentEleves(recent);
+}, [consultations, dateServeur]);
  //get consultation
   const fetchConsultations = (selectedCour) => {
 
@@ -298,6 +335,10 @@ const currentItems = sortedData.slice(indexOfFirstItem, indexOfLastItem);
 
 // Total pages basé sur les données filtrées
 const totalPages = Math.ceil(filteredJoursParEleve.length / itemsPerPage);
+const BAR_WIDTH = 25;
+
+  // Calcul largeur conteneur interne en fonction du nombre de barres
+  const containerWidth = Math.max(sortedData.length * BAR_WIDTH, 600);
 
 
   useEffect(() => {
@@ -573,15 +614,22 @@ if (regroupement) {
             </div>
 
             <div className="col-md-6">
-              <div className="card text-white bg-success mb-3">
-                <div className="card-body">
-                  <h5 className="card-title">RETOUR A L'ESCADRON</h5>
-                  <p className="card-text fs-4">
-                    {consultations.filter(c => c.status === "Escadron").length}
-                  </p>
-                </div>
-              </div>
-            </div>
+        <div
+          className="card text-white bg-success mb-3"
+          style={{ cursor: "pointer" }}
+          onClick={() => setShowModal4(true)}
+        >
+          <div className="card-body">
+                  <h5 className="card-title d-flex justify-content-between align-items-center">
+          RETOUR A EGNA
+          {recentEleves.length > 0 && (
+            <span className="badge bg-warning text-dark badge-animate">Nouveau</span>
+          )}
+     </h5>
+            <p className="card-text fs-4">{totalEscadron}</p>
+          </div>
+        </div>
+      </div>
             <div className="col-md-6">
             <div className="card text-white bg-danger mb-3">
             <div className="card-body">
@@ -601,11 +649,11 @@ if (regroupement) {
           {/* Affichage des jours par consultation Escadron */}
           <div className="card mb-3">
     <div className="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
-        <span>Total des jours par élève (Déjà à l'Esc)</span>
+        <span>Total des jours par élève </span>
         <input
             type="text"
             className="form-control form-control-sm w-50"
-            placeholder="Rechercher par nom..."
+            placeholder="Rechercher par nom ou incorporation"
             value={searchTerm}
             onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -624,21 +672,45 @@ if (regroupement) {
                     </tr>
                 </thead>
                 <tbody>
-                  {currentItems.length === 0 ? (
-                    <tr>
-                      <td colSpan="2" className="text-center text-muted">Aucun résultat</td>
-                    </tr>
-                  ) : (
-                    currentItems.map((item, index) => (
-                      <tr key={index}>
-                        <td><strong>{'NR'}{item.numeroIncorporation}{"("}{item.escadron}{"/"}{item.peloton}{")"}{" " }{item.nom}</strong></td>
-                        <td style={{ color: item.jours > 45 ? 'red' : 'black' }}>
-                          <strong>{item.jours}</strong> jour(s)
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
+            {currentItems.length === 0 ? (
+              <tr>
+                <td colSpan="2" className="text-center text-muted">Aucun résultat</td>
+              </tr>
+            ) : (
+              currentItems.map((item, index) => (
+                <tr
+                  key={index}
+                  onClick={() => handleRowClick(item)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <td>
+                    <strong>
+                      {'NR'}{item.numeroIncorporation}{"("}{item.escadron}/{item.peloton}{")"} {item.nom}
+                    </strong>
+                  </td>
+                  <td style={{ color: item.jours > 45 ? 'red' : 'black' }}>
+            <div className="d-flex align-items-center">
+              <span><strong>{item.jours}</strong> jour(s)</span>
+              <span
+                className="badge rounded-pill px-3 py-1 fw-medium badge-pulse"
+                style={{
+                  backgroundColor: item.consultations?.length > 1 ? '#ff9800' : '#17a2b8',
+                  color: 'white',
+                  fontSize: '0.75rem',
+                  letterSpacing: '0.5px',
+                  marginLeft: '12px'
+                }}
+                title={`Consultations : ${item.consultations?.length || 0}`}
+              >
+                {item.consultations?.length > 1 ? 'Discontinue' : 'Continue'}
+              </span>
+            </div>
+          </td>
+
+                </tr>
+              ))
+            )}
+          </tbody>
 
             </table>
 
@@ -750,64 +822,89 @@ if (regroupement) {
                                 })}
                             </ul>
                              {/* Modal */}
-                            {showModal2 && selectedItem && (
-                              <div
-                                className="modal show fade"
-                                style={{ display: "block", backgroundColor: "rgba(0,0,0,0.5)" }}
-                                onClick={closeModal2}
-                              >
-                                <div
-                                  className="modal-dialog modal-dialog-centered"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <div className="modal-content">
-                                    <div className="modal-header">
-                                      <h5 className="modal-title">Détails Consultation</h5>
-                                      <button type="button" className="btn-close" onClick={closeModal}></button>
-                                    </div>
-                                    <div className="modal-body text-center">
-                                      {selectedItem.Eleve?.image ? (
-                                        <img
-                                          src={`${API_URL}${selectedItem.Eleve.image}`}
-                                          alt="Élève"
-                                          style={{
-                                            width: "150px",
-                                            height: "150px",
-                                            objectFit: "cover",
-                                            borderRadius: "50%",
-                                            marginBottom: "1rem",
-                                          }}
-                                        />
-                                      ) : (
-                                        <div
-                                          style={{
-                                            width: "150px",
-                                            height: "150px",
-                                            borderRadius: "50%",
-                                            backgroundColor: "#ccc",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            marginBottom: "1rem",
-                                            fontStyle: "italic",
-                                            color: "#555",
-                                          }}
-                                        >
-                                          Pas d'image
-                                        </div>
-                                      )}
-                                      <p><strong>Nom:</strong> {selectedItem.Eleve?.nom}</p>
-                                      <p><strong>Prénom:</strong> {selectedItem.Eleve?.prenom}</p>
-                                      <p><strong>Date Départ:</strong> {selectedItem.dateDepart || "-"}</p>
-                                      <p><strong>Date Arrivée:</strong> {selectedItem.dateArrive || "-"}</p>
-                                    </div>
-                                    <div className="modal-footer">
-                                      <button className="btn btn-secondary" onClick={closeModal}>Fermer</button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
+                             {showModal2 && selectedItem && (
+                <div
+                  className="modal show fade"
+                  style={{
+                    display: "block",
+                    backgroundColor: "rgba(0,0,0,0.6)",
+                    backdropFilter: "blur(4px)",
+                    zIndex: 1050,
+                    
+                  }}
+                  onClick={closeModal2}
+                >
+                  <div
+                    className="modal-dialog modal-dialog-centered"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ maxWidth: "400px" }}
+                  >
+                    <div className="modal-content shadow-lg rounded-3">
+                      <div className="modal-header border-bottom-0">
+                        <h5 className="modal-title">Détails Consultation</h5>
+                        <button
+                          type="button"
+                          className="btn-close"
+                          aria-label="Close"
+                          onClick={closeModal2}
+                          style={{ cursor: "pointer" }}
+                        ></button>
+                      </div>
+                      <div className="modal-body text-center px-4">
+                        {selectedItem.Eleve?.image ? (
+                          <img
+                            src={`${API_URL}${selectedItem.Eleve.image}`}
+                            alt="Élève"
+                            style={{
+                              width: "140px",
+                              height: "140px",
+                              objectFit: "cover",
+                              borderRadius: "50%",
+                              marginBottom: "1rem",
+                              boxShadow: "0 0 10px rgba(0,0,0,0.15)",
+                            }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              width: "140px",
+                              height: "140px",
+                              borderRadius: "50%",
+                              backgroundColor: "#e0e0e0",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              marginBottom: "1rem",
+                              fontStyle: "italic",
+                              color: "#777",
+                              boxShadow: "inset 0 0 8px #bbb",
+                            }}
+                          >
+                            Pas d'image
+                          </div>
+                        )}
+                        <p className="mb-2">
+                          <strong>Nom :</strong> {selectedItem.Eleve?.nom || "-"}
+                        </p>
+                        <p className="mb-2">
+                          <strong>Prénom :</strong> {selectedItem.Eleve?.prenom || "-"}
+                        </p>
+                        <p className="mb-2">
+                          <strong>Date Départ :</strong> {selectedItem.dateDepart || "-"}
+                        </p>
+                        <p className="mb-0">
+                          <strong>Date Arrivée :</strong> {selectedItem.dateArrive || "-"}
+                        </p>
+                      </div>
+                      <div className="modal-footer border-top-0 justify-content-center">
+                        <button className="btn btn-primary px-4" onClick={closeModal2}>
+                          Fermer
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
                             {/* Pagination navigation */}
                             <nav className="mt-3">
@@ -909,7 +1006,7 @@ if (regroupement) {
                               >
                                 <div>
                                   <strong>{item.motif}</strong><br />
-                                  <small className="text-muted">{item.nombreTotalOccurences} consultation(s) au total</small>
+                                  <small className="text-muted">{item.nombreTotalOccurences}  au total</small>
                                 </div>
                                 <span className="badge bg-success rounded-pill">
                                   {item.nombrePersonnes} élève(s)
@@ -1048,50 +1145,54 @@ if (regroupement) {
                         <h5 className="card-title text-primary mb-4">
                             📊 Jours de consultation par élève 
                         </h5>
+                        <div style={{ width: "100%", overflowX: "auto" }}>
+                      <div style={{ width: containerWidth }}>
                         <ResponsiveContainer width="100%" height={350}>
-                    <BarChart
-                      data={sortedData}
-                      margin={{ top: 20, right: 30, left: 0, bottom: 50 }}
-                      barCategoryGap="20%" 
-                    >
-                      <defs>
-                        <linearGradient id="colorJour" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#007bff" stopOpacity={0.8} />
-                          <stop offset="95%" stopColor="#66b2ff" stopOpacity={0.6} />
-                        </linearGradient>
-                      </defs>
+                          <BarChart
+                            data={sortedData}
+                            margin={{ top: 20, right: 30, left: 0, bottom: 50 }}
+                            barCategoryGap={5}
+                            barSize={BAR_WIDTH}
+                          >
+                            <defs>
+                              <linearGradient id="colorJour" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#007bff" stopOpacity={0.8} />
+                                <stop offset="95%" stopColor="#66b2ff" stopOpacity={0.6} />
+                              </linearGradient>
+                            </defs>
 
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis
-                        dataKey="nom"
-                        angle={-45}
-                        textAnchor="end"
-                        hide
-                        height={70}
-                        interval={0}
-                      />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend verticalAlign="top" height={36} />
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis
+                              dataKey="nom"
+                              angle={-45}
+                              textAnchor="end"
+                              hide
+                              height={70}
+                              interval={0}
+                            />
+                            <YAxis />
+                            <Tooltip />
+                            <Legend verticalAlign="top" height={36} />
 
-                      <Bar
-                        dataKey="jours"
-                        radius={[10, 10, 0, 0]}
-                        
-                        name="Nombre de jours"
-                        onClick={(data) => handleBarClick(data)}
-                      >
-                        {sortedData.map((entry, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={entry.jours > 45 ? '#ff4d4f' : 'url(#colorJour)'}
-                          />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                            <Bar
+                              dataKey="jours"
+                              radius={[10, 10, 0, 0]}
+                              name="Nombre de jours"
+                              onClick={(data) => handleBarClick(data)}
+                            >
+                              {sortedData.map((entry, index) => (
+                                <Cell
+                                  key={`cell-${index}`}
+                                  fill={entry.jours > 45 ? "#ff4d4f" : "url(#colorJour)"}
+                                />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
                    {/* Modal Bootstrap */}
-                   <Modal show={showModal3} onHide={handleClose} centered>
+                   <Modal show={showModal3} onHide={handleClose} centered  dialogClassName="custom-modal-border">
                   <Modal.Header closeButton>
                     <Modal.Title>Informations de l'élève</Modal.Title>
                   </Modal.Header>
@@ -1148,25 +1249,49 @@ if (regroupement) {
 
                         <hr />
 
-                        <h6>Jours par consultation :</h6>
+                        <h6 className="mb-3">Jours par consultation :</h6>
 
-                        <ul>
-                          {selectedEleve.consultations.map((c, i) => (
-                            <li
-                              key={i}
-                              style={{
-                                marginBottom: "10px",
-                                color: c.jours > 45 ? "red" : "inherit"
-                              }}
-                            >
-                              <strong>{c.motif || ""}</strong> — ID: {c.id} — {c.jours} jour(s)<br />
-                              <small style={{ color: "#555" }}>
-                                Départ : {new Date(c.dateDepart).toLocaleDateString()} — 
-                                Arrivée : {new Date(c.dateArrive).toLocaleDateString()}
-                              </small>
-                            </li>
-                          ))}
-                        </ul>
+            {selectedEleve.consultations.length === 0 ? (
+              <p className="text-muted fst-italic">Aucune consultation enregistrée.</p>
+            ) : (
+              <div>
+                {selectedEleve.consultations.map((c, i) => {
+                  const isLong = c.jours > 45;
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        marginBottom: "12px",
+                        paddingBottom: "8px",
+                        borderBottom: "1px dashed #ccc",
+                      }}
+                    >
+                      <div className="d-flex justify-content-between align-items-center">
+                        <span className="text-muted" style={{ fontSize: "0.85rem" }}>
+                          ID : {c.id}
+                        </span>
+                        <span
+                          className="badge"
+                          style={{
+                            backgroundColor: isLong ? "#dc3545" : "#17a2b8",
+                            color: "white",
+                            fontSize: "0.75rem",
+                            padding: "6px 10px",
+                          }}
+                        >
+                          {c.jours} jour(s)
+                        </span>
+                      </div>
+                      <small className="text-muted">
+                        Du <strong>{new Date(c.dateDepart).toLocaleDateString()}</strong> au{" "}
+                        <strong>{new Date(c.dateArrive).toLocaleDateString()}</strong>
+                      </small>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
 
                       </>
                     )}
@@ -1178,6 +1303,50 @@ if (regroupement) {
                   </Modal.Footer>
                 </Modal>
 
+
+            {/* Modal affichant les élèves récents */}
+            <Modal show={showModal4} onHide={() => setShowModal4(false)} >
+  <Modal.Header closeButton className="bg-success text-white">
+    <Modal.Title>
+    <BsPeopleFill className="me-2" />
+      Élèves arrivés récemment à l'EGNA
+    </Modal.Title>
+  </Modal.Header>
+
+  <Modal.Body>
+    {recentEleves.length === 0 ? (
+      <p className="text-muted text-center">
+        Aucun élève n’est revenu récemment.
+      </p>
+    ) : (
+      <div className="d-flex flex-column gap-3">
+        {recentEleves.map((eleve, index) => (
+          <div
+            key={index}
+            className="border rounded shadow-sm p-3 bg-light"
+          >
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h6 className="mb-0">
+                👤 <strong>{eleve.Eleve?.nom} {eleve.Eleve?.prenom}</strong>
+              </h6>
+              <span className="badge bg-warning text-dark">Nouveau</span>
+            </div>
+            <div className="text-muted small">
+            <BsCalendarCheck className="me-1" />
+              Arrivé le {new Date(eleve.dateArrive).toLocaleDateString()}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </Modal.Body>
+
+  <Modal.Footer>
+    <Button variant="outline-secondary" onClick={() => setShowModal(false)}>
+      Fermer
+    </Button>
+  </Modal.Footer>
+</Modal>
 
                         </div>
                     </div>
