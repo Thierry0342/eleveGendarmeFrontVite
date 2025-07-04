@@ -10,6 +10,7 @@ import { API_URL } from '../../config/root/modules';
 import { Modal, Button } from 'react-bootstrap';
 import { BsPeopleFill, BsCalendarCheck } from "react-icons/bs";
 import dateService from'../../services/dateservice';
+import Swal from 'sweetalert2';
 const StatePage = () => {
   const [consultations, setConsultations] = useState([]);
   const [consultations2, setConsultations2] = useState([]);
@@ -38,9 +39,13 @@ const StatePage = () => {
    const [selectedEleve, setSelectedEleve] = useState(null);
    const [showModal3, setShowModal3] = useState(false);
    const [showModal4, setShowModal4] = useState(false);
+   const [showModal5, setShowModal5] = useState(false);
    const [dateServeur, setDateServeur] = useState(null);
 const [recentEleves, setRecentEleves] = useState([]);
 const [totalEscadron, setTotalEscadron] = useState(0);
+const [recentDepartEleves, setRecentDepartEleves] = useState([]);
+const [recentPartis, setRecentPartis] = useState([]);
+const [totalEvasan, setTotalEvasan] = useState(0);
 
   //paggination
   
@@ -96,6 +101,31 @@ const handleClose = () => {
       setImagePreview(null);
     }
   }, [selectedRow]);
+  //
+  useEffect(() => {
+    const alreadyNotified = localStorage.getItem('versionNotified');
+  
+   
+      Swal.fire({
+        title: '🚀 Nouvelle version 2.0.1 disponible !',
+       
+        icon: 'info',
+        confirmButtonText: 'Compris',
+        confirmButtonColor: '#007bff',
+        showCloseButton: true,
+        backdrop: true,
+        background: '#fefefe',
+        customClass: {
+          popup: 'custom-version-popup'
+        },
+        timer: 2000,
+        timerProgressBar: true,
+        didClose: () => {
+          localStorage.setItem('versionNotified', 'true');
+        }
+      });
+    
+  }, []);
   
   //nombre jpour consul
   const handleBadgeClick = (item) => {
@@ -130,18 +160,38 @@ const handleClose = () => {
 useEffect(() => {
   if (!dateServeur) return;
 
+  const now = new Date(dateServeur);
+
+  // Total élèves actuellement à l'escadron
   const total = consultations.filter(c => c.status === "Escadron").length;
   setTotalEscadron(total);
 
-  const recent = consultations.filter(c => {
+  // Élèves récemment revenus à l’escadron (dans les 4 derniers jours)
+  const recentArrive = consultations.filter(c => {
     if (c.status !== "Escadron" || !c.dateArrive) return false;
     const arrive = new Date(c.dateArrive);
-    const now = new Date(dateServeur);
     const diff = (now - arrive) / (1000 * 60 * 60 * 24);
     return diff >= 0 && diff <= 4;
   });
-  setRecentEleves(recent);
+  setRecentEleves(recentArrive);
+
+  // Élèves récemment partis en EVASAN (dans les 4 derniers jours)
+  const recentDepart = consultations.filter(c => {
+    if (c.status === "Evasan" || !c.dateDepart) return false;
+    const depart = new Date(c.dateDepart);
+    const diff = (now - depart) / (1000 * 60 * 60 * 24);
+    return diff >= 0 && diff <= 4;
+  });
+  setRecentDepartEleves(recentDepart);
+
+
+  // Total EVASAN (ceux qui ne sont ni IG ni Escadron)
+  const totalEvasan = consultations.filter(c =>
+    c.status !== "Escadron" && c.status !== "IG"
+  ).length;
+  setTotalEvasan(totalEvasan);
 }, [consultations, dateServeur]);
+
  //get consultation
   const fetchConsultations = (selectedCour) => {
 
@@ -480,6 +530,7 @@ const BAR_WIDTH = 25;
     'EVASAN': 'CONSULTATION TANA',
     'A REVOIR CENHOSOA': 'CONSULTATION TANA',
     'A REVOIR CENHSOA': 'CONSULTATION TANA',
+     'A revoir CENHOSOA':'A revoir CENHOSOA',
   };
   
   const elevesParMotif = {}; // Map des élèves distincts par motif
@@ -623,29 +674,30 @@ if (regroupement) {
                   <h5 className="card-title d-flex justify-content-between align-items-center">
           RETOUR A EGNA
           {recentEleves.length > 0 && (
-            <span className="badge bg-warning text-dark badge-animate">Nouveau</span>
+             <span className="badge bg-warning text-dark badge-animate">Nouveau</span>
           )}
      </h5>
             <p className="card-text fs-4">{totalEscadron}</p>
           </div>
         </div>
       </div>
-            <div className="col-md-6">
-            <div className="card text-white bg-danger mb-3">
-            <div className="card-body">
-                <h5 className="card-title">EVASAN</h5>
-                <p className="card-text fs-4">
-                {
-                    consultations.length - 
-                    (consultations.filter(c => c.status === "IG").length + 
-                    consultations.filter(c => c.status === "Escadron").length)
-                }
-                </p>
-            </div>
-            </div>
-        </div>
-          </div>
-          
+      
+      <div className="col-md-6">
+  <div className="card text-white bg-danger mb-3" style={{ cursor: "pointer" }} onClick={() => setShowModal5(true)}>
+    <div className="card-body">
+      <div className="d-flex justify-content-between align-items-center">
+        <h5 className="card-title mb-0">
+          EVASAN
+        </h5>
+        {recentDepartEleves.length > 0 && (
+          <span className="badge bg-warning text-dark badge-animate">Nouveau</span>
+        )}
+      </div>
+      <p className="card-text fs-4 mt-2">{totalEvasan}</p>
+    </div>
+  </div>
+</div>
+</div>
           {/* Affichage des jours par consultation Escadron */}
           <div className="card mb-3">
     <div className="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
@@ -1347,6 +1399,40 @@ if (regroupement) {
     </Button>
   </Modal.Footer>
 </Modal>
+
+
+<Modal show={showModal5} onHide={() => setShowModal5(false)} >
+  <Modal.Header closeButton className="bg-danger text-white border-0">
+    <Modal.Title>
+      <i className="bi bi-box-arrow-right me-2"></i> Élèves récemment partis
+    </Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    {recentDepartEleves.length === 0 ? (
+      <p className="text-muted text-center">Aucun élève n’est parti récemment.</p>
+    ) : (
+      <ul className="list-group">
+        {recentDepartEleves.map((eleve, index) => (
+          <li className="list-group-item d-flex justify-content-between align-items-center" key={index}>
+            <span>
+              <strong>{eleve.Eleve?.nom || "Inconnu"} {eleve.Eleve?.prenom || ""}</strong>
+            </span>
+            <span className="badge bg-warning text-dark">
+              Départ : {new Date(eleve.dateDepart).toLocaleDateString()}
+            </span>
+          </li>
+        ))}
+      </ul>
+    )}
+  </Modal.Body>
+  <Modal.Footer className="border-0">
+    <Button variant="secondary" onClick={() => setShowModal5(false)}>
+      Fermer
+    </Button>
+  </Modal.Footer>
+</Modal>
+
+
 
                         </div>
                     </div>

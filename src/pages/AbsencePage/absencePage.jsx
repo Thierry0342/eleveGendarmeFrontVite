@@ -1784,6 +1784,8 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                             <option value="MISSION">MISSION</option>
                             <option value="MISSION TANA">MISSION TANA</option>
                             <option value="PERMISSIONAIRE">PERMISSION</option>
+                            <option value="PERMISSIONAIRE NON RENTREE">PERMISSIONAIRE NON RENTREE</option>
+                            <option value="QUARTIER LIBRE">QUARTIER LIBRE</option>
                             <option value="REPOS SANITAIRE">REPOS SANITAIRE</option>
                             <option value="S.O">S.O</option>
                             <option value="SPORT">SPORT</option>
