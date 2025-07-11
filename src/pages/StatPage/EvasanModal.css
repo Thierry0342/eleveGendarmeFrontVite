@@ -78,3 +78,18 @@
 .badge-animate {
   animation: pulse 1.5s infinite;
 }
+.modal-overlay2 {
+
+
+  z-index: 9999;
+  display: flex;
+  margin-top: -15%;
+  position: fixed;
+  height: 1500ch;
+  width: 200ch;
+  
+
+
+
+
+}

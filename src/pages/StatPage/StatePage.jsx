@@ -56,7 +56,9 @@ const [totalEvasan, setTotalEvasan] = useState(0);
     if (!searchIncorp.trim()) return selectedMotif.eleves;
 
     return selectedMotif.eleves.filter(eleve =>
-      eleve.numeroIncorporation.toLowerCase().includes(searchIncorp.trim().toLowerCase())
+      eleve.numeroIncorporation.toLowerCase().includes(searchIncorp.trim().toLowerCase()) ||
+      eleve.nom.toLowerCase().includes(searchIncorp.trim().toLowerCase()) ||
+      eleve.prenom.toLowerCase().includes(searchIncorp.trim().toLowerCase())
     );
   }, [searchIncorp, selectedMotif]);
   
@@ -102,30 +104,7 @@ const handleClose = () => {
     }
   }, [selectedRow]);
   //
-  useEffect(() => {
-    const alreadyNotified = localStorage.getItem('versionNotified');
-  
-   
-      Swal.fire({
-        title: '🚀 Nouvelle version 2.0.1 disponible !',
-       
-        icon: 'info',
-        confirmButtonText: 'Compris',
-        confirmButtonColor: '#007bff',
-        showCloseButton: true,
-        backdrop: true,
-        background: '#fefefe',
-        customClass: {
-          popup: 'custom-version-popup'
-        },
-        timer: 2000,
-        timerProgressBar: true,
-        didClose: () => {
-          localStorage.setItem('versionNotified', 'true');
-        }
-      });
-    
-  }, []);
+
   
   //nombre jpour consul
   const handleBadgeClick = (item) => {
@@ -1075,21 +1054,21 @@ if (regroupement) {
                             style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
                             onClick={() => setShowModal(false)}
                           >
-                            <div className="modal-dialog modal-lg" onClick={e => e.stopPropagation()}>
-                              <div className="modal-content">
-                                <div className="modal-header">
-                                  <h5 className="modal-title">Élèves pour : {selectedMotif.motif}</h5>
-                                  <button type="button" className="btn-close" onClick={() => setShowModal(false)} />
-                                </div>
-                                <div className="modal-body">
-                                  {Array.isArray(selectedMotif.eleves) && selectedMotif.eleves.length > 0 ? (
+                          <div size="xl" className="modal-overlay2" onClick={() => setShowModal(false)}>
+                            <div className="modal-content" onClick={e => e.stopPropagation()}>
+                              <div className="modal-header">
+                                <h5 className="modal-title">Élèves pour : {selectedMotif.motif}</h5>
+                                <button type="button" className="btn-close" onClick={() => setShowModal(false)} />
+                              </div>
+                              <div className="modal-body">
+                                {Array.isArray(selectedMotif.eleves) && selectedMotif.eleves.length > 0 ? (
                                     <>
                                       {/* Input recherche */}
                                       <div className="mb-3">
                                         <input
                                           type="text"
                                           className="form-control"
-                                          placeholder="Rechercher par numéro d'incorporation..."
+                                          placeholder="nom,prenom,incorporation"
                                           value={searchIncorp}
                                           onChange={e => setSearchIncorp(e.target.value)}
                                         />
