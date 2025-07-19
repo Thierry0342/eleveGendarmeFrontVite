@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useRef ,useEffect, useState } from 'react';
 import DataTable from 'react-data-table-component';
 import EleveService from '../../services/eleveService';
 import courService from '../../services/courService';
@@ -14,6 +14,7 @@ const DiverPage = () => {
   const [filteredPointures, setFilteredPointures] = useState([]);
   const [filter, setFilter] = useState({ cour: '', diplome: '', religion: '',genreConcours:'',Specialiste:'',fady:'',ageRange: null  });
   const [pointures, setPointures] = useState([]);
+  const tableRef = useRef(null);
 
   const niveauxEtude = [
     'BACC',
@@ -93,6 +94,15 @@ const DiverPage = () => {
       isMounted = false;
     };
   }, []);
+  // ➜ Fonction pour appliquer le filtre + scroll
+const handleFilterClick = (nouveauFiltre) => {
+  setFilter(nouveauFiltre);
+
+  // Petite pause pour attendre le render
+  setTimeout(() => {
+    tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
+};
   
 
   //get pointure 
@@ -388,60 +398,91 @@ const exportPDF = () => {
         </select>
       </div>
       
-      {/* Tableau des élèves */}
-          <DataTable
-                title={
-                  <div className="d-flex flex-column align-items-start">
-                    <h5 className="mb-1 fw-bold">
-                      Liste des élèves
-                      {filter.cour && ` - Cour ${filter.cour}`}
-                      {filter.diplome && ` - ${filter.diplome}`}
-                      {filter.religion && ` - ${filter.religion}`}
-                      {filter.fady && ` - ${filter.fady}`} {/* ✅ ajout */}
-                      {filter.genreConcours && ` - ${filter.genreConcours}`}
-                      {filter.Specialiste && ` - ${filter.Specialiste}`}
-                      {filter.ageRange && ` - Âge ${filter.ageRange.label}`}
-                    </h5>
-                    <small className="text-muted">
-                      {filteredEleves.length} élève(s) affiché(s)
-                    </small>
-                  </div>
-                }
-                columns={columns}
-                data={filteredEleves}
-                pagination
-                highlightOnHover
-                striped
-                responsive
-                dense
-                persistTableHead
-                customStyles={{
-                  headCells: {
-                    style: {
-                      backgroundColor: '#007bff',
-                      fontWeight: 'bold',
-                      fontSize: '14px',
-                    },
-                  },
-                  rows: {
-                    style: {
-                      fontSize: '14px',
-                    },
-                  },
-                  table: {
-                    style: {
-                      border: '1px solid #dee2e6',
-                      borderRadius: '8px',
-                      overflow: 'hidden',
-                    },
-                  },
-                }}
-              />
-            <div className="d-flex justify-content-end mt-4">
-            <button onClick={handlePrint} className="btn btn-primary">
-              Imprimer le tableau
-            </button>
-          </div>
+     {/* ✅ Titre plus lisible */}
+    
+<div ref={tableRef}>
+  <DataTable
+    title={
+      <div className="d-flex flex-column align-items-start">
+        <h5 className="mb-1 fw-bold text-primary">
+          📋 Liste des élèves
+          {filter.cour && ` · Cour ${filter.cour}`}
+          {filter.diplome && ` · ${filter.diplome}`}
+          {filter.religion && ` · ${filter.religion}`}
+          {filter.fady && ` · ${filter.fady}`}
+          {filter.genreConcours && ` · ${filter.genreConcours}`}
+          {filter.Specialiste && ` · ${filter.Specialiste}`}
+          {filter.ageRange && ` · Âge ${filter.ageRange.label}`}
+        </h5>
+        <small className="text-muted">
+          {filteredEleves.length} élève(s) affiché(s)
+        </small>
+      </div>
+    }
+    columns={columns}
+    data={filteredEleves}
+    pagination
+    highlightOnHover
+    striped
+    responsive
+    dense
+    persistTableHead
+    customStyles={{
+      head: {
+        style: {
+          minHeight: '56px',
+        },
+      },
+      headRow: {
+        style: {
+          backgroundColor: '#0d6efd',
+          color: '#fff',
+        },
+      },
+      headCells: {
+        style: {
+          fontWeight: 'bold',
+          fontSize: '13px',
+          textTransform: 'uppercase',
+        },
+      },
+      rows: {
+        style: {
+          fontSize: '14px',
+          minHeight: '48px',
+          transition: 'background-color 0.15s ease',
+        },
+        highlightOnHoverStyle: {
+          backgroundColor: '#f1f3f5',
+          cursor: 'pointer',
+        },
+      },
+      table: {
+        style: {
+          border: '1px solid #dee2e6',
+          borderRadius: '0.5rem',
+          overflow: 'hidden',
+        },
+      },
+      pagination: {
+        style: {
+          borderTop: '1px solid #dee2e6',
+          padding: '10px',
+        },
+      },
+    }}
+  />
+
+  {/* ✅ Bouton Imprimer plus esthétique */}
+  <div className="d-flex justify-content-end mt-4">
+    <button
+      onClick={handlePrint}
+      className="btn btn-outline-primary d-flex align-items-center gap-2"
+    >
+      <i className="bi bi-printer"></i> Imprimer
+    </button>
+  </div>
+</div>
 
 
       {/* Bloc affichage âge min/max */}
@@ -450,16 +491,15 @@ const exportPDF = () => {
           <h6>Âge maximum : <strong>{maxAge}</strong> ans</h6>
         </div>
 
-        <h5 className="mt-5 fw-bold text-primary text-uppercase">Filtrer par tranche d’âge</h5>
-
+        {/* --- Tranche d'âge --- */}
+<h5 className="mt-5 fw-bold text-primary text-uppercase">🎯 Filtrer par tranche d’âge</h5>
 <div className="d-flex justify-content-center flex-wrap gap-3 mt-4">
   {tranchesAge.map((tranche) => {
     const isActive = filter.ageRange?.label === tranche.label;
     const matchingCount = eleves.filter(e => {
       const age = dayjs().diff(dayjs(e.dateNaissance), 'year');
       return (
-        age >= tranche.min &&
-        age <= tranche.max &&
+        age >= tranche.min && age <= tranche.max &&
         (!filter.religion || e.religion === filter.religion) &&
         (!filter.diplome || e.niveau === filter.diplome) &&
         (!filter.cour || e.cour?.toString() === filter.cour)
@@ -469,47 +509,38 @@ const exportPDF = () => {
     return (
       <div
         key={tranche.label}
-        className={`card text-center shadow-sm border-0 ${isActive ? 'bg-warning-subtle border-warning' : 'bg-white'}`}
-        style={{
-          cursor: 'pointer',
-          width: '160px',
-          transition: 'all 0.3s',
-        }}
-        onClick={() => setFilter({ ...filter, ageRange: tranche })}
+        className={`card text-center shadow-sm border ${isActive ? 'border-primary bg-primary-subtle' : 'border-0 bg-white'} filter-card`}
+        style={{ cursor: 'pointer', width: '160px', transition: 'transform 0.2s' }}
+        onClick={() => handleFilterClick({ ...filter, ageRange: tranche })}
       >
         <div className="card-body p-3">
-          <h6 className="fw-semibold mb-1">{tranche.label}</h6>
-          <p className="text-muted small mb-0">{matchingCount} élève(s)</p>
+          <h6 className="fw-bold mb-1">{tranche.label}</h6>
+          <span className="badge bg-primary">{matchingCount} élèves</span>
         </div>
       </div>
     );
   })}
 
-  {/* Tout afficher */}
   <div
-    className="card text-center shadow-sm border-0 bg-light"
-    style={{ cursor: 'pointer', width: '160px', transition: 'all 0.3s' }}
-    onClick={() => setFilter({ ...filter, ageRange: null })}
+    className="card text-center shadow-sm border bg-light filter-card"
+    style={{ cursor: 'pointer', width: '160px', transition: 'transform 0.2s' }}
+    onClick={() => handleFilterClick({ ...filter, ageRange: null })}
   >
     <div className="card-body p-3">
-      <h6 className="fw-semibold mb-1">Tout afficher</h6>
-      <p className="text-muted small mb-0">
-        {
-          eleves.filter(e =>
-            (!filter.religion || e.religion === filter.religion) &&
-            (!filter.diplome || e.niveau === filter.diplome) &&
-            (!filter.cour || e.cour?.toString() === filter.cour)
-          ).length
-        } élèves
-      </p>
+      <h6 className="fw-bold mb-1">Tout afficher</h6>
+      <span className="badge bg-dark">
+        {eleves.filter(e =>
+          (!filter.religion || e.religion === filter.religion) &&
+          (!filter.diplome || e.niveau === filter.diplome) &&
+          (!filter.cour || e.cour?.toString() === filter.cour)
+        ).length} élèves
+      </span>
     </div>
   </div>
 </div>
 
-
-
-<h5 className="mt-5 fw-bold text-primary text-uppercase">Filtrer par niveau d’étude</h5>
-
+{/* --- Niveau d'étude --- */}
+<h5 className="mt-5 fw-bold text-primary text-uppercase">🎓 Filtrer par niveau d’étude</h5>
 <div className="d-flex justify-content-center flex-wrap gap-3 mt-4">
   {niveauxEtude.map((niveau) => {
     const isActive = filter.diplome === niveau;
@@ -522,44 +553,37 @@ const exportPDF = () => {
     return (
       <div
         key={niveau}
-        className={`card text-center shadow-sm border-0 ${isActive ? 'bg-primary-subtle border-primary' : 'bg-white'}`}
-        style={{
-          cursor: 'pointer',
-          width: '160px',
-          transition: 'all 0.3s',
-        }}
-        onClick={() => setFilter({ ...filter, diplome: niveau })}
+        className={`card text-center shadow-sm border ${isActive ? 'border-success bg-success-subtle' : 'border-0 bg-white'} filter-card`}
+        style={{ cursor: 'pointer', width: '160px', transition: 'transform 0.2s' }}
+        onClick={() => handleFilterClick({ ...filter, diplome: niveau })}
       >
         <div className="card-body p-3">
-          <h6 className="fw-semibold mb-1">{niveau}</h6>
-          <p className="text-muted small mb-0">{matchingCount} élève(s)</p>
+          <h6 className="fw-bold mb-1">{niveau}</h6>
+          <span className="badge bg-success">{matchingCount} élèves</span>
         </div>
       </div>
     );
   })}
 
-  {/* Tout afficher */}
   <div
-    className="card text-center shadow-sm border-0 bg-light"
-    style={{ cursor: 'pointer', width: '160px', transition: 'all 0.3s' }}
-    onClick={() => setFilter({ ...filter, diplome: '' })}
+    className="card text-center shadow-sm border bg-light filter-card"
+    style={{ cursor: 'pointer', width: '160px', transition: 'transform 0.2s' }}
+    onClick={() => handleFilterClick({ ...filter, diplome: '' })}
   >
     <div className="card-body p-3">
-      <h6 className="fw-semibold mb-1">Tout afficher</h6>
-      <p className="text-muted small mb-0">
-        {
-          eleves.filter(e =>
-            (!filter.religion || e.religion === filter.religion) &&
-            (!filter.cour || e.cour?.toString() === filter.cour)
-          ).length
-        } élèves
-      </p>
+      <h6 className="fw-bold mb-1">Tout afficher</h6>
+      <span className="badge bg-dark">
+        {eleves.filter(e =>
+          (!filter.religion || e.religion === filter.religion) &&
+          (!filter.cour || e.cour?.toString() === filter.cour)
+        ).length} élèves
+      </span>
     </div>
   </div>
 </div>
 
-<h5 className="mt-5 fw-bold text-primary text-uppercase">Filtrer par genre de concours</h5>
-
+{/* --- Genre concours --- */}
+<h5 className="mt-5 fw-bold text-primary text-uppercase">🏆 Filtrer par genre de concours</h5>
 <div className="d-flex justify-content-center flex-wrap gap-3 mt-4">
   {genresConcours.map((genre) => {
     const isActive = filter.genreConcours === genre;
@@ -576,63 +600,63 @@ const exportPDF = () => {
     return (
       <div
         key={genre}
-        className={`card text-center shadow-sm border-0 ${isActive ? 'bg-warning-subtle border-warning' : 'bg-white'}`}
-        style={{ cursor: 'pointer', width: '160px', transition: 'all 0.3s' }}
-        onClick={() => setFilter({ ...filter, genreConcours: genre, specialiste: '' })}
+        className={`card text-center shadow-sm border ${isActive ? 'border-warning bg-warning-subtle' : 'border-0 bg-white'} filter-card`}
+        style={{ cursor: 'pointer', width: '160px', transition: 'transform 0.2s' }}
+        onClick={() => handleFilterClick({ ...filter, genreConcours: genre, specialiste: '' })}
       >
         <div className="card-body p-3">
-          <h6 className="fw-semibold mb-1">{genre}</h6>
-          <p className="text-muted small mb-0">{count} élève(s)</p>
+          <h6 className="fw-bold mb-1">{genre}</h6>
+          <span className="badge bg-warning text-dark">{count} élèves</span>
         </div>
       </div>
     );
   })}
 
-  {/* Tout afficher */}
   <div
-    className="card text-center shadow-sm border-0 bg-light"
-    style={{ cursor: 'pointer', width: '160px', transition: 'all 0.3s' }}
-    onClick={() => setFilter({ ...filter, genreConcours: '', specialiste: '' })}
+    className="card text-center shadow-sm border bg-light filter-card"
+    style={{ cursor: 'pointer', width: '160px', transition: 'transform 0.2s' }}
+    onClick={() => handleFilterClick({ ...filter, genreConcours: '', specialiste: '' })}
   >
     <div className="card-body p-3">
-      <h6 className="fw-semibold mb-1">Tout afficher</h6>
-      <p className="text-muted small mb-0">{eleves.length} élèves</p>
+      <h6 className="fw-bold mb-1">Tout afficher</h6>
+      <span className="badge bg-dark">{eleves.length} élèves</span>
     </div>
   </div>
 </div>
 
-{/* Spécialités si genre = "specialiste" */}
+{/* --- Spécialité --- */}
 {filter.genreConcours === 'specialiste' && (
   <>
-    <h6 className="mt-4 fw-bold text-secondary">Choisir une spécialité</h6>
+    <h6 className="mt-4 fw-bold text-secondary">🧪 Choisir une spécialité</h6>
     <div className="d-flex justify-content-center flex-wrap gap-3 mt-3">
       {specialiste.map((spec) => (
         <div
           key={spec}
-          className={`card text-center shadow-sm border-0 ${filter.Specialiste === spec ? 'bg-info-subtle border-info' : 'bg-white'}`}
-          style={{ cursor: 'pointer', width: '160px', transition: 'all 0.3s' }}
-          onClick={() => setFilter({ ...filter, Specialiste: spec })}
+          className={`card text-center shadow-sm border ${filter.Specialiste === spec ? 'border-info bg-info-subtle' : 'border-0 bg-white'} filter-card`}
+          style={{ cursor: 'pointer', width: '160px', transition: 'transform 0.2s' }}
+          onClick={() => handleFilterClick({ ...filter, Specialiste: spec })}
         >
           <div className="card-body p-3">
-            <h6 className="fw-semibold mb-0">{spec}</h6>
+            <h6 className="fw-bold mb-0">{spec}</h6>
           </div>
         </div>
       ))}
 
       <div
-        className="card text-center shadow-sm border-0 bg-light"
-        style={{ cursor: 'pointer', width: '160px', transition: 'all 0.3s' }}
-        onClick={() => setFilter({ ...filter, Specialiste: '' })}
+        className="card text-center shadow-sm border bg-light filter-card"
+        style={{ cursor: 'pointer', width: '160px', transition: 'transform 0.2s' }}
+        onClick={() => handleFilterClick({ ...filter, Specialiste: '' })}
       >
         <div className="card-body p-3">
-          <h6 className="fw-semibold mb-0">Tout afficher</h6>
+          <h6 className="fw-bold mb-0">Tout afficher</h6>
         </div>
       </div>
     </div>
   </>
 )}
-<h5 className="mt-5 fw-bold text-primary text-uppercase">Filtrer par religion</h5>
 
+{/* --- Religion --- */}
+<h5 className="mt-5 fw-bold text-primary text-uppercase">⛪ Filtrer par religion</h5>
 <div className="d-flex justify-content-center flex-wrap gap-3 mt-4">
   {religions.map((relig) => {
     const isActive = filter.religion === relig;
@@ -645,102 +669,107 @@ const exportPDF = () => {
     return (
       <div
         key={relig}
-        className={`card text-center shadow-sm border-0 ${isActive ? 'bg-success-subtle border-success' : 'bg-white'}`}
-        style={{ cursor: 'pointer', width: '160px', transition: 'all 0.3s' }}
-        onClick={() => setFilter({ ...filter, religion: relig })}
+        className={`card text-center shadow-sm border ${isActive ? 'border-success bg-success-subtle' : 'border-0 bg-white'} filter-card`}
+        style={{ cursor: 'pointer', width: '160px', transition: 'transform 0.2s' }}
+        onClick={() => handleFilterClick({ ...filter, religion: relig })}
       >
         <div className="card-body p-3">
-          <h6 className="fw-semibold mb-1">{relig}</h6>
-          <p className="text-muted small mb-0">{count} élève(s)</p>
+          <h6 className="fw-bold mb-1">{relig}</h6>
+          <span className="badge bg-success">{count} élèves</span>
         </div>
       </div>
     );
   })}
 
   <div
-    className="card text-center shadow-sm border-0 bg-light"
-    style={{ cursor: 'pointer', width: '160px', transition: 'all 0.3s' }}
-    onClick={() => setFilter({ ...filter, religion: '' })}
+    className="card text-center shadow-sm border bg-light filter-card"
+    style={{ cursor: 'pointer', width: '160px', transition: 'transform 0.2s' }}
+    onClick={() => handleFilterClick({ ...filter, religion: '' })}
   >
     <div className="card-body p-3">
-      <h6 className="fw-semibold mb-1">Tout afficher</h6>
-      <p className="text-muted small mb-0">
+      <h6 className="fw-bold mb-1">Tout afficher</h6>
+      <span className="badge bg-dark">
         {eleves.filter(e =>
           (!filter.diplome || e.niveau === filter.diplome) &&
           (!filter.cour || e.cour?.toString() === filter.cour)
         ).length} élèves
-      </p>
+      </span>
     </div>
   </div>
 </div>
 
-<h5 className="mt-5 fw-bold text-primary text-uppercase">Filtrer par Foko</h5>
+{/* --- Foko --- */}
+<h5 className="mt-5 fw-bold text-primary text-uppercase">🌍 Filtrer par Foko</h5>
 
 <div className="d-flex justify-content-center flex-wrap gap-3 mt-4">
-{ethnies.map((foko) => {
-  const isActive = filter.fady === foko;
-  const count = eleves.filter(e =>
-    e.fady?.toUpperCase() === foko &&
-    (!filter.diplome || e.niveau === filter.diplome) &&
-    (!filter.cour || e.cour?.toString() === filter.cour) &&
-    (!filter.religion || e.religion === filter.religion)
-  ).length;
+  {ethnies.map((foko) => {
+    const isActive = filter.fady === foko;
+    const count = eleves.filter(e =>
+      e.fady?.toUpperCase() === foko &&
+      (!filter.diplome || e.niveau === filter.diplome) &&
+      (!filter.cour || e.cour?.toString() === filter.cour) &&
+      (!filter.religion || e.religion === filter.religion)
+    ).length;
 
-  return (
-    <div
-      key={foko}
-      className={`card text-center shadow-sm border-0 ${isActive ? 'bg-success-subtle border-success' : 'bg-white'}`}
-      style={{ cursor: 'pointer', width: '160px', transition: 'all 0.3s' }}
-      onClick={() => setFilter({ ...filter, fady: foko })}
-    >
-      <div className="card-body p-3">
-        <h6 className="fw-semibold mb-1">{foko}</h6>
-        <p className="text-muted small mb-0">{count} élève(s)</p>
+    return (
+      <div
+        key={foko}
+        className={`card text-center shadow-sm ${isActive ? 'border-info bg-info-subtle' : 'border-0 bg-white'} filter-card`}
+        style={{ cursor: 'pointer', width: '160px', transition: 'transform 0.2s' }}
+        onClick={() => handleFilterClick({ ...filter, fady: foko })}
+      >
+        <div className="card-body p-3">
+          <h6 className="fw-bold mb-1">{foko}</h6>
+          <span className="badge bg-info text-dark">{count} élèves</span>
+        </div>
       </div>
-    </div>
-  );
-})}
+    );
+  })}
 
-{/* Carte pour afficher les élèves dont le fady N'EST PAS dans la liste ethnies */}
-<div
-  className={`card text-center shadow-sm border-0 ${filter.fady === 'AUTRES' ? 'bg-success-subtle border-success' : 'bg-light'}`}
-  style={{ cursor: 'pointer', width: '160px', transition: 'all 0.3s' }}
-  onClick={() => setFilter({ ...filter, fady: 'AUTRES' })}
->
-  <div className="card-body p-3">
-    <h6 className="fw-semibold mb-1">AUTRES</h6>
-    <p className="text-muted small mb-0">
-      {
-        eleves.filter(e =>
+  {/* Autres */}
+  <div
+    className={`card text-center shadow-sm ${filter.fady === 'AUTRES' ? 'border-info bg-info-subtle' : 'bg-light'} filter-card`}
+    style={{ cursor: 'pointer', width: '160px', transition: 'transform 0.2s' }}
+    onClick={() => handleFilterClick({ ...filter, fady: 'AUTRES' })}
+  >
+    <div className="card-body p-3">
+      <h6 className="fw-bold mb-1">AUTRES</h6>
+      <span className="badge bg-info text-dark">
+        {eleves.filter(e =>
           !ethnies.includes(e.fady?.toUpperCase()) &&
           (!filter.diplome || e.niveau === filter.diplome) &&
           (!filter.cour || e.cour?.toString() === filter.cour) &&
           (!filter.religion || e.religion === filter.religion)
-        ).length
-      } élève(s)
-    </p>
+        ).length} élèves
+      </span>
+    </div>
   </div>
-</div>
 
-
-  {/* Carte TOUT AFFICHER */}
+  {/* Tout afficher */}
   <div
-    className="card text-center shadow-sm border-0 bg-light"
-    style={{ cursor: 'pointer', width: '160px', transition: 'all 0.3s' }}
-    onClick={() => setFilter({ ...filter, fady: '' })}
+    className="card text-center shadow-sm bg-light filter-card"
+    style={{ cursor: 'pointer', width: '160px', transition: 'transform 0.2s' }}
+    onClick={() => handleFilterClick({ ...filter, fady: '' })}
   >
     <div className="card-body p-3">
-      <h6 className="fw-semibold mb-1">Tout afficher</h6>
-      <p className="text-muted small mb-0">
+      <h6 className="fw-bold mb-1">Tout afficher</h6>
+      <span className="badge bg-dark">
         {eleves.filter(e =>
           (!filter.religion || e.religion === filter.religion) &&
           (!filter.diplome || e.niveau === filter.diplome) &&
           (!filter.cour || e.cour?.toString() === filter.cour)
         ).length} élèves
-      </p>
+      </span>
     </div>
   </div>
 </div>
+
+<style jsx>{`
+  .filter-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0 15px rgba(0,0,0,0.1);
+  }
+`}</style>
 
 
 

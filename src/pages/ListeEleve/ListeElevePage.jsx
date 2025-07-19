@@ -7,12 +7,13 @@ import Swal from 'sweetalert2';
 import DataTable from 'react-data-table-component';
 import { data } from 'react-router-dom';
 import courService from '../../services/courService';
+import NotefrancaisService from '../../services/notefrancais-service';
 const user = JSON.parse(localStorage.getItem('user'));
 import ExcelJS from 'exceljs';
 import ProgressBar from 'react-bootstrap/ProgressBar';
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
-
+import { Modal, Button } from 'react-bootstrap'; 
 
 
 //table 
@@ -20,11 +21,18 @@ import { saveAs } from "file-saver";
 const ListeElevePge = () => {
   const [eleves, setEleves] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [showNoteModal, setShowNoteModal] = useState(false);
   const [eleveActif, setEleveActif] = useState(null);
   const [selectedEleve, setSelectedEleve] = useState(null);
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [noteId,setNoteId]=useState(null);
+  const [notesfrancais, setNotesfrancais] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchText, setSearchText] = useState("");
+  const [niveauFilter, setNiveauFilter] = useState("");
+
+  
   const [filter, setFilter] = useState({ escadron: '', peloton: '' ,search:'' ,cour:''});
   const [notes, setNotes] = useState({
     finfetta: '',
@@ -39,7 +47,9 @@ const ListeElevePge = () => {
   const [isLoading, setIsLoading] = useState(true);
  const [progress, setProgress] = useState(0);
  const isFirstLoad = useRef(true)
-  
+ const handleOpen = () => setShowNoteModal(true);
+ const handleClose = () => setShowModal(false);
+ const [loading, setLoading] = useState(false);
  const handleOpenNoteModal = (eleve) => {
   console.log("OUVERTURE MODAL NOTE POUR :", eleve);
   setSelectedEleve(eleve);
@@ -58,10 +68,100 @@ const ListeElevePge = () => {
       rangfinstage:'',
     });
   };
-  //repartition 
-
+  //note francais 
+  useEffect(() => {
+    if (showNoteModal) {
+      setLoading(true);
+      NotefrancaisService.getAll()
+        .then(res => {
+          setNotesfrancais(res.data);
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+    }
+  }, [showNoteModal]);
+  const openModal = () => setShowNoteModal(true);
+  const closeModal = () => setShowNoteModal(false);
+  const modalStyles = {
+    overlay: {
+      position: 'fixed',
+      top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      zIndex: 1000,
+    },
+    modal: {
+      position: 'fixed',
+      top: '50%', left: '50%',
+      transform: 'translate(-50%, -50%)',
+      backgroundColor: '#fff',
+      borderRadius: '8px',
+      maxWidth: '900px',
+      width: '90%',
+      maxHeight: '80vh',
+      overflowY: 'auto',
+      padding: '20px',
+      zIndex: 1001,
+    },
+    header: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '10px',
+    },
+    closeBtn: {
+      cursor: 'pointer',
+      border: 'none',
+      background: 'none',
+      fontSize: '1.5rem',
+      fontWeight: 'bold',
+    }
+  };
+  //table note 
+  const columns2 = [
+    { name: 'Nom', selector: row => row.Eleve?.nom || '-', sortable: true },
+    { name: 'Prénom', selector: row => row.Eleve?.prenom || '-', sortable: true },
+    { name: 'Incorporation', selector: row => Number(row.Eleve?.numeroIncorporation) || '-', sortable: true },
+    { name: 'Escadron', selector: row => row.Eleve?.escadron || '-', sortable: true },
+    { name: 'Peloton', selector: row => row.Eleve?.peloton || '-', sortable: true },
+  
+    { name: 'Niveau', selector: row => row.niveau, sortable: true },
+  
+    { 
+      name: 'Note', 
+      selector: row => row.note, 
+      sortable: true,
+      cell: row => (
+        <span style={{ color: row.note < 12 ? 'red' : 'inherit', fontWeight: row.note < 12 ? 'bold' : 'normal' }}>
+          {row.note}
+        </span>
+      )
+    },
+  ];
+  
+  //filtre note 
+  const filteredNotes = notesfrancais.filter(row => {
+    const nom = row.Eleve?.nom?.toLowerCase() || "";
+    const prenom = row.Eleve?.prenom?.toLowerCase() || "";
+    const incorporation = String(row.Eleve?.numeroIncorporation || "");
+    const recherche = searchTerm.toLowerCase();
+  
+    const matchSearch =
+      nom.includes(recherche) ||
+      prenom.includes(recherche) ||
+      incorporation.includes(recherche);
+  
+    const matchNiveau = niveauFilter
+      ? row.niveau?.startsWith(niveauFilter)
+      : true;
+  
+    return matchSearch && matchNiveau;
+  });
+   // Filtrer les données selon recherche + filtre catégorie
+  
   
 
+
+  //repartition 
   const handleUpdateSuccess = () => {
     setRefreshKey(prev => prev + 1); // va relancer le useEffect
     handleCloseModal(); // ferme le modal après succès
@@ -72,7 +172,7 @@ const ListeElevePge = () => {
 
 
   function genererRepartitionEtExporter(eleves, incorporationRange = null) {
-    const structureSalles = [20, 24, 24, 35, 35, 36, 39, 40,32,29,26, ...Array(31).fill(35)];
+    const structureSalles = [...Array(50).fill(30)];
   
     // 1. Filtrage (si une plage ou un seul numéro est fourni)
     let elevesFiltres = [...eleves];
@@ -608,6 +708,61 @@ const handleExportExcel = async () => {
 };
 
 
+function handleExportExcel2() {
+  // Créer un nouveau classeur
+  const workbook = XLSX.utils.book_new();
+
+  // 1️⃣ Feuille principale : toutes les notes filtrées
+  const allData = filteredNotes.map(row => ({
+    Nom: row.Eleve?.nom || '',
+    Prénom: row.Eleve?.prenom || '',
+    Incorporation: row.Eleve?.numeroIncorporation || '',
+    Escadron: row.Eleve?.escadron || '',
+    Peloton: row.Eleve?.peloton || '',
+    Niveau: row.niveau || '',
+    Note: row.note != null ? row.note : ''
+  }));
+  const wsAll = XLSX.utils.json_to_sheet(allData);
+  XLSX.utils.book_append_sheet(workbook, wsAll, 'Toutes Notes');
+
+  // 2️⃣ Feuille Débutants
+  const debutants = filteredNotes.filter(r => r.niveau?.toUpperCase().startsWith('D')).map(row => ({
+    Nom: row.Eleve?.nom || '',
+    Prénom: row.Eleve?.prenom || '',
+    Incorporation: row.Eleve?.numeroIncorporation || '',
+    Niveau: row.niveau || '',
+    Note: row.note != null ? row.note : ''
+  }));
+  const wsDebutants = XLSX.utils.json_to_sheet(debutants);
+  XLSX.utils.book_append_sheet(workbook, wsDebutants, 'Débutants');
+
+  // 3️⃣ Feuille Intermédiaires
+  const intermediaires = filteredNotes.filter(r => r.niveau?.toUpperCase().startsWith('I')).map(row => ({
+    Nom: row.Eleve?.nom || '',
+    Prénom: row.Eleve?.prenom || '',
+    Incorporation: row.Eleve?.numeroIncorporation || '',
+    Niveau: row.niveau || '',
+    Note: row.note != null ? row.note : ''
+  }));
+  const wsInter = XLSX.utils.json_to_sheet(intermediaires);
+  XLSX.utils.book_append_sheet(workbook, wsInter, 'Intermédiaires');
+
+  // 4️⃣ Feuille Avancés
+  const avances = filteredNotes.filter(r => r.niveau?.toUpperCase().startsWith('A')).map(row => ({
+    Nom: row.Eleve?.nom || '',
+    Prénom: row.Eleve?.prenom || '',
+    Incorporation: row.Eleve?.numeroIncorporation || '',
+    Niveau: row.niveau || '',
+    Note: row.note != null ? row.note : ''
+  }));
+  const wsAvances = XLSX.utils.json_to_sheet(avances);
+  XLSX.utils.book_append_sheet(workbook, wsAvances, 'Avancés');
+
+  // 💾 Générer et télécharger
+  XLSX.writeFile(workbook, 'notes_francais_complet.xlsx');
+}
+
+
   return (
     <div className="container mt-5" >
      
@@ -701,28 +856,38 @@ const handleExportExcel = async () => {
 
                 
                
-              <div className="card shadow-sm border-0 mb-4">
-          <div className="card-body">
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <h5 className="fw-bold text-primary m-0">
-                👥 
-              </h5>
-              {user.type !== 'saisie' && (
-                <button
-                  className="btn btn-success"
-                  onClick={handleExportExcel}
-                >
-                  <i className="fa fa-file-excel me-2"></i>
-                  Exporter (.xlsx)
-                </button>
-              )}
-             
+      <div className="card shadow-sm border-0 mb-4">
+  <div className="card-body">
+    <div className="d-flex justify-content-between align-items-center mb-3">
+      <h5 className="fw-bold text-primary m-0">
+        👥 Liste des élèves Gendarme
+      </h5>
 
-
-            </div>
-
-            <div>
+      {user.type !== 'saisie' && (
+  <div className="d-flex gap-2">
    
+
+    <button
+      className="btn btn-warning"
+      onClick={() => setShowNoteModal(true)}
+    >
+      <i className="fa fa-book me-2"></i>
+      Note Français
+    </button>
+
+    <button
+      className="btn btn-success"
+      onClick={handleExportExcel}
+    >
+      <i className="fa fa-file-excel me-2"></i>
+      Exporter (.xlsx)
+    </button>
+  </div>
+)}
+
+    </div>
+
+    <div>
 
               {isLoading ? (
                 <div className="text-center my-4">
@@ -859,6 +1024,96 @@ const handleExportExcel = async () => {
     </div>
   </div>
 )}
+
+{showNoteModal && (
+  <div style={modalStyles.overlay} onClick={closeModal}>
+    <div
+      style={modalStyles.modal}
+      onClick={e => e.stopPropagation()} // éviter fermeture en click sur modal
+    >
+      <div style={modalStyles.header}>
+        <h5>Liste des Notes Français</h5>
+        <button style={modalStyles.closeBtn} onClick={closeModal}>&times;</button>
+      </div>
+
+      {/* Recherche */}
+      <input
+        type="text"
+        placeholder="Rechercher par nom, prénom ou incorporation..."
+        value={searchTerm}
+        onChange={e => setSearchTerm(e.target.value)}
+        style={{
+          width: '100%',
+          padding: '8px',
+          marginBottom: '10px',
+          borderRadius: '4px',
+          border: '1px solid #ccc',
+          boxSizing: 'border-box'
+        }}
+      />
+
+      {/* Cards filtres niveau */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '15px' }}>
+        {["D", "I", "A"].map(cat => (
+          <div
+            key={cat}
+            onClick={() => setNiveauFilter(niveauFilter === cat ? "" : cat)} // toggle filtre
+            style={{
+              cursor: "pointer",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              border: "1px solid",
+              borderColor: niveauFilter === cat ? "#0d6efd" : "#ccc",
+              backgroundColor: niveauFilter === cat ? "#cfe2ff" : "#f8f9fa",
+              fontWeight: "bold",
+              userSelect: "none",
+              minWidth: 100,
+              textAlign: "center",
+              transition: "all 0.3s",
+             
+            }}
+            title={
+              cat === "D" ? "Débutant" :
+              cat === "I" ? "Intermédiaire" :
+              "Avancé"
+            }
+          >
+            {cat === "D" ? "Débutant" : cat === "I" ? "Intermédiaire" : "Avancé"}
+          </div>
+        ))}
+      </div>
+
+      {loading ? (
+        <p>Chargement...</p>
+      ) : (
+        <DataTable
+          columns={columns2}
+          data={filteredNotes} // filteredNotes = notes filtrées selon recherche + niveauFilter
+          pagination
+          highlightOnHover
+          striped
+          dense
+          noHeader
+        />
+      )}
+      {/* Bouton Exporter */}
+    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+      <button
+        className="btn btn-success"
+        onClick={handleExportExcel2}
+      >
+        <i className="fa fa-file-excel me-2"></i>
+        Exporter (.xlsx)
+      </button>
+    </div>
+
+    </div>
+    
+  </div>
+  
+)}
+
+
 
 
             <div className="text-end mt-3">

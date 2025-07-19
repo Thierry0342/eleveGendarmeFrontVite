@@ -122,7 +122,7 @@ const HomePage = () => {
               </div>
               <div className="club_aa">
                 <h3 className="card-title">CADRE EGNA</h3>
-                <p>Règles et consignes de discipline</p>
+                <p>cadre EGNA</p>
               </div>
             </div>
           </div>
