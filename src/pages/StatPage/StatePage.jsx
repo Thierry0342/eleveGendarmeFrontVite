@@ -1358,7 +1358,7 @@ if (regroupement) {
           >
             <div className="d-flex justify-content-between align-items-center mb-2">
               <h6 className="mb-0">
-                👤 <strong>{eleve.Eleve?.nom} {eleve.Eleve?.prenom}</strong>
+                👤 <strong>{"EG"} {eleve.Eleve?.nom} {eleve.Eleve?.prenom}</strong>
               </h6>
               <span className="badge bg-warning text-dark">Nouveau</span>
             </div>
@@ -1394,7 +1394,7 @@ if (regroupement) {
         {recentDepartEleves.map((eleve, index) => (
           <li className="list-group-item d-flex justify-content-between align-items-center" key={index}>
             <span>
-              <strong>{eleve.Eleve?.nom || "Inconnu"} {eleve.Eleve?.prenom || ""}</strong>
+              <strong>{"EG"} {eleve.Eleve?.nom || "Inconnu"} {eleve.Eleve?.prenom || ""}</strong>
             </span>
             <span className="badge bg-warning text-dark">
               Départ : {new Date(eleve.dateDepart).toLocaleDateString()}

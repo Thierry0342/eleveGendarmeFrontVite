@@ -601,12 +601,12 @@ const ElevePage = () => {
               <div className="mb-3">
                 <label className="form-label">Spécialité :</label>
                 <div className="form-check">
-                  <input className="form-check-input" type="radio" name="Specialiste" value="informatique" onChange={handleChange} />
-                  <label className="form-check-label">Informatique</label>
+                  <input className="form-check-input" type="radio" name="Specialiste" value="Info-Telecom" onChange={handleChange} />
+                  <label className="form-check-label">Info-Telecom</label>
                 </div>
                 <div className="form-check">
-                  <input className="form-check-input" type="radio" name="Specialiste" value="telecomunication" onChange={handleChange} />
-                  <label className="form-check-label">telecomunication</label>
+                  <input className="form-check-input" type="radio" name="Specialiste" value="topo" onChange={handleChange} />
+                  <label className="form-check-label">topo</label>
                 </div>
                 <div className="form-check">
                   <input className="form-check-input" type="radio" name="Specialiste" value="mecanicien" onChange={handleChange} />

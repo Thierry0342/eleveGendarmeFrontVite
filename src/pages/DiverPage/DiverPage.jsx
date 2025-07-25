@@ -14,6 +14,7 @@ const DiverPage = () => {
   const [filteredPointures, setFilteredPointures] = useState([]);
   const [filter, setFilter] = useState({ cour: '', diplome: '', religion: '',genreConcours:'',Specialiste:'',fady:'',ageRange: null  });
   const [pointures, setPointures] = useState([]);
+  
   const tableRef = useRef(null);
 
   const niveauxEtude = [
@@ -35,7 +36,7 @@ const DiverPage = () => {
   ];
   
   const genresConcours = ['ordinaire', 'specialiste', 'veuve', 'orphelin', 'ex-militaire'];
-  const specialiste = ['informatique', 'telecommunication', 'mecanicien', 'infrastructure', 'sport'];
+  const specialiste = ['Info-Telecom', 'topo', 'mecanicien', 'infrastructure', 'Plombier','sport'];
 
   const religions = ['EKAR', 'FLM', 'FJKM', 'ISLAM', 'AUTRE'];
 
@@ -53,7 +54,7 @@ const DiverPage = () => {
           }));
         }
       } catch (err) {
-        console.error("Erreur lors du chargement des cours", err);
+      //  console.error("Erreur lors du chargement des cours", err);
       }
     };
 
@@ -82,9 +83,10 @@ const DiverPage = () => {
   
         if (isMounted) {
           setEleves(allEleves);
+         // console.log(allEleves);
         }
       } catch (error) {
-        console.error("Erreur lors du chargement des élèves :", error);
+    //   console.error("Erreur lors du chargement des élèves :", error);
       }
     };
   
@@ -110,14 +112,14 @@ const handleFilterClick = (nouveauFiltre) => {
     pointureService.get()
       .then(response => {
         if (Array.isArray(response.data)) {
-          console.log(response.data)
+     //     console.log(response.data)
           setPointures(response.data);
         } else {
-          console.error("Données inattendues :", response.data);
+        //  console.error("Données inattendues :", response.data);
         }
       })
       .catch(error => {
-        console.error("Erreur lors du chargement des élèves :", error);
+        //console.error("Erreur lors du chargement des élèves :", error);
       });
       
   }, []);
@@ -625,22 +627,37 @@ const exportPDF = () => {
 </div>
 
 {/* --- Spécialité --- */}
+{/* --- Spécialité --- */}
 {filter.genreConcours === 'specialiste' && (
   <>
     <h6 className="mt-4 fw-bold text-secondary">🧪 Choisir une spécialité</h6>
     <div className="d-flex justify-content-center flex-wrap gap-3 mt-3">
-      {specialiste.map((spec) => (
-        <div
-          key={spec}
-          className={`card text-center shadow-sm border ${filter.Specialiste === spec ? 'border-info bg-info-subtle' : 'border-0 bg-white'} filter-card`}
-          style={{ cursor: 'pointer', width: '160px', transition: 'transform 0.2s' }}
-          onClick={() => handleFilterClick({ ...filter, Specialiste: spec })}
-        >
-          <div className="card-body p-3">
-            <h6 className="fw-bold mb-0">{spec}</h6>
+      {specialiste.map((spec) => {
+        const count = eleves.filter(e =>
+          e.genreConcours === 'specialiste' &&
+          e.Specialiste?.toLowerCase() === spec.toLowerCase() &&
+          (!filter.religion || e.religion === filter.religion) &&
+          (!filter.diplome || e.niveau === filter.diplome) &&
+          (!filter.ageRange || (
+            dayjs().diff(dayjs(e.dateNaissance), 'year') >= filter.ageRange.min &&
+            dayjs().diff(dayjs(e.dateNaissance), 'year') <= filter.ageRange.max
+          ))
+        ).length;
+
+        return (
+          <div
+            key={spec}
+            className={`card text-center shadow-sm border ${filter.Specialiste === spec ? 'border-info bg-info-subtle' : 'border-0 bg-white'} filter-card`}
+            style={{ cursor: 'pointer', width: '160px', transition: 'transform 0.2s' }}
+            onClick={() => handleFilterClick({ ...filter, Specialiste: spec })}
+          >
+            <div className="card-body p-3">
+              <h6 className="fw-bold mb-1">{spec}</h6>
+              <span className="badge bg-info text-dark">{count} élèves</span>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       <div
         className="card text-center shadow-sm border bg-light filter-card"
@@ -648,55 +665,27 @@ const exportPDF = () => {
         onClick={() => handleFilterClick({ ...filter, Specialiste: '' })}
       >
         <div className="card-body p-3">
-          <h6 className="fw-bold mb-0">Tout afficher</h6>
+          <h6 className="fw-bold mb-1">Tout afficher</h6>
+          <span className="badge bg-dark">
+            {
+              eleves.filter(e =>
+                e.genreConcours === 'specialiste' &&
+                (!filter.religion || e.religion === filter.religion) &&
+                (!filter.diplome || e.niveau === filter.diplome) &&
+                (!filter.ageRange || (
+                  dayjs().diff(dayjs(e.dateNaissance), 'year') >= filter.ageRange.min &&
+                  dayjs().diff(dayjs(e.dateNaissance), 'year') <= filter.ageRange.max
+                ))
+              ).length
+            } élèves
+          </span>
         </div>
       </div>
     </div>
   </>
 )}
 
-{/* --- Religion --- */}
-<h5 className="mt-5 fw-bold text-primary text-uppercase">⛪ Filtrer par religion</h5>
-<div className="d-flex justify-content-center flex-wrap gap-3 mt-4">
-  {religions.map((relig) => {
-    const isActive = filter.religion === relig;
-    const count = eleves.filter(e =>
-      e.religion === relig &&
-      (!filter.diplome || e.niveau === filter.diplome) &&
-      (!filter.cour || e.cour?.toString() === filter.cour)
-    ).length;
 
-    return (
-      <div
-        key={relig}
-        className={`card text-center shadow-sm border ${isActive ? 'border-success bg-success-subtle' : 'border-0 bg-white'} filter-card`}
-        style={{ cursor: 'pointer', width: '160px', transition: 'transform 0.2s' }}
-        onClick={() => handleFilterClick({ ...filter, religion: relig })}
-      >
-        <div className="card-body p-3">
-          <h6 className="fw-bold mb-1">{relig}</h6>
-          <span className="badge bg-success">{count} élèves</span>
-        </div>
-      </div>
-    );
-  })}
-
-  <div
-    className="card text-center shadow-sm border bg-light filter-card"
-    style={{ cursor: 'pointer', width: '160px', transition: 'transform 0.2s' }}
-    onClick={() => handleFilterClick({ ...filter, religion: '' })}
-  >
-    <div className="card-body p-3">
-      <h6 className="fw-bold mb-1">Tout afficher</h6>
-      <span className="badge bg-dark">
-        {eleves.filter(e =>
-          (!filter.diplome || e.niveau === filter.diplome) &&
-          (!filter.cour || e.cour?.toString() === filter.cour)
-        ).length} élèves
-      </span>
-    </div>
-  </div>
-</div>
 
 {/* --- Foko --- */}
 <h5 className="mt-5 fw-bold text-primary text-uppercase">🌍 Filtrer par Foko</h5>

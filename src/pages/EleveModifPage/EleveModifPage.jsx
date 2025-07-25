@@ -467,12 +467,12 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave ,onUpda
               <div className="mb-3">
                 <label className="form-label">Spécialité :</label>
                 <div className="form-check">
-                  <input className="form-check-input" type="radio" name="Specialiste" checked={formData.Specialiste === 'informatique'} value="informatique" onChange={handleChange} />
-                  <label className="form-check-label">Informatique</label>
+                  <input className="form-check-input" type="radio" name="Specialiste" checked={formData.Specialiste === 'Info-Telecom'} value="Info-Telecom" onChange={handleChange} />
+                  <label className="form-check-label">Info-Telecom</label>
                 </div>
                 <div className="form-check">
-                  <input className="form-check-input" type="radio" name="Specialiste" checked={formData.Specialiste === 'telecomunication'}  value="telecomunication" onChange={handleChange} />
-                  <label className="form-check-label">telecomunication</label>
+                  <input className="form-check-input" type="radio" name="Specialiste" checked={formData.Specialiste === 'topo'}  value="topo" onChange={handleChange} />
+                  <label className="form-check-label">topo</label>
                 </div>
                 <div className="form-check">
                   <input className="form-check-input" type="radio" name="Specialiste" value="mecanicien" checked={formData.Specialiste === 'mecanicien'}  onChange={handleChange} />

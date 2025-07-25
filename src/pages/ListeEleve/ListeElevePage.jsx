@@ -15,6 +15,10 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { Modal, Button } from 'react-bootstrap'; 
 
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+import autoTable from 'jspdf-autotable';
+
 
 //table 
 
@@ -171,26 +175,28 @@ const ListeElevePge = () => {
 
 
 
-  function genererRepartitionEtExporter(eleves, incorporationRange = null) {
-    const structureSalles = [...Array(50).fill(30)];
+  function genererRepartitionEtExporter(eleves, incorporationRange = null, structureSallesInput = []) {
+    const structureSalles = [];
+    structureSallesInput.forEach(([nbSalles, capacite]) => {
+      for (let i = 0; i < nbSalles; i++) {
+        structureSalles.push(capacite);
+      }
+    });
   
-    // 1. Filtrage (si une plage ou un seul numéro est fourni)
     let elevesFiltres = [...eleves];
     if (Array.isArray(incorporationRange)) {
       const [min, max] = incorporationRange;
-      elevesFiltres = elevesFiltres.filter(e =>
-        e.numeroIncorporation >= min && e.numeroIncorporation <= max
+      elevesFiltres = elevesFiltres.filter(
+        (e) => e.numeroIncorporation >= min && e.numeroIncorporation <= max
       );
-    } else if (typeof incorporationRange === 'number') {
-      elevesFiltres = elevesFiltres.filter(e =>
-        e.numeroIncorporation === incorporationRange
+    } else if (typeof incorporationRange === "number") {
+      elevesFiltres = elevesFiltres.filter(
+        (e) => e.numeroIncorporation === incorporationRange
       );
     }
   
-    // 2. Tri par numeroIncorporation croissant
     elevesFiltres.sort((a, b) => a.numeroIncorporation - b.numeroIncorporation);
   
-    // 3. Mélanger pour éviter les regroupements de noms semblables
     function shuffleArray(array) {
       for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -201,86 +207,75 @@ const ListeElevePge = () => {
   
     let elevesRestants = [...elevesFiltres];
     const salles = [];
-    const escadronGlobalMap = {};
   
-    const getRandomElevesPourSalle = (effectif) => {
-      let salle = [];
-      const escadronMap = {};
-      let essais = 0;
-      const maxEssais = 1000;
+    const getEquitableElevesPourSalle = (effectif) => {
+      const salle = [];
+      const escadrons = {};
   
-      while (salle.length < effectif && elevesRestants.length > 0 && essais < maxEssais) {
-        essais++;
-        const eleve = elevesRestants.shift();
+      elevesRestants.forEach((e) => {
+        if (!escadrons[e.escadron]) escadrons[e.escadron] = [];
+        escadrons[e.escadron].push(e);
+      });
   
-        const countInSalle = escadronMap[eleve.escadron] || 0;
-        if (countInSalle >= 4) {
-          elevesRestants.push(eleve);
-          continue;
+      const escadronsKeys = Object.keys(escadrons);
+      let index = 0;
+      while (salle.length < effectif && escadronsKeys.length > 0) {
+        const escadron = escadronsKeys[index % escadronsKeys.length];
+        if (escadrons[escadron].length > 0) {
+          const eleve = escadrons[escadron].shift();
+          salle.push(eleve);
+          elevesRestants.splice(elevesRestants.findIndex((e) => e === eleve), 1);
+          if (escadrons[escadron].length === 0) {
+            escadronsKeys.splice(index % escadronsKeys.length, 1);
+            index--;
+          }
         }
-  
-        salle.push(eleve);
-        escadronMap[eleve.escadron] = countInSalle + 1;
-  
-        if (!escadronGlobalMap[eleve.escadron]) escadronGlobalMap[eleve.escadron] = [];
-        escadronGlobalMap[eleve.escadron].push(eleve);
+        index++;
       }
-  
       return salle;
     };
   
-    // Répartition initiale selon structure
     structureSalles.forEach((effectif, index) => {
       if (elevesRestants.length === 0) return;
-  
       const numeroSalle = index + 1;
-      const salle = getRandomElevesPourSalle(effectif);
-  
-      const groupes = Array.from({ length: 12 }, () => []);
-      salle.forEach((eleve, idx) => {
+      const salle = getEquitableElevesPourSalle(effectif);
+      salle.forEach((eleve) => {
         eleve.salle = numeroSalle;
-        eleve.groupe = (idx % 12) + 1;
-        groupes[idx % 12].push(eleve);
       });
-  
-      salles.push({ numero: numeroSalle, effectif: salle.length, groupes });
+      salles.push({ numero: numeroSalle, effectif: salle.length, eleves: salle });
     });
   
-    // Salles supplémentaires si besoin
-    let numeroSalle = salles.length + 1;
-    while (elevesRestants.length > 0) {
-      const effectif = Math.min(20 + Math.floor(Math.random() * 16), elevesRestants.length);
-      const salle = getRandomElevesPourSalle(effectif);
-  
-      const groupes = Array.from({ length: 12 }, () => []);
-      salle.forEach((eleve, idx) => {
+    if (elevesRestants.length > 0) {
+      const numeroSalle = structureSalles.length + 1;
+      elevesRestants.forEach((eleve) => {
         eleve.salle = numeroSalle;
-        eleve.groupe = (idx % 12) + 1;
-        groupes[idx % 12].push(eleve);
       });
-  
-      salles.push({ numero: numeroSalle, effectif: salle.length, groupes });
-      numeroSalle++;
+      salles.push({
+        numero: numeroSalle,
+        effectif: elevesRestants.length,
+        eleves: elevesRestants,
+      });
+      elevesRestants = [];
     }
   
-    // RÉSUMÉ + FEUILLES
     const totalEleves = elevesFiltres.length;
     const totalSalles = salles.length;
-    const totalGroupes = totalSalles * 12;
     const dateGeneration = new Date().toLocaleString("fr-FR");
   
     const repartitionParSalle = salles.map(
       (s) => `Salle ${s.numero} : ${s.effectif} élèves`
     );
-    const repartitionParEscadron = Object.entries(escadronGlobalMap).map(
-      ([escadron, liste]) => `Escadron ${escadron} : ${liste.length} élèves`
+    const repartitionParEscadron = [...new Set(elevesFiltres.map(e => e.escadron))].sort((a, b) => a - b).map(
+      (escadron) => {
+        const count = elevesFiltres.filter(e => e.escadron === escadron).length;
+        return `Escadron ${escadron} : ${count} élèves`;
+      }
     );
   
     const resumeData = [
       { Clé: "Date de génération", Valeur: dateGeneration },
       { Clé: "Total élèves à répartir", Valeur: totalEleves },
       { Clé: "Nombre de salles", Valeur: totalSalles },
-      { Clé: "Total de groupes (12 par salle)", Valeur: totalGroupes },
       { Clé: "Répartition par salle", Valeur: "" },
       ...repartitionParSalle.map((line) => ({ Clé: "", Valeur: line })),
       { Clé: "", Valeur: "" },
@@ -292,51 +287,191 @@ const ListeElevePge = () => {
     const wsResume = XLSX.utils.json_to_sheet(resumeData, { skipHeader: false });
     XLSX.utils.book_append_sheet(wb, wsResume, "RÉSUMÉ");
   
-    // FEUILLES PAR SALLE
     salles.forEach((salle) => {
-      const data = [];
-      salle.groupes.forEach((groupe) => {
-        groupe.forEach((eleve) => {
-          data.push({
-            Nom: eleve.nom,
-            Prénom: eleve.prenom,
-            Incorporation: eleve.numeroIncorporation,
-            Escadron: eleve.escadron,
-            Peloton: eleve.peloton,
-            Salle: eleve.salle,
-          });
-        });
-      });
-      const ws = XLSX.utils.json_to_sheet(data);
-      XLSX.utils.book_append_sheet(wb, ws, `Salle ${salle.numero}`);
-    });
-  
-    // FEUILLES PAR ESCADRON
-    Object.entries(escadronGlobalMap).forEach(([escadron, liste]) => {
-      const wsData = liste.map((eleve) => ({
+      salle.eleves.sort((a, b) => a.numeroIncorporation - b.numeroIncorporation);
+      const data = salle.eleves.map((eleve) => ({
         Nom: eleve.nom,
         Prénom: eleve.prenom,
         Incorporation: eleve.numeroIncorporation,
         Escadron: eleve.escadron,
         Peloton: eleve.peloton,
         Salle: eleve.salle,
-        Groupe: eleve.groupe,
       }));
-      const ws = XLSX.utils.json_to_sheet(wsData);
-      XLSX.utils.book_append_sheet(wb, ws, `Escadron ${escadron}`);
+      const ws = XLSX.utils.json_to_sheet(data);
+      XLSX.utils.book_append_sheet(wb, ws, `Salle ${salle.numero}`);
     });
   
-    // EXPORT
+    const escadronsTries = [...new Set(elevesFiltres.map(e => e.escadron))].sort((a, b) => a - b);
+  
+    escadronsTries.forEach((escadronNum, i) => {
+      const liste = elevesFiltres.filter(e => e.escadron === escadronNum);
+      liste.sort((a, b) => {
+        if (a.peloton !== b.peloton) return a.peloton - b.peloton;
+        return a.numeroIncorporation - b.numeroIncorporation;
+      });
+  
+      const wsData = liste.map((eleve) => ({
+        Nom: eleve.nom,
+        Prénom: eleve.prenom,
+        Incorporation: eleve.numeroIncorporation,
+        Escadron: eleve.escadron,
+        Peloton: eleve.peloton,
+        Salle: eleve.salle ?? "Non affecté",
+      }));
+  
+      const suffix = i === 0 ? "1er" : `${i + 1}ème`;
+      const ws = XLSX.utils.json_to_sheet(wsData);
+      XLSX.utils.book_append_sheet(wb, ws, `${suffix} Escadron`);
+    });
+  
     const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     saveAs(
       new Blob([wbout], { type: "application/octet-stream" }),
       "repartition_salles_resume.xlsx"
     );
+  
+    exporterRepartitionEnPDF(salles);
   }
   
   
-  
-  
+async function demanderStructureSalles() {
+  const { value: text } = await Swal.fire({
+    title: 'Définir la structure des salles',
+    html: `
+      <p>Format : nb_salles => capacité</p>
+      <input id="input-structure" class="swal2-input" placeholder="Exemple : 10=>30, 5=>26">
+    `,
+ 
+    preConfirm: () => {
+      const val = document.getElementById('input-structure').value;
+      if (!val.trim()) {
+        Swal.showValidationMessage('Vous devez saisir quelque chose !');
+        return false;
+      }
+      return val;
+    }
+  });
+
+  if (text) {
+    try {
+      const blocs = text.split(',')
+        .map((part) => {
+          const [nb, cap] = part.split('=>').map(s => parseInt(s.trim(), 10));
+          if (isNaN(nb) || isNaN(cap)) throw new Error();
+          return [nb, cap];
+        });
+      return blocs;
+    } catch {
+      await Swal.fire('Erreur', 'Format invalide. Exemple : 10=>30,5=>26', 'error');
+      return null;
+    }
+  }
+  return null;
+}
+// Fonction PDF (à appeler en fin de genererRepartitionEtExporter)
+function exporterRepartitionEnPDF(salles, escadronGlobalMap) {
+  const doc = new jsPDF();
+
+  // ✅ Répartition par salle
+  salles.forEach((salle, index) => {
+    if (index !== 0) doc.addPage();
+
+    doc.setFontSize(16);
+    doc.text("Répartition des élèves par salle", 14, 20);
+
+    doc.setFontSize(14);
+    doc.text(`Salle ${salle.numero} - ${salle.effectif} élèves`, 14, 10);
+
+    const tableData = salle.eleves.map((eleve) => [
+      eleve.nom,
+      eleve.prenom,
+      eleve.numeroIncorporation,
+      eleve.escadron,
+      eleve.peloton,
+      eleve.salle,
+    ]);
+
+    autoTable(doc, {
+      startY: 15,
+      head: [["Nom", "Prénom", "Inc", "Escadron", "Peloton", "Salle"]],
+      body: tableData,
+      theme: "plain",
+      headStyles: { fillColor: [41, 128, 185] },
+      margin: { left: 14, right: 14 },
+      styles: { fontSize: 10 },
+      pageBreak: 'avoid', // 👉 On évite les sauts de page automatiques
+    });
+  });
+
+  // ✅ Répartition par escadron : Peloton = 1 page
+  const escadronsTries = Object.keys(escadronGlobalMap)
+    .map(Number)
+    .sort((a, b) => a - b);
+
+  escadronsTries.forEach((escadronNum) => {
+    const liste = escadronGlobalMap[escadronNum];
+
+    // Tri par peloton + incorporation
+    liste.sort((a, b) => {
+      if (a.peloton !== b.peloton) {
+        return a.peloton - b.peloton;
+      }
+      return a.numeroIncorporation - b.numeroIncorporation;
+    });
+
+    // Grouper par peloton
+    const pelotons = {};
+    liste.forEach((eleve) => {
+      if (!pelotons[eleve.peloton]) {
+        pelotons[eleve.peloton] = [];
+      }
+      pelotons[eleve.peloton].push(eleve);
+    });
+
+    Object.keys(pelotons)
+      .sort((a, b) => a - b)
+      .forEach((pelotonNum) => {
+        doc.addPage();
+
+        doc.setFontSize(16);
+        doc.text("Répartition par escadron", 14, 20);
+
+        doc.setFontSize(14);
+        doc.text(`Escadron ${escadronNum} - ${liste.length} élèves`, 14, 30);
+
+        doc.setFontSize(12);
+        doc.text(
+          `${pelotonNum === "1" ? "1er" : pelotonNum + "ème"} Peloton`,
+          14,
+          40
+        );
+
+        const pelotonListe = pelotons[pelotonNum];
+
+        const tableData = pelotonListe.map((eleve) => [
+          eleve.nom,
+          eleve.prenom,
+          eleve.numeroIncorporation,
+          eleve.escadron,
+          eleve.peloton,
+          eleve.salle,
+        ]);
+
+        autoTable(doc, {
+          startY: 50,
+          head: [["Nom", "Prénom", "Inc", "Escadron", "Peloton", "Salle"]],
+          body: tableData,
+          theme: "plain",
+          headStyles: { fillColor: [39, 174, 96] },
+          margin: { left: 14, right: 14 },
+          styles: { fontSize: 9 }, // 👉 Réduire un peu la police si bcp d'élèves
+          pageBreak: 'avoid', // 👉 Bloquer saut de page automatique
+        });
+      });
+  });
+
+  doc.save("repartition_eleves.pdf");
+}
 
   //verifier 
   useEffect(() => {
@@ -865,7 +1000,17 @@ function handleExportExcel2() {
 
       {user.type !== 'saisie' && (
   <div className="d-flex gap-2">
-   
+   <button
+      className="btn btn-warning"
+      onClick={async () => {
+        const blocs = await demanderStructureSalles();
+        if (blocs) {
+          genererRepartitionEtExporter(eleves, null, blocs);
+        }
+      }}
+    >
+      Générer Répartition salle EG
+    </button>
 
     <button
       className="btn btn-warning"
