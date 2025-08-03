@@ -14,6 +14,7 @@ import ProgressBar from 'react-bootstrap/ProgressBar';
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { Modal, Button } from 'react-bootstrap'; 
+import RepartitionModal from './RepartitionModal';
 
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -35,6 +36,7 @@ const ListeElevePge = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchText, setSearchText] = useState("");
   const [niveauFilter, setNiveauFilter] = useState("");
+  const [showRepModal, setShowRepModal] = useState(false);
 
   
   const [filter, setFilter] = useState({ escadron: '', peloton: '' ,search:'' ,cour:''});
@@ -171,203 +173,755 @@ const ListeElevePge = () => {
     handleCloseModal(); // ferme le modal après succès
   };
   
-  
-
-
-
-  function genererRepartitionEtExporter(eleves, incorporationRange = null, structureSallesInput = []) {
-    const structureSalles = [];
-    structureSallesInput.forEach(([nbSalles, capacite]) => {
-      for (let i = 0; i < nbSalles; i++) {
-        structureSalles.push(capacite);
-      }
-    });
-  
-    let elevesFiltres = [...eleves];
-    if (Array.isArray(incorporationRange)) {
-      const [min, max] = incorporationRange;
-      elevesFiltres = elevesFiltres.filter(
-        (e) => e.numeroIncorporation >= min && e.numeroIncorporation <= max
-      );
-    } else if (typeof incorporationRange === "number") {
-      elevesFiltres = elevesFiltres.filter(
-        (e) => e.numeroIncorporation === incorporationRange
-      );
-    }
-  
-    elevesFiltres.sort((a, b) => a.numeroIncorporation - b.numeroIncorporation);
-  
-    function shuffleArray(array) {
-      for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-      }
-    }
-    shuffleArray(elevesFiltres);
-  
-    let elevesRestants = [...elevesFiltres];
-    const salles = [];
-  
-    const getEquitableElevesPourSalle = (effectif) => {
-      const salle = [];
-      const escadrons = {};
-  
-      elevesRestants.forEach((e) => {
-        if (!escadrons[e.escadron]) escadrons[e.escadron] = [];
-        escadrons[e.escadron].push(e);
-      });
-  
-      const escadronsKeys = Object.keys(escadrons);
-      let index = 0;
-      while (salle.length < effectif && escadronsKeys.length > 0) {
-        const escadron = escadronsKeys[index % escadronsKeys.length];
-        if (escadrons[escadron].length > 0) {
-          const eleve = escadrons[escadron].shift();
-          salle.push(eleve);
-          elevesRestants.splice(elevesRestants.findIndex((e) => e === eleve), 1);
-          if (escadrons[escadron].length === 0) {
-            escadronsKeys.splice(index % escadronsKeys.length, 1);
-            index--;
-          }
-        }
-        index++;
-      }
-      return salle;
-    };
-  
-    structureSalles.forEach((effectif, index) => {
-      if (elevesRestants.length === 0) return;
-      const numeroSalle = index + 1;
-      const salle = getEquitableElevesPourSalle(effectif);
-      salle.forEach((eleve) => {
-        eleve.salle = numeroSalle;
-      });
-      salles.push({ numero: numeroSalle, effectif: salle.length, eleves: salle });
-    });
-  
-    if (elevesRestants.length > 0) {
-      const numeroSalle = structureSalles.length + 1;
-      elevesRestants.forEach((eleve) => {
-        eleve.salle = numeroSalle;
-      });
-      salles.push({
-        numero: numeroSalle,
-        effectif: elevesRestants.length,
-        eleves: elevesRestants,
-      });
-      elevesRestants = [];
-    }
-  
-    const totalEleves = elevesFiltres.length;
-    const totalSalles = salles.length;
-    const dateGeneration = new Date().toLocaleString("fr-FR");
-  
-    const repartitionParSalle = salles.map(
-      (s) => `Salle ${s.numero} : ${s.effectif} élèves`
-    );
-    const repartitionParEscadron = [...new Set(elevesFiltres.map(e => e.escadron))].sort((a, b) => a - b).map(
-      (escadron) => {
-        const count = elevesFiltres.filter(e => e.escadron === escadron).length;
-        return `Escadron ${escadron} : ${count} élèves`;
-      }
-    );
-  
-    const resumeData = [
-      { Clé: "Date de génération", Valeur: dateGeneration },
-      { Clé: "Total élèves à répartir", Valeur: totalEleves },
-      { Clé: "Nombre de salles", Valeur: totalSalles },
-      { Clé: "Répartition par salle", Valeur: "" },
-      ...repartitionParSalle.map((line) => ({ Clé: "", Valeur: line })),
-      { Clé: "", Valeur: "" },
-      { Clé: "Répartition par escadron", Valeur: "" },
-      ...repartitionParEscadron.map((line) => ({ Clé: "", Valeur: line })),
-    ];
-  
-    const wb = XLSX.utils.book_new();
-    const wsResume = XLSX.utils.json_to_sheet(resumeData, { skipHeader: false });
-    XLSX.utils.book_append_sheet(wb, wsResume, "RÉSUMÉ");
-  
-    salles.forEach((salle) => {
-      salle.eleves.sort((a, b) => a.numeroIncorporation - b.numeroIncorporation);
-      const data = salle.eleves.map((eleve) => ({
-        Nom: eleve.nom,
-        Prénom: eleve.prenom,
-        Incorporation: eleve.numeroIncorporation,
-        Escadron: eleve.escadron,
-        Peloton: eleve.peloton,
-        Salle: eleve.salle,
-      }));
-      const ws = XLSX.utils.json_to_sheet(data);
-      XLSX.utils.book_append_sheet(wb, ws, `Salle ${salle.numero}`);
-    });
-  
-    const escadronsTries = [...new Set(elevesFiltres.map(e => e.escadron))].sort((a, b) => a - b);
-  
-    escadronsTries.forEach((escadronNum, i) => {
-      const liste = elevesFiltres.filter(e => e.escadron === escadronNum);
-      liste.sort((a, b) => {
-        if (a.peloton !== b.peloton) return a.peloton - b.peloton;
-        return a.numeroIncorporation - b.numeroIncorporation;
-      });
-  
-      const wsData = liste.map((eleve) => ({
-        Nom: eleve.nom,
-        Prénom: eleve.prenom,
-        Incorporation: eleve.numeroIncorporation,
-        Escadron: eleve.escadron,
-        Peloton: eleve.peloton,
-        Salle: eleve.salle ?? "Non affecté",
-      }));
-  
-      const suffix = i === 0 ? "1er" : `${i + 1}ème`;
-      const ws = XLSX.utils.json_to_sheet(wsData);
-      XLSX.utils.book_append_sheet(wb, ws, `${suffix} Escadron`);
-    });
-  
-    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    saveAs(
-      new Blob([wbout], { type: "application/octet-stream" }),
-      "repartition_salles_resume.xlsx"
-    );
-  
-    exporterRepartitionEnPDF(salles);
-  }
-  
-  
-async function demanderStructureSalles() {
-  const { value: text } = await Swal.fire({
-    title: 'Définir la structure des salles',
-    html: `
-      <p>Format : nb_salles => capacité</p>
-      <input id="input-structure" class="swal2-input" placeholder="Exemple : 10=>30, 5=>26">
-    `,
  
+/******************************************************
+ * 0) PERSISTENCE (localStorage)
+ ******************************************************/
+const STORAGE_KEYS = {
+  rooms: 'repartition_rooms_v1',            // [{numero, capacite}, ...]
+  exclusions: 'repartition_exclusions_v1',  // [{numero, motif}, ...]
+};
+
+function saveRooms(rooms) {
+  try { localStorage.setItem(STORAGE_KEYS.rooms, JSON.stringify(rooms || [])); } catch (e) {}
+}
+function loadRooms() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.rooms);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+}
+function clearRooms() {
+  try { localStorage.removeItem(STORAGE_KEYS.rooms); } catch (e) {}
+}
+
+function saveExclusions(exclusions) {
+  try { localStorage.setItem(STORAGE_KEYS.exclusions, JSON.stringify(exclusions || [])); } catch (e) {}
+}
+function loadExclusions() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.exclusions);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+}
+function clearExclusions() {
+  try { localStorage.removeItem(STORAGE_KEYS.exclusions); } catch (e) {}
+}
+
+/******************************************************
+ * 1) Modal EXCLUSIONS (simple & efficace)
+ ******************************************************/
+async function exclureIncorporations() {
+  // CSS minimal pour un rendu propre
+  if (!document.getElementById("exclu-css-min")) {
+    const s = document.createElement("style");
+    s.id = "exclu-css-min";
+    s.textContent = `
+      .exclu-wrap { display:flex; flex-direction:column; gap:10px; }
+      .exclu-tools { display:flex; gap:8px; flex-wrap:wrap; }
+      .exclu-tools input { padding:8px 10px; border:1px solid #d1d5db; border-radius:8px; outline:none; }
+      .exclu-btn { padding:8px 12px; border:none; border-radius:8px; cursor:pointer; background:#3b82f6; color:#fff; }
+      .exclu-btn.ghost { background:#e5e7eb; color:#111827; }
+      .exclu-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:8px; max-height:360px; overflow:auto; }
+      .ex-row { display:flex; gap:6px; padding:8px; border:1px solid #e5e7eb; border-radius:10px; background:#fff; }
+      .ex-row input { flex:1; padding:8px 10px; border:1px solid #d1d5db; border-radius:8px; outline:none; }
+      .ex-row .rm { width:34px; border:1px solid #e5e7eb; border-radius:8px; background:#f3f4f6; cursor:pointer; }
+      .ex-invalid { border-color:#ef4444 !important; background:#fff1f2 !important; }
+      .ex-foot { font-size:12px; color:#475569; display:flex; justify-content:space-between; }
+    `;
+    document.head.appendChild(s);
+  }
+
+  const rowHTML = (num = "", mot = "") => `
+    <div class="ex-row">
+      <input class="incorp" placeholder="Incorporation ex: 123" value="${num}">
+      <input class="motif"  placeholder="Motif ex: Cas médical" value="${mot}">
+      <button type="button" class="rm" title="Supprimer">×</button>
+    </div>
+  `;
+
+  const html = `
+    <div class="exclu-wrap">
+      <div class="exclu-tools">
+        <input id="bulk-inc"  placeholder="Coller plusieurs incorporations (séparées par , ; espace ou retour)">
+        <input id="bulk-motif" placeholder="Motif par défaut (optionnel)">
+        <button type="button" id="btn-add"   class="exclu-btn">+ Ajouter</button>
+        <button type="button" id="btn-paste" class="exclu-btn">Coller → Ajouter</button>
+        <button type="button" id="btn-clear" class="exclu-btn ghost">Vider</button>
+      </div>
+      <div id="rows" class="exclu-grid">
+        ${rowHTML()}
+      </div>
+      <div class="ex-foot">
+        <span>Astuce : Entrée = valider • Échap = annuler</span>
+        <span id="count">1 ligne</span>
+      </div>
+    </div>
+  `;
+
+  const res = await Swal.fire({
+    title: "Exclure des incorporations",
+    html,
+    width: 820,
+    focusConfirm: false,
+    showCancelButton: true,
+    confirmButtonText: "Valider",
+    didOpen: () => {
+      const rows = document.getElementById("rows");
+      const count = document.getElementById("count");
+      const upd = () => {
+        const n = rows.querySelectorAll(".ex-row").length;
+        count.textContent = `${n} ${n > 1 ? "lignes" : "ligne"}`;
+      };
+
+      document.getElementById("btn-add").addEventListener("click", () => {
+        rows.insertAdjacentHTML("beforeend", rowHTML());
+        upd();
+      });
+
+      document.getElementById("btn-paste").addEventListener("click", () => {
+        const raw = (document.getElementById("bulk-inc").value || "").trim();
+        const defMotif = (document.getElementById("bulk-motif").value || "").trim();
+        if (!raw) return;
+        const tokens = raw.split(/[\s,;]+/).filter(Boolean);
+        tokens.forEach(t => rows.insertAdjacentHTML("beforeend", rowHTML(t, defMotif)));
+        upd();
+      });
+
+      document.getElementById("btn-clear").addEventListener("click", () => {
+        rows.innerHTML = rowHTML();
+        upd();
+      });
+
+      rows.addEventListener("click", (e) => {
+        const btn = e.target.closest(".rm");
+        if (!btn) return;
+        const row = btn.closest(".ex-row");
+        if (!row) return;
+        if (rows.querySelectorAll(".ex-row").length > 1) {
+          row.remove(); upd();
+        }
+      });
+
+      Swal.getPopup().addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); Swal.clickConfirm(); }
+      });
+
+      upd();
+    },
     preConfirm: () => {
-      const val = document.getElementById('input-structure').value;
-      if (!val.trim()) {
-        Swal.showValidationMessage('Vous devez saisir quelque chose !');
+      const rows = [...document.querySelectorAll("#rows .ex-row")];
+      let valid = true;
+      const map = new Map(); // déduplique
+
+      rows.forEach(r => {
+        const inc = r.querySelector(".incorp");
+        const mot = r.querySelector(".motif");
+        inc.classList.remove("ex-invalid");
+        mot.classList.remove("ex-invalid");
+
+        const numero = (inc.value || "").trim();
+        const motif  = (mot.value || "").trim();
+
+        if (!/^\d+$/.test(numero)) { inc.classList.add("ex-invalid"); valid = false; }
+        if (!motif)               { mot.classList.add("ex-invalid"); valid = false; }
+        if (valid) map.set(numero, motif);
+      });
+
+      if (!valid) {
+        Swal.showValidationMessage("Veuillez corriger les champs en rouge.");
         return false;
       }
-      return val;
+      return Array.from(map.entries()).map(([numero, motif]) => ({ numero, motif }));
     }
   });
 
-  if (text) {
-    try {
-      const blocs = text.split(',')
-        .map((part) => {
-          const [nb, cap] = part.split('=>').map(s => parseInt(s.trim(), 10));
-          if (isNaN(nb) || isNaN(cap)) throw new Error();
-          return [nb, cap];
-        });
-      return blocs;
-    } catch {
-      await Swal.fire('Erreur', 'Format invalide. Exemple : 10=>30,5=>26', 'error');
-      return null;
-    }
-  }
-  return null;
+  const out = res.isConfirmed ? (res.value || []) : [];
+  saveExclusions(out); // mémorise
+  return out;
 }
+
+/******************************************************
+ * 2) Modal CAPACITÉS (pré-rempli + joli) + persistance
+ ******************************************************/
+async function ajouterSallesViaModal(eleves, exclusions = []) {
+  // recharge éventuelle (capacité + description)
+  const savedRooms = loadRooms(); // [{numero, capacite, description?}]
+  let nbSalles = savedRooms.length;
+
+  if (!nbSalles) {
+    const { value } = await Swal.fire({
+      title: "Combien de salles ?",
+      input: "number",
+      inputLabel: "Nombre total de salles",
+      inputPlaceholder: "Ex : 40",
+      allowOutsideClick: false,
+      preConfirm: (val) => {
+        const n = parseInt(val, 10);
+        if (isNaN(n) || n <= 0) {
+          Swal.showValidationMessage("Nombre invalide.");
+          return false;
+        }
+        return n;
+      }
+    });
+    if (!value) return;
+    nbSalles = value;
+  }
+
+  // CSS (si pas déjà injecté)
+  if (!document.getElementById("swal-repart-css")) {
+    const style = document.createElement("style");
+    style.id = "swal-repart-css";
+    style.textContent = `
+      .swal2-popup.repart-popup { padding: 18px 20px 16px; }
+      .repart-toolbar{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+      .repart-toolbar-left{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+      .repart-toolbar-left input{ width:190px; padding:8px 10px; border:1px solid #cfd4dc; border-radius:10px; outline:none; }
+      .btn-chip{ padding:8px 12px; border-radius:10px; border:none; cursor:pointer; background:#3b82f6; color:#fff; box-shadow:0 1px 2px rgba(0,0,0,.06); }
+      .btn-chip.alt{ background:#6366f1; }
+      .btn-chip.ghost{ background:#e5e7eb; color:#111827; }
+      .repart-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px; max-height:420px; overflow:auto; padding-right:2px; }
+      .room-card{ background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:12px; display:flex; flex-direction:column; gap:10px; box-shadow:0 1px 3px rgba(16,24,40,.06); transition:transform .08s ease, box-shadow .1s ease; }
+      .room-card:hover{ transform:translateY(-1px); box-shadow:0 6px 16px rgba(16,24,40,.08); }
+      .room-head{ display:flex; align-items:center; justify-content:center; }
+      .room-badge{ font-weight:700; font-size:13px; line-height:1; background:#eef2ff; color:#4338ca; padding:6px 10px; border-radius:999px; border:1px solid #c7d2fe; }
+      .room-input-group{ display:flex; align-items:center; gap:8px; justify-content:center; }
+      .room-input-group input.salle-nb{ width:92px; text-align:center; padding:10px 8px; border:1px solid #cfd4dc; border-radius:10px; font-weight:700; outline:none; transition:border-color .15s ease, background .15s ease; }
+      .room-input-group input.salle-nb.invalid{ border-color:#ef4444; background:#fff1f2; }
+      .btn-inc,.btn-dec{ width:34px; height:34px; border-radius:10px; border:1px solid #e5e7eb; cursor:pointer; background:#f3f4f6; font-size:18px; font-weight:700; line-height:1; display:flex; align-items:center; justify-content:center; transition:background .12s ease, transform .08s ease; }
+      .btn-inc:hover,.btn-dec:hover{ background:#e5e7eb; }
+      .btn-inc:active,.btn-dec:active{ transform:scale(.98); }
+      .room-desc{ width:100%; padding:8px 10px; border:1px solid #cfd4dc; border-radius:10px; outline:none; }
+      .repart-footer{ display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding:8px 10px; background:#f8fafc; border:1px solid #e5e7eb; border-radius:12px; font-size:13px; color:#334155; }
+      .footer-kpi{ display:flex; gap:12px; align-items:center; }
+      .kpi{ background:#eef2ff; color:#3730a3; border:1px solid #c7d2fe; padding:6px 10px; border-radius:10px; font-weight:700; }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // Cartes (capacité + description)
+  const cards = Array.from({ length: nbSalles }, (_, i) => {
+    const cap  = savedRooms[i]?.capacite ?? "";
+    const desc = savedRooms[i]?.description ?? "";
+    return `
+      <div class="room-card">
+        <div class="room-head">
+          <span class="room-badge">Salle ${i + 1}</span>
+        </div>
+        <div class="room-input-group">
+          <button class="btn-dec" type="button" data-idx="${i}">−</button>
+          <input class="salle-nb" type="number" min="1" inputmode="numeric" placeholder="Nb élèves" data-idx="${i}" value="${cap}">
+          <button class="btn-inc" type="button" data-idx="${i}">+</button>
+        </div>
+        <input class="room-desc" type="text" placeholder="Description (ex: Salle 11, Réfectoire Nord…)" data-idx="${i}" value="${desc}">
+      </div>
+    `;
+  }).join("");
+
+  const toolbar = `
+    <div class="repart-toolbar">
+      <div class="repart-toolbar-left">
+        <input id="cap-def"  type="number" min="1" placeholder="Capacité par défaut" />
+        <button id="apply-all"     class="btn-chip">Appliquer à toutes</button>
+        <input id="desc-def" type="text" placeholder="Description par défaut" />
+        <button id="apply-desc-all" class="btn-chip alt">Appliquer descriptions</button>
+        <button id="clear-all"     class="btn-chip ghost">Tout vider</button>
+      </div>
+      <div style="font-size:12px;color:#6b7280">Entrée : valider • Échap : annuler</div>
+    </div>
+  `;
+  const footer = `
+    <div class="repart-footer">
+      <div class="footer-kpi">
+        <span>Total saisi : <span id="sum-cap" class="kpi">0</span></span>
+        ${Array.isArray(eleves) ? `<span>Élèves dispo : <span class="kpi">${eleves.length}</span></span>` : ``}
+        <span>Salles : <span class="kpi">${nbSalles}</span></span>
+      </div>
+      <div style="font-size:12px;color:#6b7280">Astuce : utilisez les boutons +/−</div>
+    </div>
+  `;
+
+  const result = await Swal.fire({
+    title: "Effectif & descriptions des salles",
+    html: `${toolbar}<div class="repart-grid">${cards}</div>${footer}`,
+    width: 960,
+    focusConfirm: false,
+    allowOutsideClick: false,
+    customClass: { popup: "repart-popup" },
+    showCancelButton: true,
+    confirmButtonText: "Valider Répartition",
+    didOpen: () => {
+      const inputs = [...document.querySelectorAll(".salle-nb")];
+      const sumEl  = document.getElementById("sum-cap");
+      const total  = Array.isArray(eleves) ? eleves.length : null;
+
+      const updateSum = () => {
+        const sum = inputs.reduce((acc, inp) => acc + (parseInt(inp.value, 10) || 0), 0);
+        if (sumEl) {
+          sumEl.textContent = sum;
+          if (total != null) {
+            sumEl.style.background = sum < total ? '#fee2e2' : (sum > total ? '#fef9c3' : '#dcfce7');
+            sumEl.style.color = '#111827';
+          }
+        }
+      };
+
+      document.querySelectorAll(".btn-inc").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = btn.getAttribute("data-idx");
+          const inp = document.querySelector(`.salle-nb[data-idx="${idx}"]`);
+          const v = Math.max(0, parseInt(inp.value || "0", 10)) + 1;
+          inp.value = v;
+          inp.classList.remove("invalid");
+          updateSum();
+        });
+      });
+      document.querySelectorAll(".btn-dec").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = btn.getAttribute("data-idx");
+          const inp = document.querySelector(`.salle-nb[data-idx="${idx}"]`);
+          const v = Math.max(0, parseInt(inp.value || "0", 10) - 1);
+          inp.value = v || "";
+          inp.classList.remove("invalid");
+          updateSum();
+        });
+      });
+
+      inputs.forEach(inp => {
+        inp.addEventListener("input", () => { inp.classList.remove("invalid"); updateSum(); });
+        inp.addEventListener("wheel", e => e.preventDefault(), { passive:false });
+      });
+
+      document.getElementById("apply-all")?.addEventListener("click", () => {
+        const v = parseInt(document.getElementById("cap-def").value, 10);
+        if (!isNaN(v) && v > 0) { inputs.forEach(inp => inp.value = v); updateSum(); }
+      });
+      document.getElementById("apply-desc-all")?.addEventListener("click", () => {
+        const d = document.getElementById("desc-def").value || "";
+        document.querySelectorAll(".room-desc").forEach(inp => inp.value = d);
+      });
+      document.getElementById("clear-all")?.addEventListener("click", () => {
+        inputs.forEach(inp => inp.value = "");
+        document.querySelectorAll(".room-desc").forEach(inp => inp.value = "");
+        updateSum();
+      });
+
+      Swal.getPopup().addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); Swal.clickConfirm(); }
+      });
+
+      updateSum();
+    },
+    preConfirm: () => {
+      const nbs   = [...document.querySelectorAll(".salle-nb")];
+      const descs = [...document.querySelectorAll(".room-desc")];
+      let firstInvalid = null;
+      const out = [];
+
+      for (let i = 0; i < nbs.length; i++) {
+        const inp = nbs[i];
+        inp.classList.remove("invalid");
+        const v = parseInt(inp.value, 10);
+        if (isNaN(v) || v < 1) {
+          inp.classList.add("invalid");
+          if (!firstInvalid) firstInvalid = inp;
+        } else {
+          const description = (descs[i]?.value || "").trim();
+          out.push({ numero: i + 1, capacite: v, description });
+        }
+      }
+
+      if (firstInvalid) {
+        firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
+        Swal.showValidationMessage("Chaque salle doit avoir au moins 1 élève.");
+        return false;
+      }
+      return out;
+    }
+  });
+
+  const salles = result.isConfirmed ? result.value : null;
+  if (salles && Array.isArray(eleves)) {
+    saveRooms(salles); // maintenant avec description
+    await genererRepartitionDepuisCartes(eleves, salles, exclusions);
+  }
+}
+
+
+/******************************************************
+ * 4) RÉPARTITION (min 2 / max 3, parfois 4) + EXCLUSIONS
+ ******************************************************/
+async function genererRepartitionDepuisCartes(eleves, cartes, exclusions = []) {
+  // Normaliser exclusions (clé = numeroIncorporation sous forme de chaîne)
+  const exclusionSet = new Set();
+  const motifMap     = new Map();
+  exclusions.forEach(({ numero, motif }) => {
+    const key = String(numero).trim();
+    exclusionSet.add(key);
+    motifMap.set(key, motif);
+  });
+
+  const elevesExclus  = [];
+  const elevesFiltres = eleves.filter(e => {
+    const inc = String(e.numeroIncorporation).trim();
+    if (exclusionSet.has(inc)) {
+      e.salle = motifMap.get(inc) || "Non affecté";
+      elevesExclus.push(e);
+      return false;
+    }
+    return true;
+  });
+
+  // Mélange utilitaire
+  const shuffleArray = arr => {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+  };
+  shuffleArray(elevesFiltres);
+
+  // Regrouper par escadron + mélanger chaque pool
+  const pools = {};
+  elevesFiltres.forEach(e => {
+    if (!pools[e.escadron]) pools[e.escadron] = [];
+    pools[e.escadron].push(e);
+  });
+  Object.keys(pools).forEach(k => shuffleArray(pools[k]));
+
+  const salles   = [];
+  const restants = [];
+
+  // Remplissage par “tours” : 1 → 2 → 3 → 4 (si besoin)
+  cartes.forEach(({ numero, capacite, description }) => {
+    const salle  = [];
+    const quotas = {};
+  
+    const round = (maxParEscadron) => {
+      let added = 0;
+      const keys = Object.keys(pools).filter(k => pools[k].length > 0);
+      for (let i = keys.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [keys[i], keys[j]] = [keys[j], keys[i]];
+      }
+      for (const esc of keys) {
+        if (salle.length >= capacite) break;
+        const q = quotas[esc] || 0;
+        if (q < maxParEscadron && pools[esc].length > 0) {
+          const eleve = pools[esc].shift();
+          if (eleve) {
+            eleve.salle = numero;
+            eleve.salleDesc = description || "";   // <-- description portée jusqu’à l’export
+            salle.push(eleve);
+            quotas[esc] = q + 1;
+            added++;
+          }
+        }
+      }
+      return added;
+    };
+  
+    if (salle.length < capacite) round(1);
+    if (salle.length < capacite) round(2);
+    while (salle.length < capacite && round(3) > 0) {}
+    while (salle.length < capacite && round(4) > 0) {}
+  
+    salles.push({ numero, effectif: salle.length, eleves: salle, description: description || "" });
+  });
+  
+
+  // Restants
+  Object.values(pools).forEach(list => restants.push(...list));
+  shuffleArray(restants);
+  if (restants.length > 0) {
+    restants.forEach(e => e.salle = "Reste");
+    salles.push({ numero: "Reste", effectif: restants.length, eleves: restants });
+  }
+
+  const tousEleves = [...salles.flatMap(s => s.eleves), ...elevesExclus];
+
+  await exporterVersExcel(tousEleves, salles, elevesExclus);
+}
+
+/******************************************************
+ * 5) EXPORT EXCEL
+ ******************************************************/
+function sanitizeSheetName(name) {
+  return String(name).replace(/[:\\/?*\[\]]/g, '').slice(0, 31);
+}
+function uniqueSheetName(wb, base) {
+  let name = sanitizeSheetName(base);
+  let i = 2;
+  while (wb.SheetNames.includes(name)) {
+    name = sanitizeSheetName(`${base.slice(0, 28)}_${i++}`);
+  }
+  return name;
+}
+
+async function exporterVersExcel(tousEleves, salles, elevesExclus = []) {
+  const wb = XLSX.utils.book_new();
+
+  /* ---------- 1) Résumé ---------- */
+  const repartitionParSalle = salles.map(s => {
+    const lib =
+      s.numero === "Reste"
+        ? "Salle Reste"
+        : (s.description ? `Salle ${s.numero} (${s.description})` : `Salle ${s.numero}`);
+    const nb = (typeof s.effectif === "number")
+      ? s.effectif
+      : (Array.isArray(s.eleves) ? s.eleves.length : 0);
+    return `${lib} : ${nb} élèves`;
+  });
+
+  const escadronsList = [...new Set(tousEleves.map(e => e.escadron))]
+    .filter(x => x !== undefined && x !== null && x !== "")
+    .sort((a,b)=> (Number(a)||0) - (Number(b)||0));
+
+  const repartitionParEscadron = escadronsList.map(esc => {
+    const count = tousEleves.filter(e => e.escadron === esc).length;
+    return `Escadron ${esc} : ${count} élèves`;
+  });
+
+  // ⬇️ NOUVEAU : récap exclusions “incorporation — motif”
+  const exclMap = new Map(); // clé "inc — motif" → compteur
+  if (Array.isArray(elevesExclus) && elevesExclus.length) {
+    elevesExclus.forEach(e => {
+      const inc   = (e.numeroIncorporation ?? "").toString().trim() || "(?)";
+      const motif = (e.salle ?? "Exclu").toString().trim();
+      const key   = `${inc} — ${motif}`;
+      exclMap.set(key, (exclMap.get(key) || 0) + 1);
+    });
+  }
+  const exclusionsLignes = [...exclMap.entries()].map(([k, n]) => n > 1 ? `${k} (${n})` : k);
+
+  const resumeData = [
+    { Clé: "Total élèves", Valeur: tousEleves.length },
+    { Clé: "Nombre de salles", Valeur: salles.length },
+    { Clé: "Répartition par salle", Valeur: "" },
+    ...repartitionParSalle.map(line => ({ Clé: "", Valeur: line })),
+    { Clé: "", Valeur: "" },
+    { Clé: "Répartition par escadron", Valeur: "" },
+    ...repartitionParEscadron.map(line => ({ Clé: "", Valeur: line })),
+    ...(exclusionsLignes.length
+      ? [
+          { Clé: "", Valeur: "" },
+          { Clé: "Exclusions (incorporation : motif)", Valeur: "" },
+          ...exclusionsLignes.map(line => ({ Clé: "", Valeur: line })),
+        ]
+      : [])
+  ];
+  XLSX.utils.book_append_sheet(
+    wb,
+    XLSX.utils.json_to_sheet(resumeData),
+    "Résumé"
+  );
+
+  /* ---------- 2) Feuilles par salle (Titre fusionné + tri par Incorporation) ---------- */
+  salles.forEach((salle) => {
+    const header = ["NR","Nom","Prénom","Escadron","Peloton","Incorporation","Salle (num)"];
+
+    const titre = (salle.numero === "Reste"
+      ? "SALLE RESTE"
+      : `SALLE ${salle.numero}`).toUpperCase();
+
+    const aoa = [];
+    const merges = [];
+
+    // Ligne 1 : titre fusionné A1:G1
+    aoa.push([titre]);
+    merges.push({ s: { r:0, c:0 }, e: { r:0, c: header.length - 1 } });
+
+    // Ligne 2 : description (si présente)
+    if (salle.description && salle.numero !== "Reste") {
+      aoa.push([String(salle.description).toUpperCase()]);
+      merges.push({ s: { r:1, c:0 }, e: { r:1, c: header.length - 1 } });
+    } else {
+      aoa.push([]);
+    }
+
+    // Ligne entête
+    aoa.push(header);
+
+    const elevesTries = (salle.eleves || [])
+      .slice()
+      .sort((a,b) => (Number(a.numeroIncorporation)||0) - (Number(b.numeroIncorporation)||0));
+
+    elevesTries.forEach((e, idx) => {
+      aoa.push([
+        idx + 1,
+        e.nom || "",
+        e.prenom || "",
+        e.escadron ?? "",
+        e.peloton ?? "",
+        e.numeroIncorporation ?? "",
+        (salle.numero === "Reste" ? "Reste" : salle.numero)
+      ]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws["!merges"] = merges;
+    ws["!cols"] = [
+      { wpx: 40 },   // NR
+      { wpx: 200 },  // Nom
+      { wpx: 180 },  // Prénom
+      { wpx: 80 },   // Escadron
+      { wpx: 80 },   // Peloton
+      { wpx: 120 },  // Incorporation
+      { wpx: 110 },  // Salle (num)
+    ];
+
+    const baseName = (salle.numero === "Reste")
+      ? "Salle Reste"
+      : (salle.description ? `Salle ${salle.numero} - ${salle.description}` : `Salle ${salle.numero}`);
+    const sheetName = uniqueSheetName(wb, baseName);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  });
+
+  /* ---------- 3) (optionnel) Feuilles par escadron ---------- */
+  const escs = [...new Set(tousEleves.map(e => e.escadron))]
+    .filter(x => x !== undefined && x !== null && x !== "")
+    .sort((a,b)=> (Number(a)||0) - (Number(b)||0));
+
+  escs.forEach((esc, i) => {
+    const sorted = tousEleves
+      .filter(e => e.escadron === esc)
+      .sort((a, b) => {
+        const pa = Number(a.peloton) || 0;
+        const pb = Number(b.peloton) || 0;
+        if (pa !== pb) return pa - pb;
+        const ia = Number(a.numeroIncorporation) || 0;
+        const ib = Number(b.numeroIncorporation) || 0;
+        return ia - ib;
+      });
+
+    const aoa = [];
+    const merges = [];
+    const header = ["NR","Nom","Prénom","Escadron","Peloton","Incorporation","Salle (num)"];
+
+    // Titre fusionné
+    const titre = `${esc}° ESCADRON`.toUpperCase();
+    aoa.push([titre]);
+    merges.push({ s: { r:0, c:0 }, e: { r:0, c: header.length - 1 } });
+    aoa.push([]);
+
+    // Entête
+    aoa.push(header);
+
+    let currentPeloton = null;
+    let nr = 0;
+    sorted.forEach(e => {
+      if (e.peloton !== currentPeloton) {
+        currentPeloton = e.peloton;
+        aoa.push([`=== Peloton ${currentPeloton} ===`]);
+        merges.push({ s: { r: aoa.length-1, c:0 }, e: { r: aoa.length-1, c: header.length - 1 } });
+      }
+      nr += 1;
+      aoa.push([
+        nr,
+        e.nom || "",
+        e.prenom || "",
+        e.escadron ?? "",
+        e.peloton ?? "",
+        e.numeroIncorporation ?? "",
+        e.salle || "Non assigné"
+      ]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws["!merges"] = merges;
+    ws["!cols"] = [
+      { wpx: 40 }, { wpx: 200 }, { wpx: 180 },
+      { wpx: 80 }, { wpx: 80 }, { wpx: 120 }, { wpx: 110 },
+    ];
+    XLSX.utils.book_append_sheet(
+      wb,
+      ws,
+      uniqueSheetName(wb, `${i + 1}e Escadron`)
+    );
+  });
+
+  /* ---------- 4) (optionnel) Feuille “Exclus” ---------- */
+  if (Array.isArray(elevesExclus) && elevesExclus.length > 0) {
+    const dataExclus = elevesExclus.map((e, idx) => ({
+      NR: idx + 1,
+      Nom: e.nom,
+      Prénom: e.prenom,
+      Escadron: e.escadron,
+      Peloton: e.peloton,
+      Incorporation: e.numeroIncorporation,
+      Motif: e.salle // le motif est stocké dans e.salle pour les exclus
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataExclus), "Exclus");
+  }
+
+  /* ---------- 5) Sauvegarde ---------- */
+  const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  saveAs(new Blob([wbout], { type: "application/octet-stream" }), "repartition_salles.xlsx");
+}
+
+/******************************************************
+ * 6) EXEMPLES D’USAGE (boutons)
+ ******************************************************/
+// 1) Modifier / définir les capacités (et exclusions)
+async function ouvrirEditeurRepartition(eleves) {
+  const excl = await exclureIncorporations(); // se sauvegarde automatiquement
+  await ajouterSallesViaModal(eleves, excl);
+}
+async function validerRepartitionRapide(eleves) {
+  const rooms = loadRooms();     // [{numero, capacite, description?}]
+  const excl  = loadExclusions();
+
+  if (!rooms.length) {
+    await Swal.fire("Aucune configuration enregistrée", "Veuillez définir les capacités une première fois.", "info");
+    return ajouterSallesViaModal(eleves, excl);
+  }
+
+  const totalCap = rooms.reduce((s, r) => s + (r.capacite || 0), 0);
+  const html = `
+    <div style="text-align:left">
+      <p><b>Dernière configuration mémorisée</b></p>
+      <ul style="max-height:220px;overflow:auto;padding-left:18px;margin:0">
+        ${rooms.map(r => {
+          const d = r.description ? ` (${r.description})` : "";
+          return `<li>Salle ${r.numero}${d} → ${r.capacite} élèves</li>`;
+        }).join("")}
+      </ul>
+      <p style="margin-top:8px">Capacité totale : <b>${totalCap}</b> • Élèves dispo : <b>${eleves.length}</b></p>
+    </div>
+  `;
+
+  const res = await Swal.fire({
+    title: "Valider la répartition",
+    html,
+    icon: "question",
+    showDenyButton: true,
+    confirmButtonText: "Valider",
+    denyButtonText: "Modifier",
+  });
+
+  if (res.isConfirmed) {
+    return genererRepartitionDepuisCartes(eleves, rooms, excl);
+  }
+  if (res.isDenied) {
+    return ajouterSallesViaModal(eleves, excl);
+  }
+}
+
+// 2) Valider directement la répartition depuis l’état mémorisé
+async function validerRepartition(eleves) {
+  await validerRepartitionRapide(eleves);
+}
+
+  
+  
+
+  
+  
+  
+ 
 // Fonction PDF (à appeler en fin de genererRepartitionEtExporter)
 function exporterRepartitionEnPDF(salles, escadronGlobalMap) {
   const doc = new jsPDF();
@@ -1000,17 +1554,24 @@ function handleExportExcel2() {
 
       {user.type !== 'saisie' && (
   <div className="d-flex gap-2">
-   <button
-      className="btn btn-warning"
-      onClick={async () => {
-        const blocs = await demanderStructureSalles();
-        if (blocs) {
-          genererRepartitionEtExporter(eleves, null, blocs);
-        }
-      }}
-    >
-      Générer Répartition salle EG
-    </button>
+ <button className="btn btn-secondary" onClick={() => validerRepartitionRapide(eleves)}>
+  Valider la répartition
+</button>
+
+<button className="btn btn-warning" onClick={async () => {
+  const excl = await exclureIncorporations(); // se sauvegarde déjà
+  await ajouterSallesViaModal(eleves, excl);
+}}>
+  Modifier / (Re)définir les capacités
+</button>
+
+
+
+
+
+
+
+
 
     <button
       className="btn btn-warning"
