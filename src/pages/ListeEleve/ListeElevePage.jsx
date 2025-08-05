@@ -178,288 +178,659 @@ const ListeElevePge = () => {
  * 0) PERSISTENCE (localStorage)
  ******************************************************/
 const STORAGE_KEYS = {
-  rooms: 'repartition_rooms_v1',            // [{numero, capacite}, ...]
-  exclusions: 'repartition_exclusions_v1',  // [{numero, motif}, ...]
+  rooms: 'repartition_rooms_v1',
+  exclusions: 'repartition_exclusions_v1',
+  staff: 'repartition_staff_v2',            // {surveillants:[], estafettes:[]}
+  buildings: 'repartition_buildings_v1',
+  estafettesPerBuilding: 'repartition_estafettes_per_building_v1',
+  estafettesCfg: 'repartition_estafettes_cfg_v1', // { minPerBuilding, useThreeWhenRoomsGte }
+  estafettesAssign: 'repartition_estafettes_assign_v1', // Map {batiment -> [labels]}
+  reprise: 'repartition_reprise_v1'   // <--- AJOUT
 };
+function saveEstafettesPerBuilding(map) {
+  try { localStorage.setItem(STORAGE_KEYS.estafettesPerBuilding, JSON.stringify(map || {})); } catch {}
+}
+function loadEstafettesPerBuilding() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.estafettesPerBuilding) || '{}'); } catch { return {}; }
+}
+function saveRooms(rooms){ try{ localStorage.setItem(STORAGE_KEYS.rooms, JSON.stringify(rooms||[])); }catch{} }
+function loadRooms(){ try{ const a=JSON.parse(localStorage.getItem(STORAGE_KEYS.rooms)||'[]'); return Array.isArray(a)?a:[]; }catch{ return []; } }
+function clearRooms(){ try{ localStorage.removeItem(STORAGE_KEYS.rooms); }catch{} }
 
-function saveRooms(rooms) {
-  try { localStorage.setItem(STORAGE_KEYS.rooms, JSON.stringify(rooms || [])); } catch (e) {}
+function saveExclusions(excl){ try{ localStorage.setItem(STORAGE_KEYS.exclusions, JSON.stringify(excl||{})); }catch{} }
+function loadExclusions(){ try{ const a=JSON.parse(localStorage.getItem(STORAGE_KEYS.exclusions)||'{}'); return (a && typeof a==='object')?a:{}; }catch{ return {}; } }
+function clearExclusions(){ try{ localStorage.removeItem(STORAGE_KEYS.exclusions); }catch{} }
+function saveReprise(list) {
+  try { localStorage.setItem(STORAGE_KEYS.reprise, JSON.stringify(Array.isArray(list)?list:[])); } catch {}
 }
-function loadRooms() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.rooms);
-    const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? arr : [];
-  } catch { return []; }
+function loadReprise() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.reprise) || '[]'); } catch { return []; }
 }
-function clearRooms() {
-  try { localStorage.removeItem(STORAGE_KEYS.rooms); } catch (e) {}
+function saveStaff(staff){
+  try{ localStorage.setItem(STORAGE_KEYS.staff, JSON.stringify({
+    surveillants: Array.isArray(staff?.surveillants)?staff.surveillants:[],
+    estafettes:   Array.isArray(staff?.estafettes)?staff.estafettes:[]
+  })); }catch{}
+}
+function loadStaff(){
+  try{
+    const o=JSON.parse(localStorage.getItem(STORAGE_KEYS.staff)||'{}');
+    return {
+      surveillants: Array.isArray(o.surveillants)?o.surveillants:[],
+      estafettes:   Array.isArray(o.estafettes)?o.estafettes:[]
+    };
+  }catch{ return {surveillants:[], estafettes:[]}; }
 }
 
-function saveExclusions(exclusions) {
-  try { localStorage.setItem(STORAGE_KEYS.exclusions, JSON.stringify(exclusions || [])); } catch (e) {}
+function saveBuildings(arr){ try{ localStorage.setItem(STORAGE_KEYS.buildings, JSON.stringify(arr||[])); }catch{} }
+function loadBuildings(){ try{ const a=JSON.parse(localStorage.getItem(STORAGE_KEYS.buildings)||'[]'); return Array.isArray(a)?a:[]; }catch{ return []; } }
+
+function saveEstafettesCfg(cfg){ try{ localStorage.setItem(STORAGE_KEYS.estafettesCfg, JSON.stringify(cfg||{})); }catch{} }
+function loadEstafettesCfg(){
+  try{
+    const c = JSON.parse(localStorage.getItem(STORAGE_KEYS.estafettesCfg)||'{}');
+    return {
+      minPerBuilding: Math.max(2, Number(c.minPerBuilding||2)),
+      useThreeWhenRoomsGte: Math.max(3, Number(c.useThreeWhenRoomsGte||4))
+    };
+  }catch{ return { minPerBuilding:2, useThreeWhenRoomsGte:4 }; }
 }
-function loadExclusions() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.exclusions);
-    const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? arr : [];
-  } catch { return []; }
+
+function saveEstafettesAssign(mapObj){
+  try{ localStorage.setItem(STORAGE_KEYS.estafettesAssign, JSON.stringify(mapObj||{})); }catch{}
 }
-function clearExclusions() {
-  try { localStorage.removeItem(STORAGE_KEYS.exclusions); } catch (e) {}
+function loadEstafettesAssign(){
+  try{
+    const o = JSON.parse(localStorage.getItem(STORAGE_KEYS.estafettesAssign)||'{}');
+    return (o && typeof o==='object') ? o : {};
+  }catch{ return {}; }
 }
 
 /******************************************************
- * 1) Modal EXCLUSIONS (simple & efficace)
+ * 1) UTILITAIRES texte / grades / personnes
  ******************************************************/
-async function exclureIncorporations() {
-  // CSS minimal pour un rendu propre
+const ALL_GRADES = new Set(["GPCE","GPHC","GHC","GP2C","GP1C","G2C","G1C","GST"]);
+const ONLY_ESTAFETTE_GRADES = new Set(["GST","G2C"]);
+const GRADE_ORDER = { GPCE:1, GPHC:2, GP1C:3, GP2C:4,GHC:5,G1C:6, G2C:7, GST:8 };
+// Groupes pour la règle des 2 surveillants / salle
+const GROUP_B = new Set(["GPCE","GPHC","GP1C","GP2C"]);         // « senior »
+const GROUP_A = new Set(["GHC","G1C","G2C","GST"]);      // « adjoint »
+
+function _clean(s){ return String(s||"").replace(/\u00A0/g," ").replace(/\s{2,}/g," ").trim(); }
+function cleanText(x){ return _clean(x); }
+function gradeRank(g){ return GRADE_ORDER[g] ?? 99; }
+function detectGrade(tok){ const t=String(tok||"").toUpperCase().replace(/\s+/g,""); return ALL_GRADES.has(t)?t:null; }
+function gradeFromLabel(label){ return _clean(label).split("—")[0].trim().toUpperCase(); }
+function nameFromLabel(label){ const p=_clean(label).split("—"); return _clean(p.slice(1).join("—")||p[0]||""); }
+function normName(str){
+  return String(str||"").toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu,"")
+    .replace(/[^a-z'\- ]+/g,"").replace(/\s+/g," ").trim();
+}
+function isGroupPairOK(lab1, lab2){
+  if(!lab1 || !lab2) return false;
+  const g1 = gradeFromLabel(lab1), g2 = gradeFromLabel(lab2);
+  return (GROUP_B.has(g1) && GROUP_A.has(g2)) || (GROUP_B.has(g2) && GROUP_A.has(g1));
+}
+
+/** "GST Dupont Paul" ou "Dupont Paul -- GP2C" -> {name,grade,label} */
+function parseSurveillantLine(line){
+  const raw = _clean(String(line||"").replace(/\t/g," "));
+  if (!raw) return null;
+  let grade=null, name=raw;
+  const mHead = raw.match(/^\s*([A-Z0-9]+)\s+(.+)$/);
+  if (mHead && detectGrade(mHead[1])){ grade=detectGrade(mHead[1]); name=mHead[2].trim(); }
+  else{
+    const mTail = raw.match(/^(.+?)[-\s]{2,}([A-Z0-9]+)\s*$/);
+    if (mTail && detectGrade(mTail[2])){ grade=detectGrade(mTail[2]); name=mTail[1].trim(); }
+  }
+  if (!grade) grade="GST";
+  return { name, grade, label:`${grade} — ${name}` };
+}
+
+function shuffleInPlace(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+
+function getAllSurveillantNames(salles){
+  return new Set((salles||[]).flatMap(s=>s.surveillants||[])
+    .map(nameFromLabel)
+    .map(normName)
+    .filter(Boolean));
+}
+function getAllEstafetteNames(estAssign){
+  return new Set(Object.values(estAssign||{}).flat()
+    .map(nameFromLabel)
+    .map(normName)
+    .filter(Boolean));
+}
+
+/** Pools pour affichage + tirage aléatoire */
+function buildSurvPools(lines){
+  const peeps = (lines||[]).map(parseSurveillantLine).filter(Boolean);
+  const display = peeps.slice().sort((a,b)=>{
+    const r = gradeRank(a.grade)-gradeRank(b.grade);
+    return r!==0 ? r : a.name.localeCompare(b.name,'fr',{sensitivity:'base'});
+  });
+  const ALL = peeps.slice();
+  const A = ALL.filter(p=>GROUP_A.has(p.grade));
+  const B = ALL.filter(p=>GROUP_B.has(p.grade));
+  const shuffled = shuffleInPlace(ALL.slice());
+  let i=0; const rr=()=> (shuffled.length ? shuffled[(i++)%shuffled.length] : null);
+  return { display, A, B, ALL, rr };
+}
+
+function pickGradeAndNameFromCell(val){
+  const s = cleanText(val);
+  const m = s.match(/\b(GPCE|GPHC|GHC|GP2C|GP1C|G2C|G1C|GST)\b\s+(.+)$/i);
+  if (m) return { grade:m[1].toUpperCase(), name:cleanText(m[2]) };
+  return null;
+}
+function extractGradeAndNameFromRow(row){
+  const line = cleanText(row);
+  if (!line || /^\s*NR\b/i.test(line) || /\bGRADE\b/i.test(line)) return null;
+  const parts = (line.includes("\t") ? line.split("\t") : line.split(/\s{2,}|\t/g))
+    .map(cleanText).filter(Boolean);
+  let grade=null, name=null;
+  for (const p of parts) {
+    const m = p.match(/\b(GPCE|GPHC|GHC|GP2C|GP1C|G2C|G1C|GST)\b/i);
+    if (m) { grade = m[1].toUpperCase(); break; }
+  }
+  
+  if (parts.length>=3){
+    const cand = parts.find(c => /\p{L}+\s+\p{L}+/u.test(c) && (c.match(/\d/g)||[]).length<=2);
+    if (cand) name=cand;
+  }
+  if (!name){
+    let tmp=line;
+    if (grade) tmp=tmp.replace(new RegExp(`\\b${grade}\\b`,'i'), '');
+    tmp=tmp.replace(/(^|\s)(\d{2,}|(\d{2}\s){2,}\d{2})(?=$|\s)/g,' ')
+           .replace(/\b\d+(er|ème)\s*ESC\b/ig,' ');
+    const m = tmp.match(/([A-ZÀ-ÖØ-Ý'\- ]+\s+[A-ZÀ-ÖØ-Ýa-zà-öø-ý'\- ]{2,})/u);
+    if (m) name=cleanText(m[1]);
+  }
+  if (!grade || !name) return null;
+  return { grade, name, label:`${grade} — ${name}` };
+}
+function buildStaffFromPeople(people){
+  const seen=new Set();
+  const uniq=people.filter(p=>!seen.has(p.label)&&seen.add(p.label));
+  const surveillants=uniq.map(p=>p.label);
+  const estafettes=[...uniq.filter(p=>p.grade==="GST").map(p=>p.label), ...uniq.filter(p=>p.grade==="G2C").map(p=>p.label)];
+  return { surveillants, estafettes, total:uniq.length };
+}
+function parsePersonnelFromPasted(text){
+  const rows=String(text||'').split(/\r?\n/).map(cleanText).filter(Boolean);
+  const people=[];
+  for(const r of rows){ const p=extractGradeAndNameFromRow(r)||pickGradeAndNameFromCell(r); if(p) people.push(p); }
+  return buildStaffFromPeople(people);
+}
+function parsePersonnelFromObjects(rows){
+  if(!Array.isArray(rows)||!rows.length) return {surveillants:[], estafettes:[], total:0};
+  const people=[];
+  for(const row of rows){
+    let hit=null;
+    for(const k of Object.keys(row)){ hit=pickGradeAndNameFromCell(row[k]); if(hit) break; }
+    if(!hit){
+      const g=detectGrade(row.GRADE||row['Grade']||row['grade']);
+      const n=cleanText(row['NOM ET PRENOMS']||row['Nom et prénom(s)']||row['NOM']||row['Nom']||'');
+      if(g&&n) hit={grade:g,name:n};
+    }
+    if(hit) people.push({...hit,label:`${hit.grade} — ${hit.name}`});
+  }
+  return buildStaffFromPeople(people);
+}
+
+/******************************************************
+ * 2) EXCLUSIONS (Modal compacte)
+ ******************************************************/
+async function exclureIncorporations(){
   if (!document.getElementById("exclu-css-min")) {
-    const s = document.createElement("style");
-    s.id = "exclu-css-min";
-    s.textContent = `
-      .exclu-wrap { display:flex; flex-direction:column; gap:10px; }
-      .exclu-tools { display:flex; gap:8px; flex-wrap:wrap; }
-      .exclu-tools input { padding:8px 10px; border:1px solid #d1d5db; border-radius:8px; outline:none; }
-      .exclu-btn { padding:8px 12px; border:none; border-radius:8px; cursor:pointer; background:#3b82f6; color:#fff; }
-      .exclu-btn.ghost { background:#e5e7eb; color:#111827; }
-      .exclu-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:8px; max-height:360px; overflow:auto; }
-      .ex-row { display:flex; gap:6px; padding:8px; border:1px solid #e5e7eb; border-radius:10px; background:#fff; }
-      .ex-row input { flex:1; padding:8px 10px; border:1px solid #d1d5db; border-radius:8px; outline:none; }
-      .ex-row .rm { width:34px; border:1px solid #e5e7eb; border-radius:8px; background:#f3f4f6; cursor:pointer; }
-      .ex-invalid { border-color:#ef4444 !important; background:#fff1f2 !important; }
-      .ex-foot { font-size:12px; color:#475569; display:flex; justify-content:space-between; }
+    const s=document.createElement('style'); s.id="exclu-css-min";
+    s.textContent=`
+      .exclu-wrap{display:flex;flex-direction:column;gap:10px}
+      .exclu-tools{display:flex;gap:8px;flex-wrap:wrap}
+      .exclu-tools input{padding:8px 10px;border:1px solid #d1d5db;border-radius:8px}
+      .exclu-btn{padding:8px 12px;border:none;border-radius:8px;background:#3b82f6;color:#fff;cursor:pointer}
+      .exclu-btn.ghost{background:#e5e7eb;color:#111827}
+      .exclu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;max-height:360px;overflow:auto}
+      .ex-row{display:flex;gap:6px;padding:8px;border:1px solid #e5e7eb;border-radius:10px;background:#fff}
+      .ex-row input{flex:1;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px}
+      .ex-row .rm{width:34px;border:1px solid #e5e7eb;border-radius:8px;background:#f3f4f6;cursor:pointer}
+      .ex-invalid{border-color:#ef4444 !important;background:#fff1f2 !important}
+      .ex-foot{font-size:12px;color:#475569;display:flex;justify-content:space-between}
+      .room-card.sv-missing{border-color:#ef4444 !important;box-shadow:0 0 0 3px rgba(239,68,68,.12)}
+      .room-card.sv-badpair{border-color:#f59e0b !important;box-shadow:0 0 0 3px rgba(245,158,11,.18)}
+      .room-card.sv-duplicate{border-color:#a855f7 !important;box-shadow:0 0 0 3px rgba(168,85,247,.18)}
+      .estaf-missing{color:#b91c1c;font-weight:600}
+      .shortage-badge{margin-left:8px;padding:6px 10px;border-radius:999px;font-weight:700;font-size:12px}
+      .short-ok{background:#dcfce7;color:#065f46;border:1px solid #bbf7d0}
+      .short-warn{background:#fef9c3;color:#92400e;border:1px solid #fde68a}
+      .short-bad{background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
     `;
     document.head.appendChild(s);
   }
 
-  const rowHTML = (num = "", mot = "") => `
+  const rowHTML=(n="",m="")=>`
     <div class="ex-row">
-      <input class="incorp" placeholder="Incorporation ex: 123" value="${num}">
-      <input class="motif"  placeholder="Motif ex: Cas médical" value="${mot}">
+      <input class="incorp" placeholder="Incorporation ex: 123" value="${n}">
+      <input class="motif" placeholder="Motif ex: Cas médical" value="${m}">
       <button type="button" class="rm" title="Supprimer">×</button>
-    </div>
-  `;
+    </div>`;
 
-  const html = `
+  const html=`
     <div class="exclu-wrap">
       <div class="exclu-tools">
-        <input id="bulk-inc"  placeholder="Coller plusieurs incorporations (séparées par , ; espace ou retour)">
+        <input id="bulk-inc" placeholder="Coller plusieurs incorporations (séparées par , ; espace ou retour)">
         <input id="bulk-motif" placeholder="Motif par défaut (optionnel)">
-        <button type="button" id="btn-add"   class="exclu-btn">+ Ajouter</button>
+        <button type="button" id="btn-add" class="exclu-btn">+ Ajouter</button>
         <button type="button" id="btn-paste" class="exclu-btn">Coller → Ajouter</button>
         <button type="button" id="btn-clear" class="exclu-btn ghost">Vider</button>
       </div>
-      <div id="rows" class="exclu-grid">
-        ${rowHTML()}
-      </div>
-      <div class="ex-foot">
-        <span>Astuce : Entrée = valider • Échap = annuler</span>
-        <span id="count">1 ligne</span>
-      </div>
-    </div>
-  `;
+      <div id="rows" class="exclu-grid">${rowHTML()}</div>
+      <div class="ex-foot"><span>Astuce : Entrée = valider • Échap = annuler</span><span id="count">1 ligne</span></div>
+    </div>`;
 
   const res = await Swal.fire({
-    title: "Exclure des incorporations",
-    html,
-    width: 820,
-    focusConfirm: false,
-    showCancelButton: true,
-    confirmButtonText: "Valider",
-    didOpen: () => {
-      const rows = document.getElementById("rows");
-      const count = document.getElementById("count");
-      const upd = () => {
-        const n = rows.querySelectorAll(".ex-row").length;
-        count.textContent = `${n} ${n > 1 ? "lignes" : "ligne"}`;
-      };
-
-      document.getElementById("btn-add").addEventListener("click", () => {
-        rows.insertAdjacentHTML("beforeend", rowHTML());
-        upd();
+    title:"Exclure des incorporations", html, width:820, focusConfirm:false, showCancelButton:true, confirmButtonText:"Valider",
+    didOpen:()=>{
+      const rows=document.getElementById('rows'); const count=document.getElementById('count');
+      const upd=()=>{ const n=rows.querySelectorAll('.ex-row').length; count.textContent=`${n} ${n>1?'lignes':'ligne'}`; };
+      document.getElementById('btn-add').addEventListener('click',()=>{ rows.insertAdjacentHTML('beforeend', rowHTML()); upd(); });
+      document.getElementById('btn-paste').addEventListener('click',()=>{
+        const raw=(document.getElementById('bulk-inc').value||'').trim(); const def=(document.getElementById('bulk-motif').value||'').trim();
+        if(!raw) return; raw.split(/[\s,;]+/).filter(Boolean).forEach(t=>rows.insertAdjacentHTML('beforeend', rowHTML(t,def))); upd();
       });
-
-      document.getElementById("btn-paste").addEventListener("click", () => {
-        const raw = (document.getElementById("bulk-inc").value || "").trim();
-        const defMotif = (document.getElementById("bulk-motif").value || "").trim();
-        if (!raw) return;
-        const tokens = raw.split(/[\s,;]+/).filter(Boolean);
-        tokens.forEach(t => rows.insertAdjacentHTML("beforeend", rowHTML(t, defMotif)));
-        upd();
-      });
-
-      document.getElementById("btn-clear").addEventListener("click", () => {
-        rows.innerHTML = rowHTML();
-        upd();
-      });
-
-      rows.addEventListener("click", (e) => {
-        const btn = e.target.closest(".rm");
-        if (!btn) return;
-        const row = btn.closest(".ex-row");
-        if (!row) return;
-        if (rows.querySelectorAll(".ex-row").length > 1) {
-          row.remove(); upd();
-        }
-      });
-
-      Swal.getPopup().addEventListener("keydown", (e) => {
-        if (e.key === "Enter") { e.preventDefault(); Swal.clickConfirm(); }
-      });
-
+      document.getElementById('btn-clear').addEventListener('click',()=>{ rows.innerHTML=rowHTML(); upd(); });
+      rows.addEventListener('click',e=>{ const btn=e.target.closest('.rm'); if(!btn) return; if(rows.querySelectorAll('.ex-row').length>1){ btn.closest('.ex-row').remove(); upd(); }});
+      Swal.getPopup().addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); Swal.clickConfirm(); }});
       upd();
     },
-    preConfirm: () => {
-      const rows = [...document.querySelectorAll("#rows .ex-row")];
-      let valid = true;
-      const map = new Map(); // déduplique
-
-      rows.forEach(r => {
-        const inc = r.querySelector(".incorp");
-        const mot = r.querySelector(".motif");
-        inc.classList.remove("ex-invalid");
-        mot.classList.remove("ex-invalid");
-
-        const numero = (inc.value || "").trim();
-        const motif  = (mot.value || "").trim();
-
-        if (!/^\d+$/.test(numero)) { inc.classList.add("ex-invalid"); valid = false; }
-        if (!motif)               { mot.classList.add("ex-invalid"); valid = false; }
-        if (valid) map.set(numero, motif);
+    preConfirm:()=>{
+      const rows=[...document.querySelectorAll('#rows .ex-row')]; let hasErr=false; const map=new Map();
+      rows.forEach(r=>{
+        const inc=r.querySelector('.incorp'), mot=r.querySelector('.motif');
+        inc.classList.remove('ex-invalid'); mot.classList.remove('ex-invalid');
+        const n=(inc.value||'').trim(), m=(mot.value||'').trim(); let ok=true;
+        if(!/^\d+$/.test(n)){ inc.classList.add('ex-invalid'); ok=false; }
+        if(!m){ mot.classList.add('ex-invalid'); ok=false; }
+        if(ok) map.set(n,m); else hasErr=true;
       });
-
-      if (!valid) {
-        Swal.showValidationMessage("Veuillez corriger les champs en rouge.");
-        return false;
-      }
-      return Array.from(map.entries()).map(([numero, motif]) => ({ numero, motif }));
+      if(map.size===0){ Swal.showValidationMessage("Ajoutez au moins une ligne valide."); return false; }
+      if(hasErr){ Swal.showValidationMessage("Veuillez corriger les champs en rouge."); return false; }
+      const out = {}; for(const [numero,motif] of map.entries()){ out[numero]=motif; }
+      return out;
     }
   });
 
-  const out = res.isConfirmed ? (res.value || []) : [];
-  saveExclusions(out); // mémorise
-  return out;
+  const out = res.isConfirmed ? (res.value||{}) : null;
+  if(res.isConfirmed) saveExclusions(out);
+  return out||{};
 }
 
 /******************************************************
- * 2) Modal CAPACITÉS (pré-rempli + joli) + persistance
+ * 3) STAFF (édition + import)
  ******************************************************/
-async function ajouterSallesViaModal(eleves, exclusions = []) {
-  // recharge éventuelle (capacité + description)
-  const savedRooms = loadRooms(); // [{numero, capacite, description?}]
-  let nbSalles = savedRooms.length;
+async function editerStaff(){
+  const prev=loadStaff(), cfg=loadEstafettesCfg();
+  const html=`
+    <div style="display:grid;gap:12px">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-weight:600">Surveillants (2 par salle)</label>
+        <small style="color:#64748b">Règle : un parmi <b>GPCE/GPHC/GP1C/GP2C</b> + un parmi <b>GHC/G1C/G2C/GST</b>.</small>
+        <textarea id="sv" rows="6" placeholder="Un agent par ligne (ex: GST DUPONT Paul ou DUPONT Paul -- GP2C)"
+          style="width:100%;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px;outline:none">${(prev.surveillants||[]).join("\n")}</textarea>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-weight:600">Estafettes / Agents de liaison (GST prioritaire, G2C si nécessaire)</label>
+        <textarea id="es" rows="5" placeholder="Un agent par ligne (ex: GST RAKOTO …)"
+          style="width:100%;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px;outline:none">${(prev.estafettes||[]).join("\n")}</textarea>
+        <small style="color:#64748b">Astuce : collez la liste complète, je filtrerai GST/G2C aux imports.</small>
+      </div>
+      <fieldset style="display:grid;gap:8px;border:1px solid #e5e7eb;border-radius:12px;padding:10px">
+        <legend style="font-weight:700;font-size:14px;padding:0 6px">Règle estafettes</legend>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <label>Minimum par bâtiment :</label>
+          <input id="minEstaf" type="number" min="2" value="${cfg.minPerBuilding}" style="width:120px;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px" />
+          <label>Passer à 3 si nbre de salles ≥</label>
+          <input id="thrRooms" type="number" min="3" value="${cfg.useThreeWhenRoomsGte}" style="width:120px;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px" />
+        </div>
+      </fieldset>
+    </div>`;
+  const res=await Swal.fire({ title:"Personnel", html, width:720, focusConfirm:false, showCancelButton:true, confirmButtonText:"Enregistrer" });
+  if(!res.isConfirmed) return loadStaff();
 
-  if (!nbSalles) {
-    const { value } = await Swal.fire({
-      title: "Combien de salles ?",
-      input: "number",
-      inputLabel: "Nombre total de salles",
-      inputPlaceholder: "Ex : 40",
-      allowOutsideClick: false,
-      preConfirm: (val) => {
-        const n = parseInt(val, 10);
-        if (isNaN(n) || n <= 0) {
-          Swal.showValidationMessage("Nombre invalide.");
-          return false;
-        }
-        return n;
-      }
-    });
-    if (!value) return;
-    nbSalles = value;
+  const sv=(document.getElementById('sv').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const es=(document.getElementById('es').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const minEst=Math.max(2, parseInt(document.getElementById('minEstaf').value,10)||2);
+  const thr=Math.max(3, parseInt(document.getElementById('thrRooms').value,10)||4);
+  saveStaff({surveillants:sv, estafettes:es}); saveEstafettesCfg({minPerBuilding:minEst, useThreeWhenRoomsGte:thr});
+  return loadStaff();
+}
+
+async function importerPersonnelDepuisColler(){
+  const html=`
+    <div style="display:grid;gap:10px">
+      <p style="margin:0;color:#475569">Collez les lignes (avec <b>GRADE</b> et <b>NOM ET PRENOMS</b>).</p>
+      <textarea id="txtImport" rows="12" placeholder="Collez ici…" style="width:100%;border:1px solid #d1d5db;border-radius:10px;padding:10px 12px;outline:none"></textarea>
+      <small style="color:#64748b">Pas besoin de nettoyer NR/MLE/Téléphone/Unité.</small>
+    </div>`;
+  const res=await Swal.fire({ title:"Importer le personnel (coller depuis Excel)", html, width:720, focusConfirm:false, showCancelButton:true, confirmButtonText:"Importer" });
+  if(!res.isConfirmed) return null;
+  const raw=document.getElementById('txtImport').value||'';
+  const parsed=parsePersonnelFromPasted(raw);
+  if(!parsed.total){ await Swal.fire("Aucun agent détecté","Vérifie la présence des colonnes GRADE/NOM.","warning"); return null; }
+  saveStaff({surveillants:parsed.surveillants, estafettes:parsed.estafettes});
+  await Swal.fire({icon:"success", title:"Import réussi", html:`<div style="text-align:left"><p>Agents détectés : <b>${parsed.total}</b></p><p>Surveillants : <b>${parsed.surveillants.length}</b></p><p>Estafettes (GST/G2C) : <b>${parsed.estafettes.length}</b></p></div>`});
+  return loadStaff();
+}
+
+async function importerPersonnelDepuisExcel(){
+  const html=`<div style="display:grid;gap:10px">
+    <input id="excelFile" type="file" accept=".xlsx,.xls,.csv" style="border:1px solid #d1d5db;border-radius:10px;padding:8px 10px" />
+    <small style="color:#64748b">Le fichier doit contenir <b>GRADE</b> et <b>NOM ET PRENOMS</b>.</small></div>`;
+  const res=await Swal.fire({
+    title:"Importer le personnel depuis un fichier", html, width:560, focusConfirm:false, showCancelButton:true, confirmButtonText:"Importer",
+    preConfirm:async()=>{
+      const input=document.getElementById('excelFile'); const file=input?.files?.[0];
+      if(!file){ Swal.showValidationMessage("Sélectionnez un fichier."); return false; }
+      try{
+        const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:"array"}); const sheet=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(sheet,{defval:"",raw:false}); const parsed=parsePersonnelFromObjects(rows);
+        if(!parsed.total){ Swal.showValidationMessage("Impossible de détecter des agents."); return false; }
+        saveStaff({surveillants:parsed.surveillants, estafettes:parsed.estafettes}); return parsed;
+      }catch(e){ console.error(e); Swal.showValidationMessage("Erreur de lecture du fichier."); return false; }
+    }
+  });
+  if(!res.isConfirmed) return null;
+  const p=res.value;
+  await Swal.fire({icon:"success", title:"Import réussi", html:`<div style="text-align:left"><p>Agents détectés : <b>${p.total}</b></p><p>Surveillants : <b>${p.surveillants.length}</b></p><p>Estafettes (GST/G2C) : <b>${p.estafettes.length}</b></p></div>`});
+  return loadStaff();
+}
+
+/******************************************************
+ * 4) ESTAFETTES — calcul auto en excluant les surveillants
+ ******************************************************/
+// Retourne un Set des noms normalisés de toutes les personnes surveillants (pour toutes les salles)
+function getAllSurveillantNames(salles) {
+  return new Set(
+    (salles || [])
+      .flatMap(s => s.surveillants || [])
+      .map(label => normName(nameFromLabel(label)))
+      .filter(Boolean)
+  );
+}
+
+function computeEstafettesParBat(salles, staff, editedMap /* {bat -> [label]} */){
+  // Choix utilisateur précédents
+  
+  const fromUI = new Map(Object.entries(editedMap||{}));
+  const cfg = loadEstafettesCfg();
+
+  // 1) Exclure toute personne déjà surveillant (règle stricte)
+  const survUsed = getAllSurveillantNames(salles);
+
+  // 2) Pool autorisé = GST puis G2C, hors surveillants
+// Pool des estafettes autorisées : jamais un déjà surveillant
+const base = (staff?.estafettes||[])
+.map(l => ({ grade: gradeFromLabel(l), name: nameFromLabel(l), label:l }))
+.filter(p => ONLY_ESTAFETTE_GRADES.has(p.grade))
+.filter(p => !survUsed.has(normName(p.name))); // <--- ICI
+
+  // 3) Déduplique par nom + mélange pour vrai random
+  const seen = new Set();
+  const pool = base.filter(p=>{
+    const n=normName(p.name);
+    if(seen.has(n)) return false;
+    seen.add(n);
+    return true;
+  });
+  shuffleInPlace(pool);
+
+  // 4) Groupement des salles par bâtiment
+  const byBat = new Map();
+  for(const s of (salles||[])){
+    const b=_clean(s.batiment)||"—";
+    if(!byBat.has(b)) byBat.set(b,[]);
+    byBat.get(b).push(s);
   }
 
-  // CSS (si pas déjà injecté)
-  if (!document.getElementById("swal-repart-css")) {
-    const style = document.createElement("style");
-    style.id = "swal-repart-css";
+  const perBat = loadEstafettesPerBuilding();   // <-- ajout
+  const needFor = (bat)=>{
+    if (perBat[bat]) return perBat[bat];
+    const nb=(byBat.get(bat)||[]).length;
+    return (nb >= cfg.useThreeWhenRoomsGte) ? Math.max(3,cfg.minPerBuilding) : Math.max(2,cfg.minPerBuilding);
+  };
+
+  // 5) Round-robin *avec* unicité globale estafettes (pas 2 bâtiments)
+  let idx=0;
+  const usedEst = new Set(); // noms normalisés déjà affectés comme estafette (tous bâtiments)
+  const rr = ()=>{
+    while(idx < pool.length){
+      const lab = pool[idx++].label;
+      const n = normName(nameFromLabel(lab));
+      if(!usedEst.has(n)){
+        usedEst.add(n);
+        return lab;
+      }
+    }
+    return null; // plus personne dispo → laisser vide
+  };
+
+  // 6) Construit le résultat par bâtiment
+  const out=new Map();
+  for(const bat of byBat.keys()){
+    const need = needFor(bat);
+
+    // On nettoie d'abord les sélections utilisateur :
+    //  - supprime quiconque est surveillant
+    //  - supprime doublons par nom
+    const userSelRaw = (fromUI.get(bat)||[]).filter(Boolean);
+    const seenLoc = new Set();
+    const userSel = [];
+    for(const lab of userSelRaw){
+      const n = normName(nameFromLabel(lab));
+      if(!n) continue;
+      if(survUsed.has(n)) continue;         // jamais surveillant & estafette
+      if(usedEst.has(n)) continue;          // déjà utilisé par un autre bâtiment
+      if(seenLoc.has(n)) continue;          // pas de doublon local
+      seenLoc.add(n);
+      usedEst.add(n);                        // réserve globalement
+      userSel.push(lab);
+    }
+
+    // Complète aléatoirement jusqu'au besoin
+    const list = userSel.slice(0, need);
+    while(list.length < need){
+      const e = rr();
+      if(!e) break;                          // pool épuisé -> vide laissé
+      list.push(e);
+    }
+    out.set(bat, list);
+  }
+  return out;
+}
+
+
+/******************************************************
+ * 5) MODAL principal (salles + à droite onglet Estafettes)
+ ******************************************************/
+/******************************************************
+ * 5) MODAL principal (salles + à droite onglet Estafettes)
+ *    → version "simple" : on redemande TOUJOURS le nb de salles
+ *      et on ajuste savedRooms avant d'ouvrir le modal
+ ******************************************************/
+async function ajouterSallesViaModal(eleves, exclusions = []) {
+  const savedRooms = loadRooms();
+  const prevCount = savedRooms.length || 0;
+  // Demande systématique du nombre de salles (pré-rempli)
+  const { value } = await Swal.fire({
+    title: "Combien de salles ?",
+    input: "number",
+    inputLabel: "Nombre total de salles",
+    inputValue: prevCount || "",
+    inputPlaceholder: "Ex : 40",
+    allowOutsideClick: false,
+    showCancelButton: true,
+    confirmButtonText: "Continuer",
+    cancelButtonText: "Annuler",
+    preConfirm: (val) => {
+      const n = parseInt(val, 10);
+      if (isNaN(n) || n <= 0) {
+        Swal.showValidationMessage("Nombre invalide (≥ 1).");
+        return false;
+      }
+      return n;
+    }
+  });
+  if (!value) return; // annulé
+  // Ajuste la liste de salles à la nouvelle taille
+  const nbSalles = parseInt(value, 10);
+  let activeRooms = savedRooms.slice(0, nbSalles);
+  if (activeRooms.length < nbSalles) {
+    for (let i = activeRooms.length; i < nbSalles; i++) {
+      activeRooms.push({ numero: i + 1, capacite: 0, description: "", batiment: "", surveillants: [] });
+    }
+  }
+  // Renumérote proprement
+  activeRooms = activeRooms.map((r, i) => ({
+    numero: i + 1,
+    capacite: Number(r.capacite) || 0,
+    description: r.description || "",
+    batiment: r.batiment || "",
+    surveillants: Array.isArray(r.surveillants) ? r.surveillants.slice(0, 2) : []
+  }));
+  // (Option) on sauvegarde tout de suite cette base redimensionnée
+  saveRooms(activeRooms);
+  // ===== CSS (inchangé, 1 seule fois)
+  if (!document.getElementById('swal-repart-css')) {
+    const style = document.createElement('style'); style.id = 'swal-repart-css';
     style.textContent = `
-      .swal2-popup.repart-popup { padding: 18px 20px 16px; }
-      .repart-toolbar{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
-      .repart-toolbar-left{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-      .repart-toolbar-left input{ width:190px; padding:8px 10px; border:1px solid #cfd4dc; border-radius:10px; outline:none; }
-      .btn-chip{ padding:8px 12px; border-radius:10px; border:none; cursor:pointer; background:#3b82f6; color:#fff; box-shadow:0 1px 2px rgba(0,0,0,.06); }
-      .btn-chip.alt{ background:#6366f1; }
-      .btn-chip.ghost{ background:#e5e7eb; color:#111827; }
-      .repart-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px; max-height:420px; overflow:auto; padding-right:2px; }
-      .room-card{ background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:12px; display:flex; flex-direction:column; gap:10px; box-shadow:0 1px 3px rgba(16,24,40,.06); transition:transform .08s ease, box-shadow .1s ease; }
-      .room-card:hover{ transform:translateY(-1px); box-shadow:0 6px 16px rgba(16,24,40,.08); }
-      .room-head{ display:flex; align-items:center; justify-content:center; }
-      .room-badge{ font-weight:700; font-size:13px; line-height:1; background:#eef2ff; color:#4338ca; padding:6px 10px; border-radius:999px; border:1px solid #c7d2fe; }
-      .room-input-group{ display:flex; align-items:center; gap:8px; justify-content:center; }
-      .room-input-group input.salle-nb{ width:92px; text-align:center; padding:10px 8px; border:1px solid #cfd4dc; border-radius:10px; font-weight:700; outline:none; transition:border-color .15s ease, background .15s ease; }
-      .room-input-group input.salle-nb.invalid{ border-color:#ef4444; background:#fff1f2; }
-      .btn-inc,.btn-dec{ width:34px; height:34px; border-radius:10px; border:1px solid #e5e7eb; cursor:pointer; background:#f3f4f6; font-size:18px; font-weight:700; line-height:1; display:flex; align-items:center; justify-content:center; transition:background .12s ease, transform .08s ease; }
-      .btn-inc:hover,.btn-dec:hover{ background:#e5e7eb; }
-      .btn-inc:active,.btn-dec:active{ transform:scale(.98); }
-      .room-desc{ width:100%; padding:8px 10px; border:1px solid #cfd4dc; border-radius:10px; outline:none; }
-      .repart-footer{ display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding:8px 10px; background:#f8fafc; border:1px solid #e5e7eb; border-radius:12px; font-size:13px; color:#334155; }
-      .footer-kpi{ display:flex; gap:12px; align-items:center; }
-      .kpi{ background:#eef2ff; color:#3730a3; border:1px solid #c7d2fe; padding:6px 10px; border-radius:10px; font-weight:700; }
+      .swal2-popup.repart-popup{padding:18px 20px 16px}
+      .btn-chip{padding:8px 12px;border-radius:10px;border:none;background:#3b82f6;color:#fff;cursor:pointer}
+      .btn-chip.alt{background:#6366f1} .btn-chip.ghost{background:#e5e7eb;color:#111827}
+      .repart-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+      .repart-toolbar-left{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+      .repart-toolbar-left input{padding:8px 10px;border:1px solid #cfd4dc;border-radius:10px}
+      .repart-body{display:grid;grid-template-columns:1fr 320px;gap:12px}
+      .repart-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;max-height:480px;overflow:auto;padding-right:2px}
+      .room-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;box-shadow:0 1px 3px rgba(16,24,40,.06)}
+      .room-head{display:flex;align-items:center;justify-content:center}
+      .room-badge{font-weight:700;font-size:13px;background:#eef2ff;color:#4338ca;padding:6px 10px;border-radius:999px;border:1px solid #c7d2fe}
+      .room-input-group{display:flex;align-items:center;gap:8px;justify-content:center}
+      .room-input-group input.salle-nb{width:92px;text-align:center;padding:10px 8px;border:1px solid #cfd4dc;border-radius:10px;font-weight:700}
+      .btn-inc,.btn-dec{width:34px;height:34px;border-radius:10px;border:1px solid #e5e7eb;background:#f3f4f6;font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center}
+      .room-building,.room-desc{width:100%;padding:8px 10px;border:1px solid #cfd4dc;border-radius:10px}
+      .room-staff{display:flex;flex-direction:column;gap:6px;padding:8px;border:1px dashed #e5e7eb;border-radius:10px;background:#f8fafc;font-size:12.5px}
+      .room-staff .lab{font-weight:700;color:#334155}
+      .room-staff select{width:100%;padding:8px 10px;border:1px solid #cfd4dc;border-radius:10px}
+      .repart-sidebar{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:10px}
+      .side-title{font-weight:800;font-size:14px}
+      .est-item{border:1px dashed #e5e7eb;border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px}
+      .est-head{display:flex;justify-content:space-between;align-items:center;font-weight:600}
+      .est-list select{width:100%;margin-top:6px;padding:8px 10px;border:1px solid #cfd4dc;border-radius:10px}
+      .room-card.sv-missing{border-color:#ef4444 !important;box-shadow:0 0 0 3px rgba(239,68,68,.12)}
+      .estaf-missing{color:#b91c1c;font-weight:600}
+      .repart-footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:8px 10px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;font-size:13px;color:#334155}
+      .footer-kpi{display:flex;gap:12px;align-items:center}
+      .kpi{background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;padding:6px 10px;border-radius:10px;font-weight:700}
+      .shortage-badge{margin-left:8px;padding:6px 10px;border-radius:999px;font-weight:700;font-size:12px}
+      .short-ok{background:#dcfce7;color:#065f46;border:1px solid #bbf7d0}
+      .short-warn{background:#fef9c3;color:#92400e;border:1px solid #fde68a}
+      .short-bad{background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
+      .room-card.sv-duplicate {
+        border-color: #a855f7 !important;
+        box-shadow: 0 0 0 3px rgba(168,85,247,.18);
+      }
+      .reprise-box{border:1px solid #e5e7eb;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.reprise-head{display:flex;justify-content:space-between;align-items:center;font-weight:700}
+.reprise-grid{display:grid;grid-template-columns:1fr 110px 34px;gap:6px}
+.reprise-grid input{padding:8px 10px;border:1px solid #cfd4dc;border-radius:10px}
+.reprise-add{padding:6px 10px;border:none;border-radius:10px;background:#3b82f6;color:#fff;cursor:pointer}
+.reprise-del{border:1px solid #e5e7eb;border-radius:10px;background:#f3f4f6;cursor:pointer}
+
+      
     `;
     document.head.appendChild(style);
   }
-
-  // Cartes (capacité + description)
-  const cards = Array.from({ length: nbSalles }, (_, i) => {
-    const cap  = savedRooms[i]?.capacite ?? "";
-    const desc = savedRooms[i]?.description ?? "";
+  // === GÉNÉRATION DES CARTES À PARTIR DE activeRooms
+  const cardsHTML = activeRooms.map((r, i) => {
+    const cap = r.capacite ?? "";
+    const desc = r.description ?? "";
+    const bat  = r.batiment ?? "";
     return `
       <div class="room-card">
-        <div class="room-head">
-          <span class="room-badge">Salle ${i + 1}</span>
-        </div>
+        <div class="room-head"><span class="room-badge">Salle ${i + 1}</span></div>
         <div class="room-input-group">
           <button class="btn-dec" type="button" data-idx="${i}">−</button>
           <input class="salle-nb" type="number" min="1" inputmode="numeric" placeholder="Nb élèves" data-idx="${i}" value="${cap}">
           <button class="btn-inc" type="button" data-idx="${i}">+</button>
         </div>
-        <input class="room-desc" type="text" placeholder="Description (ex: Salle 11, Réfectoire Nord…)" data-idx="${i}" value="${desc}">
-      </div>
-    `;
+        <input class="room-building" type="text" placeholder="Bâtiment (ex: A, Bloc 1…)" data-idx="${i}" value="${bat}">
+        <input class="room-desc" type="text" placeholder="Description (ex: Salle 11…)" data-idx="${i}" value="${desc}">
+        <div class="room-staff" data-idx="${i}">
+          <div class="lab">Surveillants (2 requis)</div>
+          <select class="sv1" data-idx="${i}"></select>
+          <select class="sv2" data-idx="${i}" style="margin-top:4px"></select>
+        </div>
+      </div>`;
   }).join("");
-
+  // Barre d'outils (inchangée)
   const toolbar = `
     <div class="repart-toolbar">
       <div class="repart-toolbar-left">
-        <input id="cap-def"  type="number" min="1" placeholder="Capacité par défaut" />
-        <button id="apply-all"     class="btn-chip">Appliquer à toutes</button>
-        <input id="desc-def" type="text" placeholder="Description par défaut" />
-        <button id="apply-desc-all" class="btn-chip alt">Appliquer descriptions</button>
-        <button id="clear-all"     class="btn-chip ghost">Tout vider</button>
+        <button id="btn-staff" class="btn-chip">Personnel</button>
+        <button id="btn-import-excel" class="btn-chip ghost">Importer Excel</button>
+        <button id="btn-import-paste" class="btn-chip ghost">Coller Excel</button>
+        <input id="cap-def" type="number" min="1" placeholder="Capacité par défaut"/><button id="apply-all" class="btn-chip">Appliquer à toutes</button>
+        <input id="desc-def" type="text" placeholder="Description par défaut"/><button id="apply-desc-all" class="btn-chip alt">Appliquer descriptions</button>
+        <input id="builds" type="text" placeholder="Bâtiments (ex: A,B,C)"/><button id="apply-buildings" class="btn-chip ghost">Assigner bâtiments</button>
+        <input id="group-size" type="number" min="2" value="3" placeholder="Taille cible"/><input id="group-max" type="number" min="3" value="5" placeholder="Taille max"/><button id="auto-group-buildings" class="btn-chip">Grouper (A,B,C…)</button>
+        <button id="clear-all" class="btn-chip ghost">Tout vider</button>
       </div>
       <div style="font-size:12px;color:#6b7280">Entrée : valider • Échap : annuler</div>
+    </div>`;
+  // Corps : grille + sidebar estafettes
+  const bodyHTML = `
+    <div class="repart-body">
+      <div class="repart-grid">${cardsHTML}</div>
+      <aside class="repart-sidebar">
+        <div class="side-title">Onglet — Estafettes par bâtiment</div>
+        <div id="estafette-panel"></div>
+        <div class="reprise-box" id="reprise-box">
+        <div class="reprise-head">
+         <span>À reprendre (réserves)</span>
+        <button type="button" id="reprise-add" class="reprise-add">+ Ligne</button>
     </div>
-  `;
+  <div class="reprise-grid" id="reprise-grid"></div>
+</div>
+
+      </aside>
+    </div>`;
+  // Footer
   const footer = `
     <div class="repart-footer">
       <div class="footer-kpi">
         <span>Total saisi : <span id="sum-cap" class="kpi">0</span></span>
-        ${Array.isArray(eleves) ? `<span>Élèves dispo : <span class="kpi">${eleves.length}</span></span>` : ``}
-        <span>Salles : <span class="kpi">${nbSalles}</span></span>
+        ${Array.isArray(eleves) ? `<span>Élèves dispo : <span class="kpi">${eleves.length}</span></span>` : ''}
+        <span>Salles : <span class="kpi">${activeRooms.length}</span></span>
+        <span id="shortage-indicator" class="shortage-badge short-ok" style="display:none"></span>
       </div>
       <div style="font-size:12px;color:#6b7280">Astuce : utilisez les boutons +/−</div>
-    </div>
-  `;
-
+    </div>`;
+  // Ouverture
   const result = await Swal.fire({
-    title: "Effectif & descriptions des salles",
-    html: `${toolbar}<div class="repart-grid">${cards}</div>${footer}`,
-    width: 960,
+    title: "Effectif, bâtiments & personnels des salles",
+    html: `${toolbar}${bodyHTML}${footer}`,
+    width: 1100,
     focusConfirm: false,
     allowOutsideClick: false,
     customClass: { popup: "repart-popup" },
     showCancelButton: true,
     confirmButtonText: "Valider Répartition",
     didOpen: () => {
-      const inputs = [...document.querySelectorAll(".salle-nb")];
-      const sumEl  = document.getElementById("sum-cap");
-      const total  = Array.isArray(eleves) ? eleves.length : null;
-
+      const inputs = [...document.querySelectorAll('.salle-nb')];
+      const sumEl = document.getElementById('sum-cap');
+      const total = Array.isArray(eleves) ? eleves.length : null;
       const updateSum = () => {
-        const sum = inputs.reduce((acc, inp) => acc + (parseInt(inp.value, 10) || 0), 0);
+        const sum = inputs.reduce((a, inp) => a + (parseInt(inp.value, 10) || 0), 0);
         if (sumEl) {
           sumEl.textContent = sum;
           if (total != null) {
@@ -468,460 +839,838 @@ async function ajouterSallesViaModal(eleves, exclusions = []) {
           }
         }
       };
+      // Bouton Random (surveillants) — inchangé
+      const confirmBtn = Swal.getConfirmButton();
+      const randomBtn = document.createElement('button');
+      randomBtn.id = 'btn-random-staff';
+      randomBtn.textContent = 'Random personnels';
+      randomBtn.className = 'btn-chip alt';
+      randomBtn.style.marginRight = '8px';
+      confirmBtn.parentNode.insertBefore(randomBtn, confirmBtn);
+      // Estafettes par bâtiment (état)
+      let estAssign = loadEstafettesAssign();
+      let staff = loadStaff();
 
-      document.querySelectorAll(".btn-inc").forEach(btn => {
-        btn.addEventListener("click", () => {
-          const idx = btn.getAttribute("data-idx");
-          const inp = document.querySelector(`.salle-nb[data-idx="${idx}"]`);
-          const v = Math.max(0, parseInt(inp.value || "0", 10)) + 1;
-          inp.value = v;
-          inp.classList.remove("invalid");
-          updateSum();
+      const getSallesSnapshot = () => [...document.querySelectorAll('.room-card')].map((card, i) => ({
+        numero: i + 1,
+        batiment: (card.querySelector('.room-building')?.value || '').trim() || '—',
+        surveillants: [card.querySelector('.sv1')?.value, card.querySelector('.sv2')?.value].filter(Boolean)
+      }));
+      function getAllEstafetteNames(estAssign) {
+        // Retourne Set de tous les noms (normés) d’estafettes assignées (tous bâtiments)
+        return new Set(
+          Object.values(estAssign || {})
+            .flat()
+            .map(label => normName(nameFromLabel(label)))
+            .filter(Boolean)
+        );
+      }
+      function buildSurveillantOptions() {
+        const pools = buildSurvPools(staff.surveillants || []);
+        // Compter combien de fois chaque personne est affectée
+        const allRooms = [...document.querySelectorAll('.room-card')];
+        const surveillantCount = {};
+        allRooms.forEach(card => {
+          ['sv1', 'sv2'].forEach(cls => {
+            const v = card.querySelector(`.${cls}`)?.value;
+            if (v) {
+              const n = normName(nameFromLabel(v));
+              surveillantCount[n] = (surveillantCount[n] || 0) + 1;
+            }
+          });
         });
-      });
-      document.querySelectorAll(".btn-dec").forEach(btn => {
-        btn.addEventListener("click", () => {
-          const idx = btn.getAttribute("data-idx");
-          const inp = document.querySelector(`.salle-nb[data-idx="${idx}"]`);
-          const v = Math.max(0, parseInt(inp.value || "0", 10) - 1);
-          inp.value = v || "";
-          inp.classList.remove("invalid");
-          updateSum();
+        // Noms d'estafette
+        const estAssign = loadEstafettesAssign();
+        const allEstafette = getAllEstafetteNames(estAssign);
+      
+        const options = pools.display.map(p => {
+          const n = normName(p.name);
+          const isEstafette = allEstafette.has(n);
+          const count = surveillantCount[n] || 0;
+          // Coloration :
+          // - ROUGE si affecté dans PLUS D’UNE salle, ou déjà estafette
+          // - BLEU si jamais affecté
+          // - GRIS si utilisé une fois
+          let color = 'background:#dbeafe;color:#2563eb'; // bleu
+          if (isEstafette || count > 1) color = 'background:#fee2e2;color:#991b1b'; // rouge vif
+          else if (count === 1) color = 'background:#e0e7ff;color:#64748b;'; // gris/bleu pâle
+          return `<option value="${p.label.replace(/"/g, '&quot;')}" style="${color}">${p.label}</option>`;
+        }).join('');
+        document.querySelectorAll('.sv1,.sv2').forEach(sel => {
+          const cur = sel.value;
+          sel.innerHTML = `<option value=""></option>` + options;
+          if (cur && [...sel.options].some(o => o.value === cur)) {
+            sel.value = cur;
+          } else {
+            sel.selectedIndex = 0;
+          }
         });
-      });
+      }
+      
+      
+      /** 
+       * Colore la carte salle si un surveillant est déjà ailleurs comme surveillant OU comme estafette.
+       */
+      function colorizeDuplicateSurveillants() {
+        const allRooms = [...document.querySelectorAll('.room-card')];
+        // 1. Compte le nombre d'occurrences de chaque surveillant
+        const surveillantToRooms = {};
+        allRooms.forEach((card, idx) => {
+          ['sv1', 'sv2'].forEach(cls => {
+            const val = card.querySelector(`.${cls}`)?.value;
+            if (val) {
+              const norm = normName(nameFromLabel(val));
+              if (!surveillantToRooms[norm]) surveillantToRooms[norm] = [];
+              surveillantToRooms[norm].push(idx); // stocke l'indice de la salle
+            }
+          });
+        });
+      
+        // 2. Pour chaque salle, regarde si l’un des surveillants y est affecté à plus d'une salle
+        allRooms.forEach((card, idx) => {
+          let isDuplicate = false;
+          ['sv1', 'sv2'].forEach(cls => {
+            const val = card.querySelector(`.${cls}`)?.value;
+            if (val) {
+              const norm = normName(nameFromLabel(val));
+              // S'il y a PLUS d'une salle pour ce surveillant, c'est un doublon
+              if (surveillantToRooms[norm] && surveillantToRooms[norm].length > 1) {
+                isDuplicate = true;
+              }
+            }
+          });
+          if (isDuplicate) card.classList.add('sv-duplicate');
+          else card.classList.remove('sv-duplicate');
+        });
+      }
+      
+      
+      
+    
+      
+      
+      
+      
+      function colorizeShortages(estMap) {
+        const cards = [...document.querySelectorAll('.room-card')];
+        let missingSV = 0, missingEst = 0;
+        const cfg = loadEstafettesCfg();
+        const snapshot = getSallesSnapshot();
+        const countByBat = new Map();
+        snapshot.forEach(s => countByBat.set(s.batiment, (countByBat.get(s.batiment) || 0) + 1));
+        const needFor = bat => (countByBat.get(bat) || 0) >= cfg.useThreeWhenRoomsGte ? Math.max(3, cfg.minPerBuilding) : Math.max(2, cfg.minPerBuilding);
+        cards.forEach(card => {
+          const sv1 = card.querySelector('.sv1')?.value, sv2 = card.querySelector('.sv2')?.value;
+          if (!sv1 || !sv2) { card.classList.add('sv-missing'); missingSV++; } else card.classList.remove('sv-missing');
+        });
+        for (const [bat, list] of estMap.entries()) {
+          const need = needFor(bat); missingEst += Math.max(0, need - (list?.length || 0));
+        }
+        const badge = document.getElementById('shortage-indicator');
+        if (missingSV === 0 && missingEst === 0) {
+          badge.style.display = 'inline-block'; badge.className = 'shortage-badge short-ok'; badge.textContent = 'Aucun manque de personnel';
+        } else {
+          badge.style.display = 'inline-block';
+          const parts = []; if (missingSV > 0) parts.push(`${missingSV} salle(s) sans 2 surveillants`); if (missingEst > 0) parts.push(`estafettes manquantes: ${missingEst}`);
+          const sev = (missingSV > 0 && missingEst > 0) ? 'short-bad' : 'short-warn';
+          badge.className = `shortage-badge ${sev}`; badge.textContent = parts.join(' · ');
+        }
+        return { missingSV, missingEst };
+      }
+      
 
-      inputs.forEach(inp => {
-        inp.addEventListener("input", () => { inp.classList.remove("invalid"); updateSum(); });
-        inp.addEventListener("wheel", e => e.preventDefault(), { passive:false });
-      });
+      function renderEstafettePanel() {
+        const panel = document.getElementById('estafette-panel');
+        if (!panel) return;
+        const snapshot = getSallesSnapshot();
+        const survUsed = getAllSurveillantNames(snapshot);
+        const estAssign = loadEstafettesAssign();
+        const perBat = loadEstafettesPerBuilding();
+        let staff = loadStaff();
 
-      document.getElementById("apply-all")?.addEventListener("click", () => {
-        const v = parseInt(document.getElementById("cap-def").value, 10);
-        if (!isNaN(v) && v > 0) { inputs.forEach(inp => inp.value = v); updateSum(); }
-      });
-      document.getElementById("apply-desc-all")?.addEventListener("click", () => {
-        const d = document.getElementById("desc-def").value || "";
-        document.querySelectorAll(".room-desc").forEach(inp => inp.value = d);
-      });
-      document.getElementById("clear-all")?.addEventListener("click", () => {
-        inputs.forEach(inp => inp.value = "");
-        document.querySelectorAll(".room-desc").forEach(inp => inp.value = "");
-        updateSum();
-      });
+      
+        // Liste des surveillants déjà utilisés (pour filtrer l'affichage)
+        
+      
+        // Filtrer la pool d’estafettes (jamais de doublon)
+        const pool = (staff.estafettes || [])
+        .filter(l => ONLY_ESTAFETTE_GRADES.has(gradeFromLabel(l)))
+         .filter(l => !survUsed.has(normName(nameFromLabel(l))));
+ 
+        const options = pool.map(l => `<option value="${l.replace(/"/g, '&quot;')}">${l}</option>`).join('');
+      
+        // Pour calcul du besoin personnalisé par bâtiment
+        const cfg = loadEstafettesCfg();
+        const countByBat = new Map();
+        snapshot.forEach(s => countByBat.set(s.batiment, (countByBat.get(s.batiment) || 0) + 1));
+        const needFor = bat => {
+          if (perBat[bat]) return perBat[bat];
+          return (countByBat.get(bat) || 0) >= cfg.useThreeWhenRoomsGte ? Math.max(3, cfg.minPerBuilding) : Math.max(2, cfg.minPerBuilding);
+        };
+      
+        const bats = [...new Set(snapshot.map(s => s.batiment))];
+        
 
-      Swal.getPopup().addEventListener("keydown", (e) => {
-        if (e.key === "Enter") { e.preventDefault(); Swal.clickConfirm(); }
-      });
+        panel.innerHTML = bats.map(bat => {
+          const custom = perBat[bat];
+          const need = typeof custom === 'number' ? custom : needFor(bat);
+          const list = computeEstafettesParBat(snapshot, staff, estAssign).get(bat) || [];
+          const manque = Math.max(0, need - list.length);
+          const selects = Array.from({ length: need }, (_, i) => `
+            <select class="est-sel" data-bat="${bat}" data-idx="${i}">
+              <option value=""></option>${options}
+            </select>`).join('');
+          return `
+            <div class="est-item">
+              <div class="est-head">
+                <span>Bâtiment <b>${bat}</b></span>
+                <span>
+                  ${manque>0?`(manque ${manque})`:`${need} requis`}
+                  <button class="btn-set-estaf" data-bat="${bat}" style="margin-left:6px">🖉</button>
+                </span>
+              </div>
+              <div class="est-list" data-bat="${bat}">
+                ${selects}
+              </div>
+            </div>`;
+        }).join('');
+      
+        // Édition du nombre d’estafettes pour chaque bâtiment
+        panel.querySelectorAll('.btn-set-estaf').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const bat = btn.getAttribute('data-bat');
+            const prev = perBat[bat] ?? '';
+            const { value } = await Swal.fire({
+              title: `Nb d’estafettes pour ${bat}`,
+              input: 'number',
+              inputValue: prev,
+              inputAttributes: { min: 1 },
+              showCancelButton: true
+            });
+            if (value !== undefined) {
+              if (value === '' || isNaN(Number(value))) delete perBat[bat];
+              else perBat[bat] = Math.max(1, Number(value));
+              saveEstafettesPerBuilding(perBat);
+              renderEstafettePanel();
+              renderReprisePanel();
+            }
+          });
+        });
+      
+        // Appliquer la sélection de la sauvegarde (jamais de surveillant déjà choisi)
+        panel.querySelectorAll('.est-sel').forEach(sel => {
+          const bat = sel.getAttribute('data-bat');
+          const idx = parseInt(sel.getAttribute('data-idx'), 10);
+          const cur = (estAssign[bat] || [])[idx] || '';
+          // On ne propose pas les surveillants
+          sel.value = [...sel.options].some(o => o.value === cur) ? cur : '';
+          sel.addEventListener('change', () => {
+            const arr = (estAssign[bat] || []).slice();
+            arr[idx] = sel.value || '';
+            estAssign[bat] = arr.filter(Boolean);
+            saveEstafettesAssign(estAssign);
+            renderEstafettePanel();
+            renderReprisePanel();
+          });
+        });
+      
+        // Affiche les alertes de manque
+        colorizeShortages(computeEstafettesParBat(snapshot, staff, estAssign));
+      }
+      
 
+      function renderReprisePanel() {
+        const grid = document.getElementById('reprise-grid');
+        if (!grid) return;
+      
+        // 1) Charger l'existant
+        let rows = loadReprise(); // [{nom, nombre}]
+      
+        // 2) Si vide (ou uniquement lignes vides), proposer l'auto par défaut (modifiable ensuite)
+        const isEmpty = !rows.length || rows.every(r => !(r?.nom?.trim()) && !(Number(r?.nombre) > 0));
+        if (isEmpty) {
+          const snapshot = getSallesSnapshot();       // déjà défini dans didOpen
+          const suggestion = computeSuggestedReprise(snapshot, staff, estAssign);
+          if (suggestion.length) {
+            rows = suggestion;
+            saveReprise(rows);                        // on persiste pour l’export Excel
+          } else {
+            // Laisse une ligne vide si aucune suggestion
+            rows = [{ nom:"", nombre:0 }];
+            saveReprise(rows);
+          }
+        }
+      
+        const rowHTML = (nom="", nombre="") => `
+          <input class="repr-nom" placeholder="Nom" value="${(nom||"").replace(/"/g,'&quot;')}">
+          <input class="repr-nb" type="number" min="0" placeholder="Nombre" value="${Number(nombre)||""}">
+          <button type="button" class="reprise-del">×</button>
+        `;
+      
+        grid.innerHTML = rows.map(r => rowHTML(r.nom, r.nombre)).join('');
+      
+        // Écouteurs: suppression d'une ligne
+        grid.addEventListener('click', (e) => {
+          const btn = e.target.closest('.reprise-del');
+          if (!btn) return;
+          const items = [...grid.querySelectorAll('.repr-nom')].map((inp, i) => ({
+            nom: inp.value.trim(),
+            nombre: Number(grid.querySelectorAll('.repr-nb')[i].value || 0)
+          }));
+          const idx = [...grid.querySelectorAll('.reprise-del')].indexOf(btn);
+          if (idx >= 0) items.splice(idx, 1);
+          saveReprise(items);
+          renderReprisePanel();
+        });
+      
+        // Sauvegarde sur input
+        grid.querySelectorAll('.repr-nom,.repr-nb').forEach(inp => {
+          inp.addEventListener('input', () => {
+            const items = [...grid.querySelectorAll('.repr-nom')].map((inp, i) => ({
+              nom: inp.value.trim(),
+              nombre: Number(grid.querySelectorAll('.repr-nb')[i].value || 0)
+            }));
+            saveReprise(items);
+          });
+        });
+      }
+      
+      
+      // Bouton + ligne
+      document.getElementById('reprise-add')?.addEventListener('click', () => {
+        const list = loadReprise().slice();
+        list.push({ nom:"", nombre:0 });
+        saveReprise(list);
+        renderReprisePanel();
+      });
+      
+
+
+      function colorizeDuplicateSurveillants() {
+        // Récupère toutes les affectations surveillants
+        const allRooms = [...document.querySelectorAll('.room-card')];
+        const surveillantToRooms = {};
+        allRooms.forEach((card, idx) => {
+          ['sv1', 'sv2'].forEach(cls => {
+            const val = card.querySelector(`.${cls}`)?.value;
+            if (val) {
+              const norm = normName(nameFromLabel(val));
+              if (!surveillantToRooms[norm]) surveillantToRooms[norm] = [];
+              surveillantToRooms[norm].push(idx);
+            }
+          });
+        });
+        allRooms.forEach((card, idx) => {
+          let isDuplicate = false;
+          ['sv1', 'sv2'].forEach(cls => {
+            const val = card.querySelector(`.${cls}`)?.value;
+            if (val) {
+              const norm = normName(nameFromLabel(val));
+              if (surveillantToRooms[norm] && surveillantToRooms[norm].length > 1 && surveillantToRooms[norm].includes(idx)) {
+                isDuplicate = true;
+              }
+            }
+          });
+          if (isDuplicate) card.classList.add('sv-duplicate');
+          else card.classList.remove('sv-duplicate');
+        });
+      }
+      colorizeDuplicateSurveillants();
+
+      
+
+      
+      function snapshotRoomsFromModalAndSave() {
+        const cards = [...document.querySelectorAll('.room-card')];
+        const out = cards.map((card, i) => ({
+          numero: i + 1,
+          capacite: parseInt(card.querySelector('.salle-nb')?.value, 10) || 0,
+          description: (card.querySelector('.room-desc')?.value || '').trim(),
+          batiment: (card.querySelector('.room-building')?.value || '').trim(),
+          surveillants: [card.querySelector('.sv1')?.value, card.querySelector('.sv2')?.value].filter(Boolean)
+        }));
+        saveRooms(out);
+      }
+      function randomizeSurveillantsAcrossRooms() {
+        const pools = buildSurvPools(staff.surveillants || []); 
+        const usedNames = new Set(); // Suivre les noms déjà utilisés
+        
+        // Créer des copies mélangées des pools
+        const shuffledA = shuffleInPlace(pools.A.slice());
+        const shuffledB = shuffleInPlace(pools.B.slice());
+        
+        document.querySelectorAll('.room-card').forEach(card => {
+          const s1 = card.querySelector('.sv1');
+          const s2 = card.querySelector('.sv2');
+          
+          // Trouver un surveillant du groupe A non utilisé
+          let personA = null;
+          for (let i = 0; i < shuffledA.length; i++) {
+            if (!usedNames.has(normName(shuffledA[i].name))) {
+              personA = shuffledA[i];
+              usedNames.add(normName(personA.name));
+              break;
+            }
+          }
+          
+          // Trouver un surveillant du groupe B non utilisé
+          let personB = null;
+          for (let i = 0; i < shuffledB.length; i++) {
+            if (!usedNames.has(normName(shuffledB[i].name))) {
+              personB = shuffledB[i];
+              usedNames.add(normName(personB.name));
+              break;
+            }
+          }
+          
+          // Assigner aléatoirement l'ordre
+          if (Math.random() < 0.5) {
+            s1.value = personB ? personB.label : '';
+            s2.value = personA ? personA.label : '';
+          } else {
+            s1.value = personA ? personA.label : '';
+            s2.value = personB ? personB.label : '';
+          }
+        });
+      }
+      // Random : surveillants + estafettes auto
+      randomBtn.addEventListener('click', () => {
+        randomizeSurveillantsAcrossRooms();
+        snapshotRoomsFromModalAndSave();
+        const autoMap = computeEstafettesParBat(getSallesSnapshot(), staff, {});
+        const estAssignObj = Object.fromEntries([...autoMap.entries()]);
+        saveEstafettesAssign(estAssignObj);
+        renderEstafettePanel();
+        renderReprisePanel();
+        const estMap = computeEstafettesParBat(getSallesSnapshot(), staff, estAssignObj);
+        const { missingSV, missingEst } = colorizeShortages(estMap);
+        if (missingSV > 0 || missingEst > 0) {
+          Swal.fire({ toast:true, position:"top-end", timer:2500, showConfirmButton:false, icon:"warning",
+            title:`Random terminé`, text:`Manques → Surveillants: ${missingSV} salle(s), Estafettes: ${missingEst}` });
+        } else {
+          Swal.fire({ toast:true, position:"top-end", timer:1200, showConfirmButton:false, icon:"success", title:"Random ok" });
+        }
+      });
+      
+      // Listeners basiques (inchangés)
+      document.querySelectorAll('.btn-inc').forEach(btn=>{
+        btn.addEventListener('click',()=>{ const idx=btn.getAttribute('data-idx'); const inp=document.querySelector(`.salle-nb[data-idx="${idx}"]`);
+          inp.value=Math.max(0,parseInt(inp.value||'0',10))+1; updateSum(); });
+      });
+      document.querySelectorAll('.btn-dec').forEach(btn=>{
+        btn.addEventListener('click',()=>{ const idx=btn.getAttribute('data-idx'); const inp=document.querySelector(`.salle-nb[data-idx="${idx}"]`);
+          const v=Math.max(0,(parseInt(inp.value||'0',10)-1)); inp.value=v||''; updateSum(); });
+      });
+      inputs.forEach(inp=>{ inp.addEventListener('input',()=>{ updateSum(); }); inp.addEventListener('wheel',e=>e.preventDefault(),{passive:false}); });
+      document.getElementById('apply-all')?.addEventListener('click',()=>{ const v=parseInt(document.getElementById('cap-def').value,10); if(!isNaN(v)&&v>0){ inputs.forEach(i=>i.value=v); updateSum(); }});
+      document.getElementById('apply-desc-all')?.addEventListener('click',()=>{ const d=document.getElementById('desc-def').value||''; document.querySelectorAll('.room-desc').forEach(i=>i.value=d); });
+      document.getElementById('apply-buildings')?.addEventListener('click',()=>{
+        const raw=(document.getElementById('builds').value||'').trim(); if(!raw) return;
+        const arr=raw.split(/[,;]+/).map(s=>s.trim()).filter(Boolean); if(!arr.length) return;
+        const bInputs=[...document.querySelectorAll('.room-building')]; bInputs.forEach((i,idx)=>i.value=arr[idx%arr.length]);
+        saveBuildings(arr); snapshotRoomsFromModalAndSave(); renderEstafettePanel();renderReprisePanel();
+      });
+      document.getElementById('auto-group-buildings')?.addEventListener('click',()=>{
+        const bInputs=[...document.querySelectorAll('.room-building')];
+        const total=bInputs.length;
+        const target=Math.max(2, parseInt(document.getElementById('group-size').value,10)||3);
+        const maxSz=Math.max(target, parseInt(document.getElementById('group-max').value,10)||5);
+        const groups=Math.ceil(total/target); const base=Math.floor(total/groups); let rest=total%groups;
+        const sizes=Array.from({length:groups},()=>base); let i=0; while(rest>0){ if(sizes[i]<maxSz){ sizes[i]++; rest--; } i=(i+1)%sizes.length; }
+        const labelOf=idx=>String.fromCharCode(65+idx); let cur=0;
+        sizes.forEach((sz,g)=>{ const lab=labelOf(g); for(let k=0;k<sz&&cur<total;k++,cur++){ bInputs[cur].value=lab; }});
+        saveBuildings(sizes.map((_,i)=>String.fromCharCode(65+i)));
+        snapshotRoomsFromModalAndSave(); renderEstafettePanel();renderReprisePanel();
+      });
+      document.getElementById('clear-all')?.addEventListener('click',()=>{
+        document.querySelectorAll('.salle-nb').forEach(i=>i.value='');
+        document.querySelectorAll('.room-desc').forEach(i=>i.value='');
+        document.querySelectorAll('.room-building').forEach(i=>i.value='');
+        document.querySelectorAll('.sv1,.sv2').forEach(s=>s.selectedIndex=-1);
+        saveEstafettesAssign({}); snapshotRoomsFromModalAndSave(); renderEstafettePanel(); updateSum();
+      });
+      // Changement surveillant/bâtiment = maj estafettes + sauvegarde
+      document.addEventListener('change', (e)=>{
+        if(e.target.matches('.sv1,.sv2,.room-building')){
+          snapshotRoomsFromModalAndSave();
+          renderEstafettePanel();
+          renderReprisePanel();
+          colorizeDuplicateSurveillants();
+
+        }
+      });
+      // Boutons import / personnel
+      document.getElementById('btn-staff')?.addEventListener('click', async ()=>{ 
+        await editerStaff(); 
+        staff = loadStaff(); // Mettre à jour la variable staff
+        buildSurveillantOptions(); 
+        colorizeDuplicateSurveillants();
+        snapshotRoomsFromModalAndSave(); 
+        renderEstafettePanel(); 
+        renderReprisePanel();
+      });
+      document.getElementById('btn-import-excel')?.addEventListener('click', async ()=>{ 
+        const st=await importerPersonnelDepuisExcel(); 
+        if(st){ 
+          staff = st; // Mettre à jour la variable staff
+          buildSurveillantOptions(); 
+          colorizeDuplicateSurveillants();
+          snapshotRoomsFromModalAndSave(); 
+          renderEstafettePanel(); 
+          renderReprisePanel();
+        }
+      });
+      document.getElementById('btn-import-paste')?.addEventListener('click', async ()=>{ 
+        const st=await importerPersonnelDepuisColler(); 
+        if(st){ 
+          staff = st; // Mettre à jour la variable staff
+          buildSurveillantOptions(); 
+          colorizeDuplicateSurveillants();
+          snapshotRoomsFromModalAndSave(); 
+          renderEstafettePanel(); 
+          renderReprisePanel();
+        }
+      });
+      
+      // CORRECTION: D'abord construire les options, puis remplir les valeurs
+      buildSurveillantOptions();
+      colorizeDuplicateSurveillants()
+      
+      // Pré-sélection surveillants depuis activeRooms (au lieu de savedRooms)
+      const pools = buildSurvPools(staff.surveillants || []); 
+      document.querySelectorAll('.room-card').forEach((card,i)=>{
+        const s1=card.querySelector('.sv1'), s2=card.querySelector('.sv2');
+        const saved = activeRooms[i]?.surveillants || [];
+        if(saved[0]) s1.value=saved[0];
+        if(saved[1]) s2.value=saved[1];
+      });
+      
       updateSum();
+      renderEstafettePanel();
+      renderReprisePanel();
+      Swal.getPopup().addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); Swal.clickConfirm(); }});
     },
     preConfirm: () => {
-      const nbs   = [...document.querySelectorAll(".salle-nb")];
-      const descs = [...document.querySelectorAll(".room-desc")];
-      let firstInvalid = null;
-      const out = [];
-
-      for (let i = 0; i < nbs.length; i++) {
-        const inp = nbs[i];
-        inp.classList.remove("invalid");
-        const v = parseInt(inp.value, 10);
-        if (isNaN(v) || v < 1) {
-          inp.classList.add("invalid");
-          if (!firstInvalid) firstInvalid = inp;
-        } else {
-          const description = (descs[i]?.value || "").trim();
-          out.push({ numero: i + 1, capacite: v, description });
+      const nbs=[...document.querySelectorAll('.salle-nb')];
+      const descs=[...document.querySelectorAll('.room-desc')];
+      const bats=[...document.querySelectorAll('.room-building')];
+      const cards=[...document.querySelectorAll('.room-card')];
+      let firstInvalid=null; const out=[];
+      for(let i=0;i<nbs.length;i++){
+        const inp=nbs[i]; const v=parseInt(inp.value,10);
+        if(isNaN(v)||v<1){ inp.classList.add('invalid'); if(!firstInvalid) firstInvalid=inp; }
+        else{
+          const description=(descs[i]?.value||'').trim();
+          const building=(bats[i]?.value||'').trim();
+          const sv1=cards[i]?.querySelector('.sv1')?.value||'';
+          const sv2=cards[i]?.querySelector('.sv2')?.value||'';
+          out.push({ numero:i+1, capacite:v, description, batiment:building, surveillants:[sv1,sv2].filter(Boolean) });
         }
       }
-
-      if (firstInvalid) {
-        firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
-        Swal.showValidationMessage("Chaque salle doit avoir au moins 1 élève.");
-        return false;
-      }
+      if(firstInvalid){ firstInvalid.scrollIntoView({behavior:"smooth",block:"center"}); Swal.showValidationMessage("Chaque salle doit avoir au moins 1 élève."); return false; }
       return out;
     }
   });
-
   const salles = result.isConfirmed ? result.value : null;
   if (salles && Array.isArray(eleves)) {
-    saveRooms(salles); // maintenant avec description
+    saveRooms(salles);
     await genererRepartitionDepuisCartes(eleves, salles, exclusions);
   }
 }
+// Calcule la proposition "À reprendre" selon la règle : 3 si dispo ≥3 ; sinon 1/2 ; sinon 0
+function computeSuggestedReprise(snapshot, staff, estAssign) {
+  // 1) Noms déjà utilisés (surveillants + estafettes)
+  const survUsed = new Set(
+    (snapshot || [])
+      .flatMap(s => s.surveillants || [])
+      .map(lbl => normName(nameFromLabel(lbl)))
+      .filter(Boolean)
+  );
+  const usedEst = new Set(
+    Object.values(estAssign || {})
+      .flat()
+      .map(lbl => normName(nameFromLabel(lbl)))
+      .filter(Boolean)
+  );
+
+  // 2) Base "surveillants" déclarés (toutes les personnes possibles côté staff.surveillants)
+  const parsed = (staff?.surveillants || [])
+    .map(parseSurveillantLine)
+    .filter(Boolean)
+    // On ne retient que ceux qui ne sont ni déjà surveillants ni déjà estafettes
+    .filter(p => {
+      const n = normName(p.name);
+      return !survUsed.has(n) && !usedEst.has(n);
+    });
+
+  // 3) Compter par groupes
+  let seniors = 0, adjoints = 0;
+  for (const p of parsed) {
+    const g = String(p.grade || "").toUpperCase();
+    if (GROUP_B.has(g)) seniors++;               // GPCE/GPHC/GP1C/GP2C
+    else if (GROUP_A.has(g)) adjoints++;         // GHC/G1C/G2C/GST
+  }
+
+  // 4) Règle de sortie
+  const pick = (n) => (n >= 3 ? 3 : n);          // 0, 1, 2 ou 3
+
+  const out = [];
+  const s = pick(seniors);
+  const a = pick(adjoints);
+  if (s > 0) out.push({ nom: "Réserve seniors (GPCE/GPHC/GP1C/GP2C)", nombre: s });
+  if (a > 0) out.push({ nom: "Réserve adjoints (GHC/G1C/G2C/GST)", nombre: a });
+  return out;
+}
+
 
 
 /******************************************************
- * 4) RÉPARTITION (min 2 / max 3, parfois 4) + EXCLUSIONS
+ * 6) PERSONNEL — affectation final (export)
  ******************************************************/
-async function genererRepartitionDepuisCartes(eleves, cartes, exclusions = []) {
-  // Normaliser exclusions (clé = numeroIncorporation sous forme de chaîne)
-  const exclusionSet = new Set();
-  const motifMap     = new Map();
-  exclusions.forEach(({ numero, motif }) => {
-    const key = String(numero).trim();
-    exclusionSet.add(key);
-    motifMap.set(key, motif);
+function affecterPersonnel(salles, staff){
+  // Pas d'auto-complétion surveillants si insuffisant
+  const savedAssign = loadEstafettesAssign(); // {bat -> [labels]}
+  const estMap = computeEstafettesParBat(salles, staff, savedAssign);
+  const estafettesParBatiment = Array.from(estMap.entries()).map(([batiment, estafettes])=>{
+    const nbSalles = salles.filter(s => (_clean(s.batiment)||"—")===batiment).length;
+    return { batiment, estafettes, nbSalles };
   });
 
-  const elevesExclus  = [];
-  const elevesFiltres = eleves.filter(e => {
-    const inc = String(e.numeroIncorporation).trim();
-    if (exclusionSet.has(inc)) {
-      e.salle = motifMap.get(inc) || "Non affecté";
-      elevesExclus.push(e);
-      return false;
-    }
+  const missingSV = salles.reduce((acc,s)=> acc + Math.max(0, 2 - (Array.isArray(s.surveillants)?s.surveillants.length:0)), 0);
+  const alerts=[];
+  if(missingSV>0) alerts.push(`Salles sans 2 surveillants: ${missingSV}.`);
+  return { salles, estafettesParBatiment, alerts };
+}
+
+/******************************************************
+ * 7) RÉPARTITION ÉLÈVES
+ ******************************************************/
+async function genererRepartitionDepuisCartes(eleves, cartes, exclusionsDict={}){
+  const exclusionSet=new Set(Object.keys(exclusionsDict||{}));
+  const elevesExclus=[]; const elevesFiltres=(eleves||[]).filter(e=>{
+    const inc=String(e.numeroIncorporation??'').trim();
+    if(exclusionSet.has(inc)){ e.salle=exclusionsDict[inc]||"Non affecté"; elevesExclus.push(e); return false; }
     return true;
   });
 
-  // Mélange utilitaire
-  const shuffleArray = arr => {
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-  };
-  shuffleArray(elevesFiltres);
+  const shuffle=arr=>{ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } };
+  shuffle(elevesFiltres);
 
-  // Regrouper par escadron + mélanger chaque pool
-  const pools = {};
-  elevesFiltres.forEach(e => {
-    if (!pools[e.escadron]) pools[e.escadron] = [];
-    pools[e.escadron].push(e);
-  });
-  Object.keys(pools).forEach(k => shuffleArray(pools[k]));
+  const pools={}; elevesFiltres.forEach(e=>{ if(!pools[e.escadron]) pools[e.escadron]=[]; pools[e.escadron].push(e); });
+  Object.keys(pools).forEach(k=>shuffle(pools[k]));
 
-  const salles   = [];
-  const restants = [];
-
-  // Remplissage par “tours” : 1 → 2 → 3 → 4 (si besoin)
-  cartes.forEach(({ numero, capacite, description }) => {
-    const salle  = [];
-    const quotas = {};
-  
-    const round = (maxParEscadron) => {
-      let added = 0;
-      const keys = Object.keys(pools).filter(k => pools[k].length > 0);
-      for (let i = keys.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [keys[i], keys[j]] = [keys[j], keys[i]];
-      }
-      for (const esc of keys) {
-        if (salle.length >= capacite) break;
-        const q = quotas[esc] || 0;
-        if (q < maxParEscadron && pools[esc].length > 0) {
-          const eleve = pools[esc].shift();
-          if (eleve) {
-            eleve.salle = numero;
-            eleve.salleDesc = description || "";   // <-- description portée jusqu’à l’export
-            salle.push(eleve);
-            quotas[esc] = q + 1;
-            added++;
-          }
+  const salles=[]; const restants=[];
+  (cartes||[]).forEach(({numero,capacite,description,batiment,surveillants})=>{
+    const salle=[]; const quotas={};
+    const round=max=>{
+      let added=0; const keys=Object.keys(pools).filter(k=>pools[k].length>0); shuffle(keys);
+      for(const esc of keys){
+        if(salle.length>=capacite) break;
+        const q=quotas[esc]||0; if(q<max && pools[esc].length>0){
+          const e=pools[esc].shift(); if(e){ e.salle=numero; e.salleDesc=description||''; e.batiment=batiment||''; salle.push(e); quotas[esc]=q+1; added++; }
         }
-      }
-      return added;
+      } return added;
     };
-  
-    if (salle.length < capacite) round(1);
-    if (salle.length < capacite) round(2);
-    while (salle.length < capacite && round(3) > 0) {}
-    while (salle.length < capacite && round(4) > 0) {}
-  
-    salles.push({ numero, effectif: salle.length, eleves: salle, description: description || "" });
+    if(salle.length<capacite) round(1);
+    if(salle.length<capacite) round(2);
+    while(salle.length<capacite && round(3)>0){}; while(salle.length<capacite && round(4)>0){};
+    salles.push({ numero, effectif:salle.length, eleves:salle, description:description||"", batiment:batiment||"", surveillants:surveillants||[] });
   });
-  
 
-  // Restants
-  Object.values(pools).forEach(list => restants.push(...list));
-  shuffleArray(restants);
-  if (restants.length > 0) {
-    restants.forEach(e => e.salle = "Reste");
-    salles.push({ numero: "Reste", effectif: restants.length, eleves: restants });
-  }
+  Object.values(pools).forEach(l=>restants.push(...l)); shuffle(restants);
+  if(restants.length>0){ restants.forEach(e=>{ e.salle="Reste"; e.batiment=""; }); salles.push({ numero:"Reste", effectif:restants.length, eleves:restants, description:"" }); }
 
-  const tousEleves = [...salles.flatMap(s => s.eleves), ...elevesExclus];
-
-  await exporterVersExcel(tousEleves, salles, elevesExclus);
+  const staff=loadStaff();
+  const {estafettesParBatiment, alerts}=affecterPersonnel(salles, staff);
+  if(alerts.length) console.warn(alerts.join(' | '));
+// AJOUTE CETTE LIGNE :
+checkNoDoublonSurvEstaf(salles, estafettesParBatiment);
+  const tousEleves=[...salles.flatMap(s=>s.eleves), ...elevesExclus];
+  await exporterVersExcel(tousEleves, salles, elevesExclus, estafettesParBatiment);
 }
+function checkNoDoublonSurvEstaf(salles, estafettesParBatiment){
+  const allSV = new Set((salles||[]).flatMap(s=>s.surveillants||[]).map(nameFromLabel).map(normName));
+  const allEST = new Set(estafettesParBatiment.flatMap(b=>b.estafettes||[]).map(nameFromLabel).map(normName));
+  const doublons = [...allSV].filter(n => allEST.has(n));
+  if(doublons.length){
+    alert("Erreur : Les agents suivants sont à la fois surveillants ET estafettes :\n" + doublons.join(", "));
+  }
+}
+
 
 /******************************************************
- * 5) EXPORT EXCEL
+ * 8) EXPORT EXCEL (identique à ta version)
  ******************************************************/
-function sanitizeSheetName(name) {
-  return String(name).replace(/[:\\/?*\[\]]/g, '').slice(0, 31);
-}
-function uniqueSheetName(wb, base) {
-  let name = sanitizeSheetName(base);
-  let i = 2;
-  while (wb.SheetNames.includes(name)) {
-    name = sanitizeSheetName(`${base.slice(0, 28)}_${i++}`);
-  }
-  return name;
-}
+function sanitizeSheetName(name){ return String(name).replace(/[:\\/?*\[\]]/g,'').slice(0,31); }
+function uniqueSheetName(wb, base){ let name=sanitizeSheetName(base); let i=2; while(wb.SheetNames.includes(name)){ name=sanitizeSheetName(`${base.slice(0,28)}_${i++}`); } return name; }
 
-async function exporterVersExcel(tousEleves, salles, elevesExclus = []) {
-  const wb = XLSX.utils.book_new();
+async function exporterVersExcel(tousEleves, salles, elevesExclus=[], estafettesParBatiment=[]){
+  const wb=XLSX.utils.book_new();
 
-  /* ---------- 1) Résumé ---------- */
-  const repartitionParSalle = salles.map(s => {
-    const lib =
-      s.numero === "Reste"
-        ? "Salle Reste"
-        : (s.description ? `Salle ${s.numero} (${s.description})` : `Salle ${s.numero}`);
-    const nb = (typeof s.effectif === "number")
-      ? s.effectif
-      : (Array.isArray(s.eleves) ? s.eleves.length : 0);
-    return `${lib} : ${nb} élèves`;
+  const repartitionParSalle = salles.map(s=>{
+    const lib = s.numero==="Reste" ? "Salle Reste" : (s.description ? `Salle ${s.numero} (${s.description})` : `Salle ${s.numero}`);
+    const nb = (typeof s.effectif==="number") ? s.effectif : (Array.isArray(s.eleves)?s.eleves.length:0);
+    const bat = s.batiment ? ` [Bâtiment ${s.batiment}]` : "";
+    return `${lib}${bat} : ${nb} élèves`;
   });
 
-  const escadronsList = [...new Set(tousEleves.map(e => e.escadron))]
-    .filter(x => x !== undefined && x !== null && x !== "")
-    .sort((a,b)=> (Number(a)||0) - (Number(b)||0));
+  const escadronsList=[...new Set(tousEleves.map(e=>e.escadron))].filter(x=>x!==undefined&&x!==null&&x!=="").sort((a,b)=>(Number(a)||0)-(Number(b)||0));
+  const repartitionParEscadron = escadronsList.map(esc=>`Escadron ${esc} : ${tousEleves.filter(e=>e.escadron===esc).length} élèves`);
 
-  const repartitionParEscadron = escadronsList.map(esc => {
-    const count = tousEleves.filter(e => e.escadron === esc).length;
-    return `Escadron ${esc} : ${count} élèves`;
-  });
-
-  // ⬇️ NOUVEAU : récap exclusions “incorporation — motif”
-  const exclMap = new Map(); // clé "inc — motif" → compteur
-  if (Array.isArray(elevesExclus) && elevesExclus.length) {
-    elevesExclus.forEach(e => {
-      const inc   = (e.numeroIncorporation ?? "").toString().trim() || "(?)";
-      const motif = (e.salle ?? "Exclu").toString().trim();
-      const key   = `${inc} — ${motif}`;
-      exclMap.set(key, (exclMap.get(key) || 0) + 1);
+  const exclMap=new Map();
+  if(Array.isArray(elevesExclus)&&elevesExclus.length){
+    elevesExclus.forEach(e=>{
+      const inc=(e.numeroIncorporation??'').toString().trim()||"(?)";
+      const motif=(e.salle??'Exclu').toString().trim();
+      const key=`${inc} — ${motif}`; exclMap.set(key,(exclMap.get(key)||0)+1);
     });
   }
-  const exclusionsLignes = [...exclMap.entries()].map(([k, n]) => n > 1 ? `${k} (${n})` : k);
+  const exclusionsLignes=[...exclMap.entries()].map(([k,n])=> n>1?`${k} (${n})`:k);
 
-  const resumeData = [
-    { Clé: "Total élèves", Valeur: tousEleves.length },
-    { Clé: "Nombre de salles", Valeur: salles.length },
-    { Clé: "Répartition par salle", Valeur: "" },
-    ...repartitionParSalle.map(line => ({ Clé: "", Valeur: line })),
-    { Clé: "", Valeur: "" },
-    { Clé: "Répartition par escadron", Valeur: "" },
-    ...repartitionParEscadron.map(line => ({ Clé: "", Valeur: line })),
-    ...(exclusionsLignes.length
-      ? [
-          { Clé: "", Valeur: "" },
-          { Clé: "Exclusions (incorporation : motif)", Valeur: "" },
-          ...exclusionsLignes.map(line => ({ Clé: "", Valeur: line })),
-        ]
-      : [])
+  const resumeData=[
+    {Clé:"Total élèves", Valeur:tousEleves.length},
+    {Clé:"Nombre de salles", Valeur:salles.length},
+    {Clé:"Répartition par salle", Valeur:""},
+    ...repartitionParSalle.map(line=>({Clé:"", Valeur:line})),
+    {Clé:"", Valeur:""},
+    {Clé:"Surveillants (2 / salle)", Valeur:""},
+    ...salles.map(s=>({Clé:"", Valeur:`${s.numero==="Reste"?"Salle Reste":`Salle ${s.numero}`} : ${(s.surveillants||[]).join(", ")||"—"}`})),
+    {Clé:"", Valeur:""},
+    {Clé:"Estafettes par bâtiment", Valeur:""},
+    ...estafettesParBatiment.map(b=>({Clé:"", Valeur:`${b.batiment} : ${b.estafettes.join(", ")||"—"} (${b.nbSalles} salle(s))`})),
+    {Clé:"", Valeur:""},
+    {Clé:"Répartition par escadron", Valeur:""},
+    ...repartitionParEscadron.map(line=>({Clé:"", Valeur:line})),
+    ...(exclusionsLignes.length?[{Clé:"",Valeur:""},{Clé:"Exclusions (incorporation : motif)",Valeur:""}, ...exclusionsLignes.map(line=>({Clé:"",Valeur:line}))]:[])
   ];
-  XLSX.utils.book_append_sheet(
-    wb,
-    XLSX.utils.json_to_sheet(resumeData),
-    "Résumé"
-  );
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumeData), "Résumé");
 
-  /* ---------- 2) Feuilles par salle (Titre fusionné + tri par Incorporation) ---------- */
-  salles.forEach((salle) => {
-    const header = ["NR","Nom","Prénom","Escadron","Peloton","Incorporation","Salle (num)"];
-
-    const titre = (salle.numero === "Reste"
-      ? "SALLE RESTE"
-      : `SALLE ${salle.numero}`).toUpperCase();
-
-    const aoa = [];
-    const merges = [];
-
-    // Ligne 1 : titre fusionné A1:G1
-    aoa.push([titre]);
-    merges.push({ s: { r:0, c:0 }, e: { r:0, c: header.length - 1 } });
-
-    // Ligne 2 : description (si présente)
-    if (salle.description && salle.numero !== "Reste") {
-      aoa.push([String(salle.description).toUpperCase()]);
-      merges.push({ s: { r:1, c:0 }, e: { r:1, c: header.length - 1 } });
-    } else {
-      aoa.push([]);
-    }
-
-    // Ligne entête
-    aoa.push(header);
-
-    const elevesTries = (salle.eleves || [])
-      .slice()
-      .sort((a,b) => (Number(a.numeroIncorporation)||0) - (Number(b.numeroIncorporation)||0));
-
-    elevesTries.forEach((e, idx) => {
-      aoa.push([
-        idx + 1,
-        e.nom || "",
-        e.prenom || "",
-        e.escadron ?? "",
-        e.peloton ?? "",
-        e.numeroIncorporation ?? "",
-        (salle.numero === "Reste" ? "Reste" : salle.numero)
-      ]);
-    });
-
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws["!merges"] = merges;
-    ws["!cols"] = [
-      { wpx: 40 },   // NR
-      { wpx: 200 },  // Nom
-      { wpx: 180 },  // Prénom
-      { wpx: 80 },   // Escadron
-      { wpx: 80 },   // Peloton
-      { wpx: 120 },  // Incorporation
-      { wpx: 110 },  // Salle (num)
-    ];
-
-    const baseName = (salle.numero === "Reste")
-      ? "Salle Reste"
-      : (salle.description ? `Salle ${salle.numero} - ${salle.description}` : `Salle ${salle.numero}`);
-    const sheetName = uniqueSheetName(wb, baseName);
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  });
-
-  /* ---------- 3) (optionnel) Feuilles par escadron ---------- */
-  const escs = [...new Set(tousEleves.map(e => e.escadron))]
-    .filter(x => x !== undefined && x !== null && x !== "")
-    .sort((a,b)=> (Number(a)||0) - (Number(b)||0));
-
-  escs.forEach((esc, i) => {
-    const sorted = tousEleves
-      .filter(e => e.escadron === esc)
-      .sort((a, b) => {
-        const pa = Number(a.peloton) || 0;
-        const pb = Number(b.peloton) || 0;
-        if (pa !== pb) return pa - pb;
-        const ia = Number(a.numeroIncorporation) || 0;
-        const ib = Number(b.numeroIncorporation) || 0;
-        return ia - ib;
+  // Feuilles par salle
+  salles.forEach(salle=>{
+    const header=["NR","Nom","Prénom","Escadron","Peloton","Incorporation","Salle (num)","Bâtiment"];
+    const titre=(salle.numero==="Reste"?"SALLE RESTE":`SALLE ${salle.numero}`).toUpperCase();
+    const aoa=[]; const merges=[];
+    aoa.push([titre]); merges.push({s:{r:0,c:0}, e:{r:0,c:header.length-1}});
+    if(salle.description && salle.numero!=="Reste"){ aoa.push([String(salle.description).toUpperCase()]); merges.push({s:{r:1,c:0}, e:{r:1,c:header.length-1}}); }
+    else aoa.push([]);
+    // Nouvelle version — formaté comme dans ton exemple
+    if (salle.surveillants && salle.surveillants.length) {
+      salle.surveillants.forEach(label => {
+        let grade = "", nom = "", phone = "", info = "";
+        const parts = label.split("—").map(s => s.trim());
+        if (parts.length > 1) { grade = parts[0]; nom = parts.slice(1).join(" — "); }
+        else { nom = parts[0]; }
+        // => Récupérer phone/info ici si tu veux
+        aoa.push([grade, nom, phone, info]);
       });
+    } else {
+      aoa.push(["—", "Aucun surveillant"]);
+    }
+    aoa.push([]); // ligne vide avant header élève
 
-    const aoa = [];
-    const merges = [];
-    const header = ["NR","Nom","Prénom","Escadron","Peloton","Incorporation","Salle (num)"];
-
-    // Titre fusionné
-    const titre = `${esc}° ESCADRON`.toUpperCase();
-    aoa.push([titre]);
-    merges.push({ s: { r:0, c:0 }, e: { r:0, c: header.length - 1 } });
-    aoa.push([]);
-
-    // Entête
     aoa.push(header);
-
-    let currentPeloton = null;
-    let nr = 0;
-    sorted.forEach(e => {
-      if (e.peloton !== currentPeloton) {
-        currentPeloton = e.peloton;
-        aoa.push([`=== Peloton ${currentPeloton} ===`]);
-        merges.push({ s: { r: aoa.length-1, c:0 }, e: { r: aoa.length-1, c: header.length - 1 } });
-      }
-      nr += 1;
-      aoa.push([
-        nr,
-        e.nom || "",
-        e.prenom || "",
-        e.escadron ?? "",
-        e.peloton ?? "",
-        e.numeroIncorporation ?? "",
-        e.salle || "Non assigné"
-      ]);
-    });
-
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws["!merges"] = merges;
-    ws["!cols"] = [
-      { wpx: 40 }, { wpx: 200 }, { wpx: 180 },
-      { wpx: 80 }, { wpx: 80 }, { wpx: 120 }, { wpx: 110 },
-    ];
-    XLSX.utils.book_append_sheet(
-      wb,
-      ws,
-      uniqueSheetName(wb, `${i + 1}e Escadron`)
-    );
+    const sorted=(salle.eleves||[]).slice().sort((a,b)=>(Number(a.numeroIncorporation)||0)-(Number(b.numeroIncorporation)||0));
+    sorted.forEach((e,idx)=>{ aoa.push([idx+1, e.nom||"", e.prenom||"", e.escadron??"", e.peloton??"", e.numeroIncorporation??"", (salle.numero==="Reste"?"Reste":salle.numero), salle.batiment||""]); });
+    const ws=XLSX.utils.aoa_to_sheet(aoa); ws['!merges']=merges;
+    ws['!cols']=[{wpx:40},{wpx:200},{wpx:180},{wpx:80},{wpx:80},{wpx:120},{wpx:110},{wpx:90}];
+    const baseName=(salle.numero==="Reste")?"Salle Reste":(salle.description?`Salle ${salle.numero} - ${salle.description}`:`Salle ${salle.numero}`);
+    XLSX.utils.book_append_sheet(wb, ws, uniqueSheetName(wb, baseName));
   });
 
-  /* ---------- 4) (optionnel) Feuille “Exclus” ---------- */
-  if (Array.isArray(elevesExclus) && elevesExclus.length > 0) {
-    const dataExclus = elevesExclus.map((e, idx) => ({
-      NR: idx + 1,
-      Nom: e.nom,
-      Prénom: e.prenom,
-      Escadron: e.escadron,
-      Peloton: e.peloton,
-      Incorporation: e.numeroIncorporation,
-      Motif: e.salle // le motif est stocké dans e.salle pour les exclus
-    }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataExclus), "Exclus");
+  // Feuilles par escadron
+  const escs=[...new Set(tousEleves.map(e=>e.escadron))].filter(x=>x!==undefined&&x!==null&&x!=="").sort((a,b)=>(Number(a)||0)-(Number(b)||0));
+  escs.forEach((esc,i)=>{
+    const sorted=tousEleves.filter(e=>e.escadron===esc).sort((a,b)=>{
+      const pa=Number(a.peloton)||0, pb=Number(b.peloton)||0; if(pa!==pb) return pa-pb;
+      const ia=Number(a.numeroIncorporation)||0, ib=Number(b.numeroIncorporation)||0; return ia-ib;
+    });
+    const aoa=[]; const merges=[]; const header=["NR","Nom","Prénom","Escadron","Peloton","Incorporation","Salle (num)","Bâtiment"];
+    const titre=`${esc}° ESCADRON`.toUpperCase(); aoa.push([titre]); merges.push({s:{r:0,c:0},e:{r:0,c:header.length-1}});
+    aoa.push([]);
+    aoa.push(header);
+    let currentPeloton=null, nr=0;
+    sorted.forEach(e=>{
+      if(e.peloton!==currentPeloton){ currentPeloton=e.peloton; aoa.push([`=== Peloton ${currentPeloton} ===`]); merges.push({s:{r:aoa.length-1,c:0},e:{r:aoa.length-1,c:header.length-1}}); }
+      nr+=1; aoa.push([nr, e.nom||"", e.prenom||"", e.escadron??"", e.peloton??"", e.numeroIncorporation??"", e.salle||"Non assigné", e.batiment||""]);
+    });
+    const ws=XLSX.utils.aoa_to_sheet(aoa); ws['!merges']=merges;
+    ws['!cols']=[{wpx:40},{wpx:200},{wpx:180},{wpx:80},{wpx:80},{wpx:120},{wpx:110},{wpx:90}];
+    XLSX.utils.book_append_sheet(wb, ws, uniqueSheetName(wb, `${i+1}e Escadron`));
+  });
+
+  // Exclus
+  if(Array.isArray(elevesExclus)&&elevesExclus.length){
+    const data=elevesExclus.map((e,idx)=>({NR:idx+1, Nom:e.nom, "Prénom":e.prenom, Escadron:e.escadron, Peloton:e.peloton, Incorporation:e.numeroIncorporation, Motif:e.salle}));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "Exclus");
   }
 
-  /* ---------- 5) Sauvegarde ---------- */
-  const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-  saveAs(new Blob([wbout], { type: "application/octet-stream" }), "repartition_salles.xlsx");
+  // Estafettes
+  // Estafettes + À reprendre (réserves)
+{
+  const aoa = [["NR","Bâtiment","Nb salles","Estafettes"]];
+  if (Array.isArray(estafettesParBatiment) && estafettesParBatiment.length) {
+    estafettesParBatiment.forEach((b, idx) => {
+      aoa.push([idx+1, b.batiment, b.nbSalles, (b.estafettes||[]).join(", ")]);
+    });
+  } else {
+    aoa.push(["—","—","—","—"]);
+  }
+
+  // Bloc "À reprendre" (depuis le modal)
+  const reprise = loadReprise(); // [{nom, nombre}]
+  aoa.push([]);
+  aoa.push(["À reprendre"]);
+  aoa.push(["Nom","Nombre"]);
+  (reprise||[]).forEach(r => {
+    if ((r.nom||"").trim() || Number(r.nombre)>0) {
+      aoa.push([r.nom||"", Number(r.nombre)||0]);
+    }
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  // Largeurs de colonnes
+  ws['!cols'] = [{wpx:50},{wpx:120},{wpx:90},{wpx:380}];
+  XLSX.utils.book_append_sheet(wb, ws, "Estafettes");
+}
+
+
+  const wbout=XLSX.write(wb,{bookType:"xlsx",type:"array"});
+  saveAs(new Blob([wbout],{type:"application/octet-stream"}), "repartition_salles.xlsx");
 }
 
 /******************************************************
- * 6) EXEMPLES D’USAGE (boutons)
+ * 9) FAÇADES
  ******************************************************/
-// 1) Modifier / définir les capacités (et exclusions)
-async function ouvrirEditeurRepartition(eleves) {
-  const excl = await exclureIncorporations(); // se sauvegarde automatiquement
+async function ouvrirEditeurRepartition(eleves){
+  await editerStaff();
+  const excl=await exclureIncorporations();
   await ajouterSallesViaModal(eleves, excl);
 }
-async function validerRepartitionRapide(eleves) {
-  const rooms = loadRooms();     // [{numero, capacite, description?}]
-  const excl  = loadExclusions();
 
-  if (!rooms.length) {
-    await Swal.fire("Aucune configuration enregistrée", "Veuillez définir les capacités une première fois.", "info");
+async function validerRepartitionRapide(eleves){
+  const rooms=loadRooms(), excl=loadExclusions();
+  if(!rooms.length){
+    await Swal.fire("Aucune configuration enregistrée","Veuillez définir les capacités une première fois.","info");
     return ajouterSallesViaModal(eleves, excl);
   }
-
-  const totalCap = rooms.reduce((s, r) => s + (r.capacite || 0), 0);
-  const html = `
-    <div style="text-align:left">
-      <p><b>Dernière configuration mémorisée</b></p>
-      <ul style="max-height:220px;overflow:auto;padding-left:18px;margin:0">
-        ${rooms.map(r => {
-          const d = r.description ? ` (${r.description})` : "";
-          return `<li>Salle ${r.numero}${d} → ${r.capacite} élèves</li>`;
-        }).join("")}
-      </ul>
-      <p style="margin-top:8px">Capacité totale : <b>${totalCap}</b> • Élèves dispo : <b>${eleves.length}</b></p>
-    </div>
-  `;
-
-  const res = await Swal.fire({
-    title: "Valider la répartition",
-    html,
-    icon: "question",
-    showDenyButton: true,
-    confirmButtonText: "Valider",
-    denyButtonText: "Modifier",
-  });
-
-  if (res.isConfirmed) {
-    return genererRepartitionDepuisCartes(eleves, rooms, excl);
-  }
-  if (res.isDenied) {
-    return ajouterSallesViaModal(eleves, excl);
-  }
+  const totalCap=rooms.reduce((s,r)=>s+(r.capacite||0),0);
+  const html=`<div style="text-align:left">
+    <p><b>Dernière configuration mémorisée</b></p>
+    <ul style="max-height:220px;overflow:auto;padding-left:18px;margin:0">
+      ${rooms.map(r=>{
+        const d=r.description?` (${r.description})`:''; const b=r.batiment?` [Bâtiment ${r.batiment}]`:'';
+        const sv=Array.isArray(r.surveillants)&&r.surveillants.length?` — SV: ${r.surveillants.join(", ")}`:'';
+        return `<li>Salle ${r.numero}${d}${b} → ${r.capacite} élèves${sv}</li>`;
+      }).join('')}
+    </ul>
+    <p style="margin-top:8px">Capacité totale : <b>${totalCap}</b> • Élèves dispo : <b>${eleves.length}</b></p>
+  </div>`;
+  const res=await Swal.fire({ title:"Valider la répartition", html, icon:"question", showDenyButton:true, confirmButtonText:"Valider", denyButtonText:"Modifier" });
+  if(res.isConfirmed) return genererRepartitionDepuisCartes(eleves, rooms, excl);
+  if(res.isDenied) return ajouterSallesViaModal(eleves, excl);
 }
+async function validerRepartition(eleves){ await validerRepartitionRapide(eleves); }
 
-// 2) Valider directement la répartition depuis l’état mémorisé
-async function validerRepartition(eleves) {
-  await validerRepartitionRapide(eleves);
-}
-
-  
-  
-
-  
-  
-  
- 
 // Fonction PDF (à appeler en fin de genererRepartitionEtExporter)
 function exporterRepartitionEnPDF(salles, escadronGlobalMap) {
   const doc = new jsPDF();
