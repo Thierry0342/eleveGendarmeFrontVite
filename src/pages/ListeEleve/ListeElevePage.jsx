@@ -173,8 +173,7 @@ const ListeElevePge = () => {
     handleCloseModal(); // ferme le modal après succès
   };
   
- 
-/******************************************************
+ /******************************************************
  * 0) PERSISTENCE (localStorage)
  ******************************************************/
 const STORAGE_KEYS = {
@@ -196,7 +195,6 @@ function loadEstafettesPerBuilding() {
 function saveRooms(rooms){ try{ localStorage.setItem(STORAGE_KEYS.rooms, JSON.stringify(rooms||[])); }catch{} }
 function loadRooms(){ try{ const a=JSON.parse(localStorage.getItem(STORAGE_KEYS.rooms)||'[]'); return Array.isArray(a)?a:[]; }catch{ return []; } }
 function clearRooms(){ try{ localStorage.removeItem(STORAGE_KEYS.rooms); }catch{} }
-
 function saveExclusions(excl){ try{ localStorage.setItem(STORAGE_KEYS.exclusions, JSON.stringify(excl||{})); }catch{} }
 function loadExclusions(){ try{ const a=JSON.parse(localStorage.getItem(STORAGE_KEYS.exclusions)||'{}'); return (a && typeof a==='object')?a:{}; }catch{ return {}; } }
 function clearExclusions(){ try{ localStorage.removeItem(STORAGE_KEYS.exclusions); }catch{} }
@@ -206,25 +204,30 @@ function saveReprise(list) {
 function loadReprise() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.reprise) || '[]'); } catch { return []; }
 }
-function saveStaff(staff){
-  try{ localStorage.setItem(STORAGE_KEYS.staff, JSON.stringify({
-    surveillants: Array.isArray(staff?.surveillants)?staff.surveillants:[],
-    estafettes:   Array.isArray(staff?.estafettes)?staff.estafettes:[]
-  })); }catch{}
+function saveStaff(staff) {
+  try {
+      localStorage.setItem(STORAGE_KEYS.staff, JSON.stringify({
+          surveillants: Array.isArray(staff?.surveillants) ? staff.surveillants : [],
+          estafettes: Array.isArray(staff?.estafettes) ? staff.estafettes : []
+      }));
+  } catch (e) {
+      console.error("Erreur lors de la sauvegarde du personnel:", e);
+  }
 }
-function loadStaff(){
-  try{
-    const o=JSON.parse(localStorage.getItem(STORAGE_KEYS.staff)||'{}');
-    return {
-      surveillants: Array.isArray(o.surveillants)?o.surveillants:[],
-      estafettes:   Array.isArray(o.estafettes)?o.estafettes:[]
-    };
-  }catch{ return {surveillants:[], estafettes:[]}; }
+function loadStaff() {
+  try {
+      const o = JSON.parse(localStorage.getItem(STORAGE_KEYS.staff) || '{}');
+      return {
+          surveillants: Array.isArray(o.surveillants) ? o.surveillants : [],
+          estafettes: Array.isArray(o.estafettes) ? o.estafettes : []
+      };
+  } catch (e) {
+      console.error("Erreur lors du chargement du personnel:", e);
+      return { surveillants: [], estafettes: [] };
+  }
 }
-
 function saveBuildings(arr){ try{ localStorage.setItem(STORAGE_KEYS.buildings, JSON.stringify(arr||[])); }catch{} }
 function loadBuildings(){ try{ const a=JSON.parse(localStorage.getItem(STORAGE_KEYS.buildings)||'[]'); return Array.isArray(a)?a:[]; }catch{ return []; } }
-
 function saveEstafettesCfg(cfg){ try{ localStorage.setItem(STORAGE_KEYS.estafettesCfg, JSON.stringify(cfg||{})); }catch{} }
 function loadEstafettesCfg(){
   try{
@@ -235,7 +238,6 @@ function loadEstafettesCfg(){
     };
   }catch{ return { minPerBuilding:2, useThreeWhenRoomsGte:4 }; }
 }
-
 function saveEstafettesAssign(mapObj){
   try{ localStorage.setItem(STORAGE_KEYS.estafettesAssign, JSON.stringify(mapObj||{})); }catch{}
 }
@@ -245,7 +247,6 @@ function loadEstafettesAssign(){
     return (o && typeof o==='object') ? o : {};
   }catch{ return {}; }
 }
-
 /******************************************************
  * 1) UTILITAIRES texte / grades / personnes
  ******************************************************/
@@ -255,7 +256,6 @@ const GRADE_ORDER = { GPCE:1, GPHC:2, GP1C:3, GP2C:4,GHC:5,G1C:6, G2C:7, GST:8 }
 // Groupes pour la règle des 2 surveillants / salle
 const GROUP_B = new Set(["GPCE","GPHC","GP1C","GP2C"]);         // « senior »
 const GROUP_A = new Set(["GHC","G1C","G2C","GST"]);      // « adjoint »
-
 function _clean(s){ return String(s||"").replace(/\u00A0/g," ").replace(/\s{2,}/g," ").trim(); }
 function cleanText(x){ return _clean(x); }
 function gradeRank(g){ return GRADE_ORDER[g] ?? 99; }
@@ -271,7 +271,6 @@ function isGroupPairOK(lab1, lab2){
   const g1 = gradeFromLabel(lab1), g2 = gradeFromLabel(lab2);
   return (GROUP_B.has(g1) && GROUP_A.has(g2)) || (GROUP_B.has(g2) && GROUP_A.has(g1));
 }
-
 /** "GST Dupont Paul" ou "Dupont Paul -- GP2C" -> {name,grade,label} */
 function parseSurveillantLine(line){
   const raw = _clean(String(line||"").replace(/\t/g," "));
@@ -286,9 +285,7 @@ function parseSurveillantLine(line){
   if (!grade) grade="GST";
   return { name, grade, label:`${grade} — ${name}` };
 }
-
 function shuffleInPlace(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
-
 function getAllSurveillantNames(salles){
   return new Set((salles||[]).flatMap(s=>s.surveillants||[])
     .map(nameFromLabel)
@@ -301,22 +298,40 @@ function getAllEstafetteNames(estAssign){
     .map(normName)
     .filter(Boolean));
 }
-
 /** Pools pour affichage + tirage aléatoire */
-function buildSurvPools(lines){
-  const peeps = (lines||[]).map(parseSurveillantLine).filter(Boolean);
-  const display = peeps.slice().sort((a,b)=>{
-    const r = gradeRank(a.grade)-gradeRank(b.grade);
-    return r!==0 ? r : a.name.localeCompare(b.name,'fr',{sensitivity:'base'});
+function buildSurvPools(lines) {
+  let peeps;
+  
+  // Gérer les deux formats: chaînes ou objets
+  if (lines.length > 0 && typeof lines[0] === 'object' && lines[0].grade) {
+      // Nouveau format: tableau d'objets
+      peeps = lines.map(p => ({
+          grade: p.grade,
+          name: p.name,
+          label: p.label || `${p.grade} — ${p.name}`,
+          mle: p.mle || "",
+          nrTph: p.nrTph || "",
+          unite: p.unite || ""
+      }));
+  } else {
+      // Ancien format: tableau de chaînes
+      peeps = (lines || []).map(parseSurveillantLine).filter(Boolean);
+  }
+  
+  const display = peeps.slice().sort((a, b) => {
+      const r = gradeRank(a.grade) - gradeRank(b.grade);
+      return r !== 0 ? r : a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' });
   });
+  
   const ALL = peeps.slice();
-  const A = ALL.filter(p=>GROUP_A.has(p.grade));
-  const B = ALL.filter(p=>GROUP_B.has(p.grade));
+  const A = ALL.filter(p => GROUP_A.has(p.grade));
+  const B = ALL.filter(p => GROUP_B.has(p.grade));
   const shuffled = shuffleInPlace(ALL.slice());
-  let i=0; const rr=()=> (shuffled.length ? shuffled[(i++)%shuffled.length] : null);
+  let i = 0;
+  const rr = () => (shuffled.length ? shuffled[(i++) % shuffled.length] : null);
+  
   return { display, A, B, ALL, rr };
 }
-
 function pickGradeAndNameFromCell(val){
   const s = cleanText(val);
   const m = s.match(/\b(GPCE|GPHC|GHC|GP2C|GP1C|G2C|G1C|GST)\b\s+(.+)$/i);
@@ -349,33 +364,201 @@ function extractGradeAndNameFromRow(row){
   if (!grade || !name) return null;
   return { grade, name, label:`${grade} — ${name}` };
 }
-function buildStaffFromPeople(people){
-  const seen=new Set();
-  const uniq=people.filter(p=>!seen.has(p.label)&&seen.add(p.label));
-  const surveillants=uniq.map(p=>p.label);
-  const estafettes=[...uniq.filter(p=>p.grade==="GST").map(p=>p.label), ...uniq.filter(p=>p.grade==="G2C").map(p=>p.label)];
-  return { surveillants, estafettes, total:uniq.length };
+function buildStaffFromPeople(people) {
+  const seen = new Set();
+  const uniq = people.filter(p => !seen.has(p.label) && seen.add(p.label));
+  
+  const surveillants = uniq.map(p => ({
+      label: p.label,
+      grade: p.grade,
+      name: p.name,
+      mle: p.mle || "",
+      nrTph: p.nrTph || "",
+      unite: p.unite || ""
+  }));
+  
+  const estafettes = [
+      ...uniq.filter(p => p.grade === "GST").map(p => ({
+          label: p.label,
+          grade: p.grade,
+          name: p.name,
+          mle: p.mle || "",
+          nrTph: p.nrTph || "",
+          unite: p.unite || ""
+      })),
+      ...uniq.filter(p => p.grade === "G2C").map(p => ({
+          label: p.label,
+          grade: p.grade,
+          name: p.name,
+          mle: p.mle || "",
+          nrTph: p.nrTph || "",
+          unite: p.unite || ""
+      }))
+  ];
+  
+  return { surveillants, estafettes, total: uniq.length };
 }
+/**  Parse une ligne “surveillant” (collée depuis Excel ou CSV)
+ *   Retourne {grade, name, mle, nrTph, unite, label}  ou null.
+ */
+function parsePersonnelLine(line) {
+  const raw = _clean(String(line||""));
+
+  // 0. Virer les « 1.  », « 25. » éventuels
+  const withoutNr = raw.replace(/^[\d\s.]+/, "");
+
+  // 1. Découpage par tabulation OU par ≥2 espaces
+  const cols = withoutNr.split(/\t| {2,}/).map(_clean).filter(Boolean);
+  if (cols.length < 3) return null;   // trop court
+
+  // 2. Grade = 1ᵉʳ champ détectant un grade
+  let grade = null, gradeIdx = -1;
+  for (let i=0;i<cols.length;i++){
+    const g = detectGrade(cols[i]);
+    if (g){ grade = g; gradeIdx = i; break; }
+  }
+  if (!grade) return null;
+
+  // 3. Récupère toujours *les 3 derniers* tokens pour mle / tph / unité
+  const mle   = cols[cols.length-3] || "";
+  const nrTph = cols[cols.length-2] || "";
+  const unite = cols[cols.length-1] || "";
+
+  // 4. Le nom = tout ce qu’il y a entre le grade et mle
+  const name = cols.slice(gradeIdx+1, cols.length-3).join(" ").trim();
+  if (!name) return null;
+
+  return {
+    grade,
+    name,
+    mle,
+    nrTph,
+    unite,
+    label: `${grade} — ${name}`
+  };
+}
+
 function parsePersonnelFromPasted(text){
   const rows=String(text||'').split(/\r?\n/).map(cleanText).filter(Boolean);
+ 
+  
   const people=[];
-  for(const r of rows){ const p=extractGradeAndNameFromRow(r)||pickGradeAndNameFromCell(r); if(p) people.push(p); }
+  for (const r of rows){
+    const p = parsePersonnelLine(r);
+    if (p) people.push(p);
+  }
+  
+  // La première ligne contient les en-têtes, on l'ignore
+  for(let i = 1; i < rows.length; i++) { 
+      const r = rows[i];
+      if (!r.trim()) continue;
+      
+      const p = extractGradeAndNameFromRow(r) || pickGradeAndNameFromCell(r); 
+      if (p) {
+          // Diviser la ligne par tabulation pour extraire les colonnes
+          const parts = r.split('\t').map(cleanText);
+          
+          people.push({
+              ...p, 
+              mle: parts[3] || "",      // MLE est la 4ème colonne
+              nrTph: parts[4] || "",    // NR TPH est la 5ème colonne
+              unite: parts[5] || "",    // UNITE est la 6ème colonne
+              label: `${p.grade} — ${p.name}`
+          }); 
+      }
+  }
+  
   return buildStaffFromPeople(people);
 }
-function parsePersonnelFromObjects(rows){
-  if(!Array.isArray(rows)||!rows.length) return {surveillants:[], estafettes:[], total:0};
-  const people=[];
-  for(const row of rows){
-    let hit=null;
-    for(const k of Object.keys(row)){ hit=pickGradeAndNameFromCell(row[k]); if(hit) break; }
-    if(!hit){
-      const g=detectGrade(row.GRADE||row['Grade']||row['grade']);
-      const n=cleanText(row['NOM ET PRENOMS']||row['Nom et prénom(s)']||row['NOM']||row['Nom']||'');
-      if(g&&n) hit={grade:g,name:n};
-    }
-    if(hit) people.push({...hit,label:`${hit.grade} — ${hit.name}`});
+function verifierDonneesPersonnel() {
+  const staff = loadStaff();
+  console.log("Données personnel sauvegardées:", staff);
+  
+  // Vérifier que les champs supplémentaires sont présents
+  if (staff.surveillants && staff.surveillants.length > 0) {
+      const sample = staff.surveillants[0];
+      console.log("Exemple de surveillant:", sample);
+      console.log("Champs MLE, NR TPH, UNITE:", {
+          mle: sample.mle,
+          nrTph: sample.nrTph,
+          unite: sample.unite
+      });
   }
-  return buildStaffFromPeople(people);
+  
+  if (staff.estafettes && staff.estafettes.length > 0) {
+      const sample = staff.estafettes[0];
+      console.log("Exemple d'estafette:", sample);
+      console.log("Champs MLE, NR TPH, UNITE:", {
+          mle: sample.mle,
+          nrTph: sample.nrTph,
+          unite: sample.unite
+      });
+  }
+}
+/**
+ * Détecte grade + nom + mle + phone + unite dans *n'importe* quelle cellule.
+ * Retour : { surveillants:[], estafettes:[], total }
+ */
+function parsePersonnelFromObjects(rows){
+
+  /* --- petits helpers de détection --------------------------------------- */
+  const looksLikeGrade = v => ALL_GRADES.has(String(v||"").replace(/\s+/g,"").toUpperCase());
+  const looksLikePhone = v =>
+      typeof v==='string' && v.replace(/\D/g,'').length >= 8;           // ≥ 8 chiffres
+  const looksLikeMle   = v => /^\d{4,6}$/.test(String(v||"").trim());   // 4-6 chiffres secs
+  const looksLikeUnite = v =>
+      typeof v==='string' &&
+      /\b(ESC|SSL|SM|SAF|SRH|SED|MATR|PEDA|ARM|DI|CAB|COURS|DAG)\b/i.test(v);
+
+  const people = [];
+
+  for(const row of (rows||[])){
+
+    /* ----- 1. on cherche dans CHAQUE cellule ce qui ressemble à un grade -- */
+    let grade = null, name = null;
+    for(const val of Object.values(row)){
+      const t = String(val||"");
+      const m = t.match(/\b(GPCE|GPHC|GHC|GP2C|GP1C|G2C|G1C|GST|CEN|CNE|LTN|MLTN|DLTN|LCL|MCDT)\b/i);
+      if(m){ grade = m[1].toUpperCase(); break; }
+    }
+
+    /* ----- 2. le NOM : on prend la plus longue suite de mots ------------ */
+    const longest = Object.values(row)
+      .map(v => String(v||"").trim())
+      .filter(s => /\p{L}{2,}/u.test(s))       // contient au moins des lettres
+      .sort((a,b)=>b.length-a.length)[0] || "";
+    name = cleanText(longest);
+
+    if(!grade || !name) continue;              // ligne ignorée
+
+    /* ----- 3. mle / phone / unite : on balaie toutes les cellules -------- */
+    let mle="", phone="", unite="";
+    for(const val of Object.values(row)){
+      const cell = String(val||"").trim();
+      if(!cell) continue;
+      if(!mle   && looksLikeMle(cell))   { mle = cell;                  continue; }
+      if(!phone && looksLikePhone(cell)) { phone = cell;                continue; }
+      if(!unite && looksLikeUnite(cell)) { unite = cell.toUpperCase();  continue; }
+    }
+
+    /* cas fréquents : téléphone dans mle, unité dans phone ---------------- */
+    if(looksLikePhone(mle) && !phone){ phone = mle; mle = ""; }
+    if(!looksLikePhone(phone) && looksLikeUnite(phone) && !unite){
+      unite = phone.toUpperCase(); phone = "";
+    }
+
+    /* -------- 4. on stocke ------------------------------------------------ */
+    people.push({
+      grade, name, label:`${grade} — ${name}`,
+      mle, phone, unite
+    });
+  }
+  const asLine = Object.values(row).join("  ");
+const p = parsePersonnelLine(asLine);
+if (p) people.push(p);
+
+
+  return buildStaffFromPeople(people);         // transforme en {surveillants, estafettes, total}
 }
 
 /******************************************************
@@ -407,14 +590,12 @@ async function exclureIncorporations(){
     `;
     document.head.appendChild(s);
   }
-
   const rowHTML=(n="",m="")=>`
     <div class="ex-row">
       <input class="incorp" placeholder="Incorporation ex: 123" value="${n}">
       <input class="motif" placeholder="Motif ex: Cas médical" value="${m}">
       <button type="button" class="rm" title="Supprimer">×</button>
     </div>`;
-
   const html=`
     <div class="exclu-wrap">
       <div class="exclu-tools">
@@ -427,7 +608,6 @@ async function exclureIncorporations(){
       <div id="rows" class="exclu-grid">${rowHTML()}</div>
       <div class="ex-foot"><span>Astuce : Entrée = valider • Échap = annuler</span><span id="count">1 ligne</span></div>
     </div>`;
-
   const res = await Swal.fire({
     title:"Exclure des incorporations", html, width:820, focusConfirm:false, showCancelButton:true, confirmButtonText:"Valider",
     didOpen:()=>{
@@ -459,92 +639,264 @@ async function exclureIncorporations(){
       return out;
     }
   });
-
   const out = res.isConfirmed ? (res.value||{}) : null;
   if(res.isConfirmed) saveExclusions(out);
   return out||{};
 }
-
 /******************************************************
  * 3) STAFF (édition + import)
  ******************************************************/
 async function editerStaff(){
   const prev=loadStaff(), cfg=loadEstafettesCfg();
+  
+  // Fonction pour formater une personne avec toutes ses informations
+  function formatPerson(person) {
+      if (!person) return "";
+      const base = person.label || `${person.grade} — ${person.name}`;
+      const extra = [];
+      if (person.mle) extra.push(`MLE: ${person.mle}`);
+      if (person.nrTph) extra.push(`TPH: ${person.nrTph}`);
+      if (person.unite) extra.push(`UNITÉ: ${person.unite}`);
+      return extra.length > 0 ? `${base} [${extra.join(', ')}]` : base;
+  }
+  
   const html=`
-    <div style="display:grid;gap:12px">
-      <div style="display:flex;flex-direction:column;gap:6px">
-        <label style="font-weight:600">Surveillants (2 par salle)</label>
-        <small style="color:#64748b">Règle : un parmi <b>GPCE/GPHC/GP1C/GP2C</b> + un parmi <b>GHC/G1C/G2C/GST</b>.</small>
-        <textarea id="sv" rows="6" placeholder="Un agent par ligne (ex: GST DUPONT Paul ou DUPONT Paul -- GP2C)"
-          style="width:100%;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px;outline:none">${(prev.surveillants||[]).join("\n")}</textarea>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        <label style="font-weight:600">Estafettes / Agents de liaison (GST prioritaire, G2C si nécessaire)</label>
-        <textarea id="es" rows="5" placeholder="Un agent par ligne (ex: GST RAKOTO …)"
-          style="width:100%;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px;outline:none">${(prev.estafettes||[]).join("\n")}</textarea>
-        <small style="color:#64748b">Astuce : collez la liste complète, je filtrerai GST/G2C aux imports.</small>
-      </div>
-      <fieldset style="display:grid;gap:8px;border:1px solid #e5e7eb;border-radius:12px;padding:10px">
-        <legend style="font-weight:700;font-size:14px;padding:0 6px">Règle estafettes</legend>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-          <label>Minimum par bâtiment :</label>
-          <input id="minEstaf" type="number" min="2" value="${cfg.minPerBuilding}" style="width:120px;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px" />
-          <label>Passer à 3 si nbre de salles ≥</label>
-          <input id="thrRooms" type="number" min="3" value="${cfg.useThreeWhenRoomsGte}" style="width:120px;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px" />
-        </div>
-      </fieldset>
-    </div>`;
-  const res=await Swal.fire({ title:"Personnel", html, width:720, focusConfirm:false, showCancelButton:true, confirmButtonText:"Enregistrer" });
+      <div style="display:grid;gap:12px">
+          <div style="display:flex;flex-direction:column;gap:6px">
+              <label style="font-weight:600">Surveillants (2 par salle)</label>
+              <small style="color:#64748b">Règle : un parmi <b>GPCE/GPHC/GP1C/GP2C</b> + un parmi <b>GHC/G1C/G2C/GST</b>.</small>
+              <textarea id="sv" rows="8" placeholder="Un agent par ligne (ex: GST DUPONT Paul ou DUPONT Paul -- GP2C)"
+                  style="width:100%;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px;outline:none;font-family:monospace;font-size:13px">
+                  ${(prev.surveillants || []).map(formatPerson).join("\n")}
+              </textarea>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+              <label style="font-weight:600">Estafettes / Agents de liaison (GST prioritaire, G2C si nécessaire)</label>
+              <textarea id="es" rows="6" placeholder="Un agent par ligne (ex: GST RAKOTO …)"
+                  style="width:100%;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px;outline:none;font-family:monospace;font-size:13px">
+                  ${(prev.estafettes || []).map(formatPerson).join("\n")}
+              </textarea>
+              <small style="color:#64748b">Astuce : collez la liste complète, je filtrerai GST/G2C aux imports.</small>
+          </div>
+          <fieldset style="display:grid;gap:8px;border:1px solid #e5e7eb;border-radius:12px;padding:10px">
+              <legend style="font-weight:700;font-size:14px;padding:0 6px">Règle estafettes</legend>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                  <label>Minimum par bâtiment :</label>
+                  <input id="minEstaf" type="number" min="2" value="${cfg.minPerBuilding}" style="width:120px;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px" />
+                  <label>Passer à 3 si nbre de salles ≥</label>
+                  <input id="thrRooms" type="number" min="3" value="${cfg.useThreeWhenRoomsGte}" style="width:120px;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px" />
+              </div>
+          </fieldset>
+      </div>`;
+  const res=await Swal.fire({ title:"Personnel", html, width:800, focusConfirm:false, showCancelButton:true, confirmButtonText:"Enregistrer" });
   if(!res.isConfirmed) return loadStaff();
-
-  const sv=(document.getElementById('sv').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
-  const es=(document.getElementById('es').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  
+  // Parser les textareas pour récupérer les informations
+  function parsePersonLine(line) {
+      // Format attendu: "GRADE — NOM [MLE: xxx, TPH: xxx, UNITÉ: xxx]"
+      const match = line.match(/^(.+?)\s*\[(.+)\]$/);
+      if (match) {
+          const label = match[1].trim();
+          const infoStr = match[2];
+          
+          // Parser les informations supplémentaires
+          const info = {};
+          infoStr.split(',').forEach(item => {
+              const [key, value] = item.split(':').map(s => s.trim());
+              if (key && value) {
+                  if (key.toLowerCase() === 'mle') info.mle = value;
+                  if (key.toLowerCase() === 'tph') info.nrTph = value;
+                  if (key.toLowerCase() === 'unité' || key.toLowerCase() === 'unite') info.unite = value;
+              }
+          });
+          
+          // Parser le label pour obtenir grade et name
+          const parsed = parseSurveillantLine(label);
+          if (parsed) {
+              return {
+                  ...parsed,
+                  ...info
+              };
+          }
+      }
+      
+      // Si le format étendu ne fonctionne pas, essayer le format simple
+      return parseSurveillantLine(line);
+  }
+  
+  const svText=(document.getElementById('sv').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const esText=(document.getElementById('es').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  
+  const sv = svText.map(parsePersonLine).filter(Boolean);
+  const es = esText.map(parsePersonLine).filter(Boolean);
+  
   const minEst=Math.max(2, parseInt(document.getElementById('minEstaf').value,10)||2);
   const thr=Math.max(3, parseInt(document.getElementById('thrRooms').value,10)||4);
-  saveStaff({surveillants:sv, estafettes:es}); saveEstafettesCfg({minPerBuilding:minEst, useThreeWhenRoomsGte:thr});
+  
+  // Reconstruire les objets complets à partir des données parsées
+  const svObjects = sv.map(p => ({
+      label: p.label,
+      grade: p.grade,
+      name: p.name,
+      mle: p.mle || "",
+      nrTph: p.nrTph || "",
+      unite: p.unite || ""
+  }));
+  const esObjects = es.map(p => ({
+      label: p.label,
+      grade: p.grade,
+      name: p.name,
+      mle: p.mle || "",
+      nrTph: p.nrTph || "",
+      unite: p.unite || ""
+  }));
+  
+  saveStaff({surveillants:svObjects, estafettes:esObjects}); 
+  saveEstafettesCfg({minPerBuilding:minEst, useThreeWhenRoomsGte:thr});
   return loadStaff();
 }
-
 async function importerPersonnelDepuisColler(){
   const html=`
-    <div style="display:grid;gap:10px">
-      <p style="margin:0;color:#475569">Collez les lignes (avec <b>GRADE</b> et <b>NOM ET PRENOMS</b>).</p>
-      <textarea id="txtImport" rows="12" placeholder="Collez ici…" style="width:100%;border:1px solid #d1d5db;border-radius:10px;padding:10px 12px;outline:none"></textarea>
-      <small style="color:#64748b">Pas besoin de nettoyer NR/MLE/Téléphone/Unité.</small>
-    </div>`;
-  const res=await Swal.fire({ title:"Importer le personnel (coller depuis Excel)", html, width:720, focusConfirm:false, showCancelButton:true, confirmButtonText:"Importer" });
+      <div style="display:grid;gap:10px">
+          <p style="margin:0;color:#475569">Collez les lignes (avec <b>GRADE</b> et <b>NOM ET PRENOMS</b>).</p>
+          <textarea id="txtImport" rows="12" placeholder="Collez ici…" style="width:100%;border:1px solid #d1d5db;border-radius:10px;padding:10px 12px;outline:none"></textarea>
+          <small style="color:#64748b">Format attendu : NR | GRADE | NOM ET PRENOMS | MLE | NR TPH | UNITE</small>
+      </div>`;
+  
+  const res=await Swal.fire({ 
+      title:"Importer le personnel (coller depuis Excel)", 
+      html, 
+      width:720, 
+      focusConfirm:false, 
+      showCancelButton:true, 
+      confirmButtonText:"Importer" 
+  });
+  
   if(!res.isConfirmed) return null;
   const raw=document.getElementById('txtImport').value||'';
+  
+  // Afficher les données brutes pour le débogage
+  console.log("Données brutes collées:", raw);
+  
   const parsed=parsePersonnelFromPasted(raw);
-  if(!parsed.total){ await Swal.fire("Aucun agent détecté","Vérifie la présence des colonnes GRADE/NOM.","warning"); return null; }
+  
+  // Afficher les données analysées pour le débogage
+  console.log("Données analysées:", parsed);
+  
+  if(!parsed.total){ 
+      await Swal.fire("Aucun agent détecté","Vérifie la présence des colonnes GRADE/NOM.","warning"); 
+      return null; 
+  }
+  
+  // Sauvegarder le personnel importé
   saveStaff({surveillants:parsed.surveillants, estafettes:parsed.estafettes});
-  await Swal.fire({icon:"success", title:"Import réussi", html:`<div style="text-align:left"><p>Agents détectés : <b>${parsed.total}</b></p><p>Surveillants : <b>${parsed.surveillants.length}</b></p><p>Estafettes (GST/G2C) : <b>${parsed.estafettes.length}</b></p></div>`});
+  verifierDonneesPersonnel();
+  
+  // Effacer les assignments d'estafettes existantes pour permettre le recalcul automatique
+  saveEstafettesAssign({});
+  
+  // Mettre à jour l'interface si le modal est ouvert
+  if (document.querySelector('.room-card')) {
+      const staff = loadStaff();
+      buildSurveillantOptions(staff);
+      renderEstafettePanel();
+      renderReprisePanel();
+  }
+  
+  await Swal.fire({
+      icon:"success", 
+      title:"Import réussi", 
+      html:`<div style="text-align:left">
+          <p>Agents détectés : <b>${parsed.total}</b></p>
+          <p>Surveillants : <b>${parsed.surveillants.length}</b></p>
+          <p>Estafettes (GST/G2C) : <b>${parsed.estafettes.length}</b></p>
+          <p style="color:#10b981;font-size:12px;margin-top:8px">Les estafettes ont été réinitialisées et seront recalculées automatiquement.</p>
+          ${!document.querySelector('.room-card') ? '<p style="color:#f59e0b;font-size:12px;margin-top:8px">Veuillez rouvrir le modal pour voir les changements.</p>' : ''}
+      </div>`
+  });
+  
   return loadStaff();
 }
-
 async function importerPersonnelDepuisExcel(){
   const html=`<div style="display:grid;gap:10px">
-    <input id="excelFile" type="file" accept=".xlsx,.xls,.csv" style="border:1px solid #d1d5db;border-radius:10px;padding:8px 10px" />
-    <small style="color:#64748b">Le fichier doit contenir <b>GRADE</b> et <b>NOM ET PRENOMS</b>.</small></div>`;
+      <input id="excelFile" type="file" accept=".xlsx,.xls,.csv" style="border:1px solid #d1d5db;border-radius:10px;padding:8px 10px" />
+      <small style="color:#64748b">Le fichier doit contenir <b>GRADE</b> et <b>NOM ET PRENOMS</b>.<br>
+      Les colonnes <b>MLE</b>, <b>NR TPH</b> et <b>UNITE</b> seront également importées si disponibles.</small></div>`;
+  
   const res=await Swal.fire({
-    title:"Importer le personnel depuis un fichier", html, width:560, focusConfirm:false, showCancelButton:true, confirmButtonText:"Importer",
-    preConfirm:async()=>{
-      const input=document.getElementById('excelFile'); const file=input?.files?.[0];
-      if(!file){ Swal.showValidationMessage("Sélectionnez un fichier."); return false; }
-      try{
-        const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:"array"}); const sheet=wb.Sheets[wb.SheetNames[0]];
-        const rows=XLSX.utils.sheet_to_json(sheet,{defval:"",raw:false}); const parsed=parsePersonnelFromObjects(rows);
-        if(!parsed.total){ Swal.showValidationMessage("Impossible de détecter des agents."); return false; }
-        saveStaff({surveillants:parsed.surveillants, estafettes:parsed.estafettes}); return parsed;
-      }catch(e){ console.error(e); Swal.showValidationMessage("Erreur de lecture du fichier."); return false; }
-    }
+      title:"Importer le personnel depuis un fichier", 
+      html, 
+      width:560, 
+      focusConfirm:false, 
+      showCancelButton:true, 
+      confirmButtonText:"Importer",
+      preConfirm:async()=>{
+          const input=document.getElementById('excelFile'); 
+          const file=input?.files?.[0];
+          if(!file){ 
+              Swal.showValidationMessage("Sélectionnez un fichier."); 
+              return false; 
+          }
+          
+          try{
+              const buf=await file.arrayBuffer(); 
+              const wb=XLSX.read(buf,{type:"array"}); 
+              const sheet=wb.Sheets[wb.SheetNames[0]];
+              const rows=XLSX.utils.sheet_to_json(sheet,{defval:"",raw:false}); 
+              
+              // Afficher les noms des colonnes pour le débogage
+              console.log("Colonnes trouvées:", Object.keys(rows[0] || {}));
+              
+              const parsed=parsePersonnelFromObjects(rows);
+              if(!parsed.total){ 
+                  Swal.showValidationMessage("Impossible de détecter des agents."); 
+                  return false; 
+              }
+              
+              // Afficher les données importées pour le débogage
+              console.log("Données importées:", parsed);
+              
+              // Sauvegarder le personnel importé
+              saveStaff({surveillants:parsed.surveillants, estafettes:parsed.estafettes}); 
+              verifierDonneesPersonnel();
+              
+              // Effacer les assignments d'estafettes existantes pour permettre le recalcul automatique
+              saveEstafettesAssign({});
+              
+              return parsed;
+          }catch(e){ 
+              console.error(e); 
+              Swal.showValidationMessage("Erreur de lecture du fichier."); 
+              return false; 
+          }
+      }
   });
+  
   if(!res.isConfirmed) return null;
   const p=res.value;
-  await Swal.fire({icon:"success", title:"Import réussi", html:`<div style="text-align:left"><p>Agents détectés : <b>${p.total}</b></p><p>Surveillants : <b>${p.surveillants.length}</b></p><p>Estafettes (GST/G2C) : <b>${p.estafettes.length}</b></p></div>`});
+  
+  // Mettre à jour l'interface si le modal est ouvert
+  if (document.querySelector('.room-card')) {
+      const staff = loadStaff();
+      buildSurveillantOptions(staff);
+      renderEstafettePanel();
+      renderReprisePanel();
+  }
+  
+  await Swal.fire({
+      icon:"success", 
+      title:"Import réussi", 
+      html:`<div style="text-align:left">
+          <p>Agents détectés : <b>${p.total}</b></p>
+          <p>Surveillants : <b>${p.surveillants.length}</b></p>
+          <p>Estafettes (GST/G2C) : <b>${p.estafettes.length}</b></p>
+          <p style="color:#10b981;font-size:12px;margin-top:8px">Les estafettes ont été réinitialisées et seront recalculées automatiquement.</p>
+          ${!document.querySelector('.room-card') ? '<p style="color:#f59e0b;font-size:12px;margin-top:8px">Veuillez rouvrir le modal pour voir les changements.</p>' : ''}
+      </div>`
+  });
+  
   return loadStaff();
 }
-
 /******************************************************
  * 4) ESTAFETTES — calcul auto en excluant les surveillants
  ******************************************************/
@@ -557,105 +909,134 @@ function getAllSurveillantNames(salles) {
       .filter(Boolean)
   );
 }
-
 function computeEstafettesParBat(salles, staff, editedMap /* {bat -> [label]} */){
   // Choix utilisateur précédents
-  
   const fromUI = new Map(Object.entries(editedMap||{}));
   const cfg = loadEstafettesCfg();
-
+  
   // 1) Exclure toute personne déjà surveillant (règle stricte)
   const survUsed = getAllSurveillantNames(salles);
-
-  // 2) Pool autorisé = GST puis G2C, hors surveillants
-// Pool des estafettes autorisées : jamais un déjà surveillant
-const base = (staff?.estafettes||[])
-.map(l => ({ grade: gradeFromLabel(l), name: nameFromLabel(l), label:l }))
-.filter(p => ONLY_ESTAFETTE_GRADES.has(p.grade))
-.filter(p => !survUsed.has(normName(p.name))); // <--- ICI
-
-  // 3) Déduplique par nom + mélange pour vrai random
+  
+  // 2) Récupérer tout le personnel disponible (hors surveillants)
+  const allStaff = [...staff.surveillants, ...staff.estafettes];
+  const availableStaff = allStaff.filter(person => {
+      const name = normName(person.name);
+      return !survUsed.has(name);
+  });
+  
+  // 3) Séparer en deux groupes : prioritaires (GST, G2C) et non-prioritaires (autres)
+  const prioritaires = availableStaff.filter(person => 
+      ONLY_ESTAFETTE_GRADES.has(person.grade)
+  );
+  
+  const nonPrioritaires = availableStaff.filter(person => 
+      !ONLY_ESTAFETTE_GRADES.has(person.grade)
+  ).sort((a, b) => {
+      // Trier par ordre décroissant de GRADE_ORDER (pour utiliser d'abord les grades les moins élevés)
+      return gradeRank(b.grade) - gradeRank(a.grade);
+  });
+  
+  // 4) Combiner les groupes : prioritaires en premier, puis non-prioritaires
+  const combinedPool = [...prioritaires, ...nonPrioritaires];
+  
+  // 5) Déduplique par nom + mélange pour vrai random
   const seen = new Set();
-  const pool = base.filter(p=>{
-    const n=normName(p.name);
-    if(seen.has(n)) return false;
-    seen.add(n);
-    return true;
+  const pool = combinedPool.filter(p => {
+      const n = normName(p.name);
+      if (seen.has(n)) return false;
+      seen.add(n);
+      return true;
   });
   shuffleInPlace(pool);
-
-  // 4) Groupement des salles par bâtiment
+  
+  // 6) Groupement des salles par bâtiment
   const byBat = new Map();
-  for(const s of (salles||[])){
-    const b=_clean(s.batiment)||"—";
-    if(!byBat.has(b)) byBat.set(b,[]);
-    byBat.get(b).push(s);
+  for (const s of (salles || [])) {
+      const b = _clean(s.batiment) || "—";
+      if (!byBat.has(b)) byBat.set(b, []);
+      byBat.get(b).push(s);
   }
-
-  const perBat = loadEstafettesPerBuilding();   // <-- ajout
-  const needFor = (bat)=>{
-    if (perBat[bat]) return perBat[bat];
-    const nb=(byBat.get(bat)||[]).length;
-    return (nb >= cfg.useThreeWhenRoomsGte) ? Math.max(3,cfg.minPerBuilding) : Math.max(2,cfg.minPerBuilding);
+  
+  const perBat = loadEstafettesPerBuilding();
+  const needFor = (bat) => {
+      if (perBat[bat]) return perBat[bat];
+      const nb = (byBat.get(bat) || []).length;
+      return (nb >= cfg.useThreeWhenRoomsGte) ? Math.max(3, cfg.minPerBuilding) : Math.max(2, cfg.minPerBuilding);
   };
-
-  // 5) Round-robin *avec* unicité globale estafettes (pas 2 bâtiments)
-  let idx=0;
+  
+  // 7) Round-robin *avec* unicité globale estafettes (pas 2 bâtiments)
+  let idx = 0;
   const usedEst = new Set(); // noms normalisés déjà affectés comme estafette (tous bâtiments)
-  const rr = ()=>{
-    while(idx < pool.length){
-      const lab = pool[idx++].label;
-      const n = normName(nameFromLabel(lab));
-      if(!usedEst.has(n)){
-        usedEst.add(n);
-        return lab;
+  const rr = () => {
+      while (idx < pool.length) {
+          const person = pool[idx++];
+          const lab = person.label;
+          const n = normName(person.name);
+          if (!usedEst.has(n)) {
+              usedEst.add(n);
+              return person; // Retourner l'objet complet, pas juste le label
+          }
       }
-    }
-    return null; // plus personne dispo → laisser vide
+      return null; // plus personne dispo → laisser vide
   };
-
-  // 6) Construit le résultat par bâtiment
-  const out=new Map();
-  for(const bat of byBat.keys()){
-    const need = needFor(bat);
-
-    // On nettoie d'abord les sélections utilisateur :
-    //  - supprime quiconque est surveillant
-    //  - supprime doublons par nom
-    const userSelRaw = (fromUI.get(bat)||[]).filter(Boolean);
-    const seenLoc = new Set();
-    const userSel = [];
-    for(const lab of userSelRaw){
-      const n = normName(nameFromLabel(lab));
-      if(!n) continue;
-      if(survUsed.has(n)) continue;         // jamais surveillant & estafette
-      if(usedEst.has(n)) continue;          // déjà utilisé par un autre bâtiment
-      if(seenLoc.has(n)) continue;          // pas de doublon local
-      seenLoc.add(n);
-      usedEst.add(n);                        // réserve globalement
-      userSel.push(lab);
-    }
-
-    // Complète aléatoirement jusqu'au besoin
-    const list = userSel.slice(0, need);
-    while(list.length < need){
-      const e = rr();
-      if(!e) break;                          // pool épuisé -> vide laissé
-      list.push(e);
-    }
-    out.set(bat, list);
+  
+  // 8) Construit le résultat par bâtiment
+  const out = new Map();
+  const autoAssignments = new Map(); // Pour stocker les assignments automatiques
+  
+  for (const bat of byBat.keys()) {
+      const need = needFor(bat);
+      
+      // Si l'utilisateur n'a pas fait de sélection manuelle, on assigne automatiquement
+      if (!fromUI.has(bat) || fromUI.get(bat).length === 0) {
+          const list = [];
+          for (let i = 0; i < need; i++) {
+              const e = rr();
+              if (e) {
+                  list.push(e.label); // Stocker le label pour la compatibilité
+              }
+          }
+          out.set(bat, list);
+          autoAssignments.set(bat, list);
+      } else {
+          // On nettoie d'abord les sélections utilisateur :
+          //  - supprime quiconque est surveillant
+          //  - supprime doublons par nom
+          const userSelRaw = (fromUI.get(bat) || []).filter(Boolean);
+          const seenLoc = new Set();
+          const userSel = [];
+          for (const lab of userSelRaw) {
+              const n = normName(nameFromLabel(lab));
+              if (!n) continue;
+              if (survUsed.has(n)) continue;         // jamais surveillant & estafette
+              if (usedEst.has(n)) continue;          // déjà utilisé par un autre bâtiment
+              if (seenLoc.has(n)) continue;          // pas de doublon local
+              seenLoc.add(n);
+              usedEst.add(n);                        // réserve globalement
+              userSel.push(lab);
+          }
+          // Complète aléatoirement jusqu'au besoin
+          const list = userSel.slice(0, need);
+          while (list.length < need) {
+              const e = rr();
+              if (!e) break;                          // pool épuisé -> vide laissé
+              list.push(e.label);
+          }
+          out.set(bat, list);
+      }
   }
-  return out;
+  
+  // 9) Retourner également les personnes utilisées pour les calculs ultérieurs
+  return {
+      estafettesMap: out,
+      autoAssignments: autoAssignments,
+      usedEstafettes: usedEst,
+      availableStaff: availableStaff
+  };
 }
 
-
 /******************************************************
  * 5) MODAL principal (salles + à droite onglet Estafettes)
- ******************************************************/
-/******************************************************
- * 5) MODAL principal (salles + à droite onglet Estafettes)
- *    → version "simple" : on redemande TOUJOURS le nb de salles
- *      et on ajuste savedRooms avant d'ouvrir le modal
  ******************************************************/
 async function ajouterSallesViaModal(eleves, exclusions = []) {
   const savedRooms = loadRooms();
@@ -740,12 +1121,11 @@ async function ajouterSallesViaModal(eleves, exclusions = []) {
         box-shadow: 0 0 0 3px rgba(168,85,247,.18);
       }
       .reprise-box{border:1px solid #e5e7eb;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px}
-.reprise-head{display:flex;justify-content:space-between;align-items:center;font-weight:700}
-.reprise-grid{display:grid;grid-template-columns:1fr 110px 34px;gap:6px}
-.reprise-grid input{padding:8px 10px;border:1px solid #cfd4dc;border-radius:10px}
-.reprise-add{padding:6px 10px;border:none;border-radius:10px;background:#3b82f6;color:#fff;cursor:pointer}
-.reprise-del{border:1px solid #e5e7eb;border-radius:10px;background:#f3f4f6;cursor:pointer}
-
+   .reprise-head{display:flex;justify-content:space-between;align-items:center;font-weight:700}
+   .reprise-grid{display:grid;grid-template-columns:1fr 110px 34px;gap:6px}
+   .reprise-grid input{padding:8px 10px;border:1px solid #cfd4dc;border-radius:10px}
+   .reprise-add{padding:6px 10px;border:none;border-radius:10px;background:#3b82f6;color:#fff;cursor:pointer}
+   .reprise-del{border:1px solid #e5e7eb;border-radius:10px;background:#f3f4f6;cursor:pointer}
       
     `;
     document.head.appendChild(style);
@@ -800,8 +1180,7 @@ async function ajouterSallesViaModal(eleves, exclusions = []) {
         <button type="button" id="reprise-add" class="reprise-add">+ Ligne</button>
     </div>
   <div class="reprise-grid" id="reprise-grid"></div>
-</div>
-
+ </div>
       </aside>
     </div>`;
   // Footer
@@ -850,14 +1229,20 @@ async function ajouterSallesViaModal(eleves, exclusions = []) {
       // Estafettes par bâtiment (état)
       let estAssign = loadEstafettesAssign();
       let staff = loadStaff();
-
+      
+      // Fonction pour construire les options des listes déroulantes
+      
+      
+      // Appeler la fonction avec le staff en paramètre
+      buildSurveillantOptions(staff);
+      
       const getSallesSnapshot = () => [...document.querySelectorAll('.room-card')].map((card, i) => ({
         numero: i + 1,
         batiment: (card.querySelector('.room-building')?.value || '').trim() || '—',
         surveillants: [card.querySelector('.sv1')?.value, card.querySelector('.sv2')?.value].filter(Boolean)
       }));
       function getAllEstafetteNames(estAssign) {
-        // Retourne Set de tous les noms (normés) d’estafettes assignées (tous bâtiments)
+        // Retourne Set de tous les noms (normés) d'estafettes assignées (tous bâtiments)
         return new Set(
           Object.values(estAssign || {})
             .flat()
@@ -865,48 +1250,6 @@ async function ajouterSallesViaModal(eleves, exclusions = []) {
             .filter(Boolean)
         );
       }
-      function buildSurveillantOptions() {
-        const pools = buildSurvPools(staff.surveillants || []);
-        // Compter combien de fois chaque personne est affectée
-        const allRooms = [...document.querySelectorAll('.room-card')];
-        const surveillantCount = {};
-        allRooms.forEach(card => {
-          ['sv1', 'sv2'].forEach(cls => {
-            const v = card.querySelector(`.${cls}`)?.value;
-            if (v) {
-              const n = normName(nameFromLabel(v));
-              surveillantCount[n] = (surveillantCount[n] || 0) + 1;
-            }
-          });
-        });
-        // Noms d'estafette
-        const estAssign = loadEstafettesAssign();
-        const allEstafette = getAllEstafetteNames(estAssign);
-      
-        const options = pools.display.map(p => {
-          const n = normName(p.name);
-          const isEstafette = allEstafette.has(n);
-          const count = surveillantCount[n] || 0;
-          // Coloration :
-          // - ROUGE si affecté dans PLUS D’UNE salle, ou déjà estafette
-          // - BLEU si jamais affecté
-          // - GRIS si utilisé une fois
-          let color = 'background:#dbeafe;color:#2563eb'; // bleu
-          if (isEstafette || count > 1) color = 'background:#fee2e2;color:#991b1b'; // rouge vif
-          else if (count === 1) color = 'background:#e0e7ff;color:#64748b;'; // gris/bleu pâle
-          return `<option value="${p.label.replace(/"/g, '&quot;')}" style="${color}">${p.label}</option>`;
-        }).join('');
-        document.querySelectorAll('.sv1,.sv2').forEach(sel => {
-          const cur = sel.value;
-          sel.innerHTML = `<option value=""></option>` + options;
-          if (cur && [...sel.options].some(o => o.value === cur)) {
-            sel.value = cur;
-          } else {
-            sel.selectedIndex = 0;
-          }
-        });
-      }
-      
       
       /** 
        * Colore la carte salle si un surveillant est déjà ailleurs comme surveillant OU comme estafette.
@@ -926,7 +1269,7 @@ async function ajouterSallesViaModal(eleves, exclusions = []) {
           });
         });
       
-        // 2. Pour chaque salle, regarde si l’un des surveillants y est affecté à plus d'une salle
+        // 2. Pour chaque salle, regarde si l'un des surveillants y est affecté à plus d'une salle
         allRooms.forEach((card, idx) => {
           let isDuplicate = false;
           ['sv1', 'sv2'].forEach(cls => {
@@ -943,15 +1286,7 @@ async function ajouterSallesViaModal(eleves, exclusions = []) {
           else card.classList.remove('sv-duplicate');
         });
       }
-      
-      
-      
-    
-      
-      
-      
-      
-      function colorizeShortages(estMap) {
+      function colorizeShortages(estafettesData) {
         const cards = [...document.querySelectorAll('.room-card')];
         let missingSV = 0, missingEst = 0;
         const cfg = loadEstafettesCfg();
@@ -959,182 +1294,434 @@ async function ajouterSallesViaModal(eleves, exclusions = []) {
         const countByBat = new Map();
         snapshot.forEach(s => countByBat.set(s.batiment, (countByBat.get(s.batiment) || 0) + 1));
         const needFor = bat => (countByBat.get(bat) || 0) >= cfg.useThreeWhenRoomsGte ? Math.max(3, cfg.minPerBuilding) : Math.max(2, cfg.minPerBuilding);
+        
         cards.forEach(card => {
-          const sv1 = card.querySelector('.sv1')?.value, sv2 = card.querySelector('.sv2')?.value;
-          if (!sv1 || !sv2) { card.classList.add('sv-missing'); missingSV++; } else card.classList.remove('sv-missing');
+            const sv1 = card.querySelector('.sv1')?.value, sv2 = card.querySelector('.sv2')?.value;
+            if (!sv1 || !sv2) { 
+                card.classList.add('sv-missing'); 
+                missingSV++; 
+            } else { 
+                card.classList.remove('sv-missing'); 
+            }
         });
-        for (const [bat, list] of estMap.entries()) {
-          const need = needFor(bat); missingEst += Math.max(0, need - (list?.length || 0));
+        
+        // Vérifier si estafettesData est un objet avec la propriété estafettesMap
+        let estMap;
+        if (estafettesData && estafettesData.estafettesMap) {
+            estMap = estafettesData.estafettesMap;
+        } else {
+            estMap = estafettesData; // Pour la compatibilité avec l'ancien format
         }
+        
+        // Parcourir le Map des estafettes
+        for (const [bat, list] of estMap.entries()) {
+            const need = needFor(bat); 
+            missingEst += Math.max(0, need - (list?.length || 0));
+        }
+        
         const badge = document.getElementById('shortage-indicator');
         if (missingSV === 0 && missingEst === 0) {
-          badge.style.display = 'inline-block'; badge.className = 'shortage-badge short-ok'; badge.textContent = 'Aucun manque de personnel';
+            badge.style.display = 'inline-block'; 
+            badge.className = 'shortage-badge short-ok'; 
+            badge.textContent = 'Aucun manque de personnel';
         } else {
-          badge.style.display = 'inline-block';
-          const parts = []; if (missingSV > 0) parts.push(`${missingSV} salle(s) sans 2 surveillants`); if (missingEst > 0) parts.push(`estafettes manquantes: ${missingEst}`);
-          const sev = (missingSV > 0 && missingEst > 0) ? 'short-bad' : 'short-warn';
-          badge.className = `shortage-badge ${sev}`; badge.textContent = parts.join(' · ');
+            badge.style.display = 'inline-block';
+            const parts = []; 
+            if (missingSV > 0) parts.push(`${missingSV} salle(s) sans 2 surveillants`); 
+            if (missingEst > 0) parts.push(`estafettes manquantes: ${missingEst}`);
+            const sev = (missingSV > 0 && missingEst > 0) ? 'short-bad' : 'short-warn';
+            badge.className = `shortage-badge ${sev}`; 
+            badge.textContent = parts.join(' · ');
         }
         return { missingSV, missingEst };
+    }
+    function buildSurveillantOptions(staff) {
+      const pools = buildSurvPools(staff.surveillants || []);
+      
+      // Compter combien de fois chaque personne est affectée
+      const allRooms = [...document.querySelectorAll('.room-card')];
+      const surveillantCount = {};
+      allRooms.forEach(card => {
+          ['sv1', 'sv2'].forEach(cls => {
+              const v = card.querySelector(`.${cls}`)?.value;
+              if (v) {
+                  const n = normName(nameFromLabel(v));
+                  surveillantCount[n] = (surveillantCount[n] || 0) + 1;
+              }
+          });
+      });
+  
+      // Noms d'estafette
+      const estAssign = loadEstafettesAssign();
+      const allEstafette = getAllEstafetteNames(estAssign);
+      
+      // Séparer les seniors (GROUP_B) et les adjoints (GROUP_A)
+      const seniors = pools.display.filter(p => GROUP_B.has(p.grade));  // GPCE, GPHC, GP1C, GP2C
+      const adjoints = pools.display.filter(p => GROUP_A.has(p.grade)); // GHC, G1C, G2C, GST
+      
+      // Fonction pour créer les options avec style et informations supplémentaires
+      const createOptions = (people, groupName) => {
+          if (people.length === 0) return "";
+          
+          // Ajouter un en-tête de groupe
+          let options = `<option disabled style="font-weight:bold; background:#f3f4f6; color:#374151;">--- ${groupName} ---</option>`;
+          
+          // Ajouter les options pour chaque personne
+          people.forEach(p => {
+              const n = normName(p.name);
+              const isEstafette = allEstafette.has(n);
+              const count = surveillantCount[n] || 0;
+              
+              // Coloration selon l'état
+              let color = 'background:#dbeafe;color:#2563eb'; // bleu (jamais utilisé)
+              if (isEstafette || count > 1) color = 'background:#fee2e2;color:#991b1b'; // rouge
+              else if (count === 1) color = 'background:#e0e7ff;color:#64748b;'; // gris
+              
+              // Construire le label étendu avec toutes les informations
+              let displayLabel = p.label || `${p.grade} — ${p.name}`;
+              
+              // Ajouter les champs supplémentaires au label
+              if (p.mle || p.nrTph || p.unite) {
+                  const extraParts = [];
+                  if (p.mle) extraParts.push(`MLE: ${p.mle}`);
+                  if (p.nrTph) extraParts.push(`TPH: ${p.nrTph}`);
+                  if (p.unite) extraParts.push(`UNITÉ: ${p.unite}`);
+                  
+                  displayLabel += ` [${extraParts.join(', ')}]`;
+              }
+              
+              // Garder le label original comme valeur pour la compatibilité
+              const originalLabel = p.label || `${p.grade} — ${p.name}`;
+              
+              options += `<option value="${originalLabel.replace(/"/g, '&quot;')}" style="${color}">${displayLabel}</option>`;
+          });
+          
+          return options;
+      };
+      
+      // Créer les options en mettant les seniors en premier
+      const options = createOptions(seniors, "SENIORS (GPCE, GPHC, GP1C, GP2C)") + 
+                     createOptions(adjoints, "ADJOINTS (GHC, G1C, G2C, GST)");
+      
+      // Appliquer les options aux selects
+      document.querySelectorAll('.sv1,.sv2').forEach(sel => {
+          const cur = sel.value;
+          sel.innerHTML = `<option value=""></option>` + options;
+          if (cur && [...sel.options].some(o => o.value === cur)) {
+              sel.value = cur;
+          } else {
+              sel.selectedIndex = 0;
+          }
+      });
+      // Ajouter ce CSS pour améliorer l'affichage des options et des groupes
+        if (!document.getElementById('personnel-group-css')) {
+          const style = document.createElement('style'); style.id="personnel-group-css";
+          style.textContent=`
+              .sv1 option, .sv2 option {
+                  white-space: pre-wrap;
+                  max-width: 400px;
+              }
+              .sv1 option:disabled, .sv2 option:disabled {
+                  font-weight: bold;
+                  background: #f3f4f6 !important;
+                  color: #374151 !important;
+                  font-style: italic;
+              }
+          `;
+          document.head.appendChild(style);
+        }
+  }
+  function buildSurveillantOptions(staff) {
+    const pools = buildSurvPools(staff.surveillants || []);
+    
+    // Compter combien de fois chaque personne est affectée
+    const allRooms = [...document.querySelectorAll('.room-card')];
+    const surveillantCount = {};
+    allRooms.forEach(card => {
+        ['sv1', 'sv2'].forEach(cls => {
+            const v = card.querySelector(`.${cls}`)?.value;
+            if (v) {
+                const n = normName(nameFromLabel(v));
+                surveillantCount[n] = (surveillantCount[n] || 0) + 1;
+            }
+        });
+    });
+
+    // Noms d'estafette
+    const estAssign = loadEstafettesAssign();
+    const allEstafette = getAllEstafetteNames(estAssign);
+    
+    // Séparer les seniors (GROUP_B) et les adjoints (GROUP_A)
+    const seniors = pools.display.filter(p => GROUP_B.has(p.grade));  // GPCE, GPHC, GP1C, GP2C
+    const adjoints = pools.display.filter(p => GROUP_A.has(p.grade)); // GHC, G1C, G2C, GST
+    
+    // Fonction pour créer les options avec style et informations supplémentaires
+    const createOptions = (people, groupName) => {
+        if (people.length === 0) return "";
+        
+        // Ajouter un en-tête de groupe
+        let options = `<option disabled style="font-weight:bold; background:#f3f4f6; color:#374151;">--- ${groupName} ---</option>`;
+        
+        // Ajouter les options pour chaque personne
+        people.forEach(p => {
+            const n = normName(p.name);
+            const isEstafette = allEstafette.has(n);
+            const count = surveillantCount[n] || 0;
+            
+            // Coloration selon l'état
+            let color = 'background:#dbeafe;color:#2563eb'; // bleu (jamais utilisé)
+            if (isEstafette || count > 1) color = 'background:#fee2e2;color:#991b1b'; // rouge
+            else if (count === 1) color = 'background:#e0e7ff;color:#64748b;'; // gris
+            
+            // Construire le label étendu avec toutes les informations
+            let displayLabel = p.label || `${p.grade} — ${p.name}`;
+            
+            // Ajouter les champs supplémentaires au label
+            if (p.mle || p.nrTph || p.unite) {
+                const extraParts = [];
+                if (p.mle) extraParts.push(`MLE: ${p.mle}`);
+                if (p.nrTph) extraParts.push(`TPH: ${p.nrTph}`);
+                if (p.unite) extraParts.push(`UNITÉ: ${p.unite}`);
+                
+                displayLabel += ` [${extraParts.join(', ')}]`;
+            }
+            
+            // Garder le label original comme valeur pour la compatibilité
+            const originalLabel = p.label || `${p.grade} — ${p.name}`;
+            
+            options += `<option value="${originalLabel.replace(/"/g, '&quot;')}" style="${color}">${displayLabel}</option>`;
+        });
+        
+        return options;
+    };
+    
+    // Créer les options en mettant les seniors en premier
+    const options = createOptions(seniors, "SENIORS (GPCE, GPHC, GP1C, GP2C)") + 
+                   createOptions(adjoints, "ADJOINTS (GHC, G1C, G2C, GST)");
+    
+    // Appliquer les options aux selects
+    document.querySelectorAll('.sv1,.sv2').forEach(sel => {
+        const cur = sel.value;
+        sel.innerHTML = `<option value=""></option>` + options;
+        if (cur && [...sel.options].some(o => o.value === cur)) {
+            sel.value = cur;
+        } else {
+            sel.selectedIndex = 0;
+        }
+    });
+}
+      
+function renderEstafettePanel() {
+  const panel = document.getElementById('estafette-panel');
+  if (!panel) return;
+  
+  const snapshot = getSallesSnapshot();
+  const survUsed = getAllSurveillantNames(snapshot);
+  const estAssign = loadEstafettesAssign();
+  const perBat = loadEstafettesPerBuilding();
+  let staff = loadStaff();
+  
+  // Calculer les estafettes avec la nouvelle fonction
+  const estafettesData = computeEstafettesParBat(snapshot, staff, estAssign);
+  const estMap = estafettesData.estafettesMap;
+  const autoAssignments = estafettesData.autoAssignments;
+  const availableStaff = estafettesData.availableStaff;
+  
+  // IMPORTANT: Générer les options avec TOUT le personnel disponible (pas seulement les estafettes)
+  const allAvailableOptions = availableStaff.map(person => {
+      const n = normName(person.name);
+      const isEstafette = ONLY_ESTAFETTE_GRADES.has(person.grade);
+      const isUsed = estafettesData.usedEstafettes.has(n);
+      
+      // Coloration selon le statut
+      let color = 'background:#dbeafe;color:#2563eb'; // bleu (disponible)
+      if (isUsed) color = 'background:#fee2e2;color:#991b1b'; // rouge (déjà utilisé)
+      if (!isEstafette) color = 'background:#fef3c7;color:#92400e'; // orange (non prioritaire)
+      
+      // Construire le label avec toutes les informations
+      let displayLabel = person.label || `${person.grade} — ${person.name}`;
+      if (person.mle || person.nrTph || person.unite) {
+          const extraParts = [];
+          if (person.mle) extraParts.push(`MLE: ${person.mle}`);
+          if (person.nrTph) extraParts.push(`TPH: ${person.nrTph}`);
+          if (person.unite) extraParts.push(`UNITÉ: ${person.unite}`);
+          displayLabel += ` [${extraParts.join(', ')}]`;
       }
       
-
-      function renderEstafettePanel() {
-        const panel = document.getElementById('estafette-panel');
-        if (!panel) return;
-        const snapshot = getSallesSnapshot();
-        const survUsed = getAllSurveillantNames(snapshot);
-        const estAssign = loadEstafettesAssign();
-        const perBat = loadEstafettesPerBuilding();
-        let staff = loadStaff();
-
+      return `<option value="${person.label.replace(/"/g, '&quot;')}" style="${color}">${displayLabel}</option>`;
+  }).join('');
+  
+  // Pour calcul du besoin personnalisé par bâtiment
+  const cfg = loadEstafettesCfg();
+  const countByBat = new Map();
+  snapshot.forEach(s => countByBat.set(s.batiment, (countByBat.get(s.batiment) || 0) + 1));
+  const needFor = bat => {
+      if (perBat[bat]) return perBat[bat];
+      return (countByBat.get(bat) || 0) >= cfg.useThreeWhenRoomsGte ? Math.max(3, cfg.minPerBuilding) : Math.max(2, cfg.minPerBuilding);
+  };
+  
+  const bats = [...new Set(snapshot.map(s => s.batiment))];
+  
+  panel.innerHTML = bats.map(bat => {
+      const custom = perBat[bat];
+      const need = typeof custom === 'number' ? custom : needFor(bat);
+      const list = estMap.get(bat) || [];
+      const manque = Math.max(0, need - (list?.length || 0));
+      const selects = Array.from({ length: need }, (_, i) => `
+          <select class="est-sel" data-bat="${bat}" data-idx="${i}">
+              <option value=""></option>${allAvailableOptions}
+          </select>`).join('');
       
-        // Liste des surveillants déjà utilisés (pour filtrer l'affichage)
-        
+      // Ajouter une indication si on utilise du personnel non prioritaire
+      const nonPrioritaireCount = list.filter(l => {
+          const grade = gradeFromLabel(l);
+          return !ONLY_ESTAFETTE_GRADES.has(grade);
+      }).length;
       
-        // Filtrer la pool d’estafettes (jamais de doublon)
-        const pool = (staff.estafettes || [])
-        .filter(l => ONLY_ESTAFETTE_GRADES.has(gradeFromLabel(l)))
-         .filter(l => !survUsed.has(normName(nameFromLabel(l))));
- 
-        const options = pool.map(l => `<option value="${l.replace(/"/g, '&quot;')}">${l}</option>`).join('');
+      const warningText = nonPrioritaireCount > 0 ? 
+          `<small style="color:#f59e0b">(${nonPrioritaireCount} non prioritaire${nonPrioritaireCount > 1 ? 's' : ''})</small>` : '';
       
-        // Pour calcul du besoin personnalisé par bâtiment
-        const cfg = loadEstafettesCfg();
-        const countByBat = new Map();
-        snapshot.forEach(s => countByBat.set(s.batiment, (countByBat.get(s.batiment) || 0) + 1));
-        const needFor = bat => {
-          if (perBat[bat]) return perBat[bat];
-          return (countByBat.get(bat) || 0) >= cfg.useThreeWhenRoomsGte ? Math.max(3, cfg.minPerBuilding) : Math.max(2, cfg.minPerBuilding);
-        };
+      // Indiquer si c'est une assignation automatique
+      const autoText = autoAssignments.has(bat) ? 
+          `<small style="color:#10b981">(Auto)</small>` : '';
       
-        const bats = [...new Set(snapshot.map(s => s.batiment))];
-        
-
-        panel.innerHTML = bats.map(bat => {
-          const custom = perBat[bat];
-          const need = typeof custom === 'number' ? custom : needFor(bat);
-          const list = computeEstafettesParBat(snapshot, staff, estAssign).get(bat) || [];
-          const manque = Math.max(0, need - list.length);
-          const selects = Array.from({ length: need }, (_, i) => `
-            <select class="est-sel" data-bat="${bat}" data-idx="${i}">
-              <option value=""></option>${options}
-            </select>`).join('');
-          return `
-            <div class="est-item">
+      return `
+          <div class="est-item">
               <div class="est-head">
-                <span>Bâtiment <b>${bat}</b></span>
-                <span>
-                  ${manque>0?`(manque ${manque})`:`${need} requis`}
-                  <button class="btn-set-estaf" data-bat="${bat}" style="margin-left:6px">🖉</button>
-                </span>
+                  <span>Bâtiment <b>${bat}</b></span>
+                  <span>
+                      ${manque > 0 ? `(manque ${manque})` : `${need} requis`}
+                      ${warningText}
+                      ${autoText}
+                      <button class="btn-set-estaf" data-bat="${bat}" style="margin-left:6px">🖉</button>
+                  </span>
               </div>
               <div class="est-list" data-bat="${bat}">
-                ${selects}
+                  ${selects}
               </div>
-            </div>`;
-        }).join('');
-      
-        // Édition du nombre d’estafettes pour chaque bâtiment
-        panel.querySelectorAll('.btn-set-estaf').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const bat = btn.getAttribute('data-bat');
-            const prev = perBat[bat] ?? '';
-            const { value } = await Swal.fire({
-              title: `Nb d’estafettes pour ${bat}`,
+          </div>`;
+  }).join('');
+  
+  // Édition du nombre d'estafettes pour chaque bâtiment
+  panel.querySelectorAll('.btn-set-estaf').forEach(btn => {
+      btn.addEventListener('click', async () => {
+          const bat = btn.getAttribute('data-bat');
+          const prev = perBat[bat] ?? '';
+          const { value } = await Swal.fire({
+              title: `Nb d'estafettes pour ${bat}`,
               input: 'number',
               inputValue: prev,
               inputAttributes: { min: 1 },
               showCancelButton: true
-            });
-            if (value !== undefined) {
+          });
+          if (value !== undefined) {
               if (value === '' || isNaN(Number(value))) delete perBat[bat];
               else perBat[bat] = Math.max(1, Number(value));
               saveEstafettesPerBuilding(perBat);
               renderEstafettePanel();
               renderReprisePanel();
-            }
-          });
-        });
+          }
+      });
+  });
+  
+  // Appliquer la sélection de la sauvegarde ou l'assignation automatique
+  panel.querySelectorAll('.est-sel').forEach(sel => {
+      const bat = sel.getAttribute('data-bat');
+      const idx = parseInt(sel.getAttribute('data-idx'), 10);
+      const cur = (estAssign[bat] || [])[idx] || '';
       
-        // Appliquer la sélection de la sauvegarde (jamais de surveillant déjà choisi)
-        panel.querySelectorAll('.est-sel').forEach(sel => {
-          const bat = sel.getAttribute('data-bat');
-          const idx = parseInt(sel.getAttribute('data-idx'), 10);
-          const cur = (estAssign[bat] || [])[idx] || '';
-          // On ne propose pas les surveillants
-          sel.value = [...sel.options].some(o => o.value === cur) ? cur : '';
-          sel.addEventListener('change', () => {
-            const arr = (estAssign[bat] || []).slice();
-            arr[idx] = sel.value || '';
-            estAssign[bat] = arr.filter(Boolean);
-            saveEstafettesAssign(estAssign);
-            renderEstafettePanel();
-            renderReprisePanel();
-          });
-        });
-      
-        // Affiche les alertes de manque
-        colorizeShortages(computeEstafettesParBat(snapshot, staff, estAssign));
+      // Si aucune sélection enregistrée, utiliser l'assignation automatique
+      if (!cur && autoAssignments.has(bat)) {
+          const autoList = autoAssignments.get(bat) || [];
+          const autoValue = autoList[idx] || '';
+          // Chercher l'option qui correspond à la valeur
+          const option = [...sel.options].find(o => o.value === autoValue);
+          if (option) {
+              sel.value = autoValue;
+          } else {
+              sel.selectedIndex = 0;
+          }
+      } else {
+          // Sinon, utiliser la sélection enregistrée
+          const option = [...sel.options].find(o => o.value === cur);
+          if (option) {
+              sel.value = cur;
+          } else {
+              sel.selectedIndex = 0;
+          }
       }
       
-
-      function renderReprisePanel() {
-        const grid = document.getElementById('reprise-grid');
-        if (!grid) return;
-      
-        // 1) Charger l'existant
-        let rows = loadReprise(); // [{nom, nombre}]
-      
-        // 2) Si vide (ou uniquement lignes vides), proposer l'auto par défaut (modifiable ensuite)
-        const isEmpty = !rows.length || rows.every(r => !(r?.nom?.trim()) && !(Number(r?.nombre) > 0));
-        if (isEmpty) {
-          const snapshot = getSallesSnapshot();       // déjà défini dans didOpen
-          const suggestion = computeSuggestedReprise(snapshot, staff, estAssign);
-          if (suggestion.length) {
-            rows = suggestion;
-            saveReprise(rows);                        // on persiste pour l’export Excel
-          } else {
-            // Laisse une ligne vide si aucune suggestion
-            rows = [{ nom:"", nombre:0 }];
-            saveReprise(rows);
-          }
-        }
-      
-        const rowHTML = (nom="", nombre="") => `
-          <input class="repr-nom" placeholder="Nom" value="${(nom||"").replace(/"/g,'&quot;')}">
-          <input class="repr-nb" type="number" min="0" placeholder="Nombre" value="${Number(nombre)||""}">
-          <button type="button" class="reprise-del">×</button>
-        `;
-      
-        grid.innerHTML = rows.map(r => rowHTML(r.nom, r.nombre)).join('');
-      
-        // Écouteurs: suppression d'une ligne
-        grid.addEventListener('click', (e) => {
-          const btn = e.target.closest('.reprise-del');
-          if (!btn) return;
-          const items = [...grid.querySelectorAll('.repr-nom')].map((inp, i) => ({
-            nom: inp.value.trim(),
-            nombre: Number(grid.querySelectorAll('.repr-nb')[i].value || 0)
-          }));
-          const idx = [...grid.querySelectorAll('.reprise-del')].indexOf(btn);
-          if (idx >= 0) items.splice(idx, 1);
-          saveReprise(items);
+      sel.addEventListener('change', () => {
+          const arr = (estAssign[bat] || []).slice();
+          arr[idx] = sel.value || '';
+          estAssign[bat] = arr.filter(Boolean);
+          saveEstafettesAssign(estAssign);
+          renderEstafettePanel();
           renderReprisePanel();
-        });
-      
-        // Sauvegarde sur input
-        grid.querySelectorAll('.repr-nom,.repr-nb').forEach(inp => {
-          inp.addEventListener('input', () => {
-            const items = [...grid.querySelectorAll('.repr-nom')].map((inp, i) => ({
+      });
+  });
+  
+  // Affiche les alertes de manque
+  colorizeShortages(estafettesData);
+  
+  // Mettre à jour le panel "À reprendre" avec les nouvelles données
+  renderReprisePanel(staff, estafettesData);
+}
+function renderReprisePanel(staff, estafettesData) {
+  const grid = document.getElementById('reprise-grid');
+  if (!grid) return;
+  
+  // 1) Charger l'existant
+  let rows = loadReprise(); // [{nom, nombre}]
+  
+  // 2) Si vide (ou uniquement lignes vides), proposer l'auto par défaut (modifiable ensuite)
+  const isEmpty = !rows.length || rows.every(r => !(r?.nom?.trim()) && !(Number(r?.nombre) > 0));
+  if (isEmpty) {
+      const snapshot = getSallesSnapshot();       // déjà défini dans didOpen
+      const suggestion = computeSuggestedReprise(snapshot, staff, estafettesData || { usedEstafettes: new Set() });
+      if (suggestion.length) {
+          rows = suggestion;
+          saveReprise(rows);                        // on persiste pour l'export Excel
+      } else {
+          // Laisse une ligne vide si aucune suggestion
+          rows = [{ nom: "", nombre: 0 }];
+          saveReprise(rows);
+      }
+  }
+  
+  const rowHTML = (nom = "", nombre = "") => `
+      <input class="repr-nom" placeholder="Nom" value="${(nom || "").replace(/"/g, '&quot;')}">
+      <input class="repr-nb" type="number" min="0" placeholder="Nombre" value="${Number(nombre) || ""}">
+      <button type="button" class="reprise-del">×</button>
+  `;
+  
+  grid.innerHTML = rows.map(r => rowHTML(r.nom, r.nombre)).join('');
+  
+  // Écouteurs: suppression d'une ligne
+  grid.addEventListener('click', (e) => {
+      const btn = e.target.closest('.reprise-del');
+      if (!btn) return;
+      const items = [...grid.querySelectorAll('.repr-nom')].map((inp, i) => ({
+          nom: inp.value.trim(),
+          nombre: Number(grid.querySelectorAll('.repr-nb')[i].value || 0)
+      }));
+      const idx = [...grid.querySelectorAll('.reprise-del')].indexOf(btn);
+      if (idx >= 0) items.splice(idx, 1);
+      saveReprise(items);
+      renderReprisePanel(staff, estafettesData);
+  });
+  
+  // Sauvegarde sur input
+  grid.querySelectorAll('.repr-nom,.repr-nb').forEach(inp => {
+      inp.addEventListener('input', () => {
+          const items = [...grid.querySelectorAll('.repr-nom')].map((inp, i) => ({
               nom: inp.value.trim(),
               nombre: Number(grid.querySelectorAll('.repr-nb')[i].value || 0)
-            }));
-            saveReprise(items);
-          });
-        });
-      }
-      
+          }));
+          saveReprise(items);
+      });
+  });
+}
       
       // Bouton + ligne
       document.getElementById('reprise-add')?.addEventListener('click', () => {
@@ -1143,42 +1730,6 @@ async function ajouterSallesViaModal(eleves, exclusions = []) {
         saveReprise(list);
         renderReprisePanel();
       });
-      
-
-
-      function colorizeDuplicateSurveillants() {
-        // Récupère toutes les affectations surveillants
-        const allRooms = [...document.querySelectorAll('.room-card')];
-        const surveillantToRooms = {};
-        allRooms.forEach((card, idx) => {
-          ['sv1', 'sv2'].forEach(cls => {
-            const val = card.querySelector(`.${cls}`)?.value;
-            if (val) {
-              const norm = normName(nameFromLabel(val));
-              if (!surveillantToRooms[norm]) surveillantToRooms[norm] = [];
-              surveillantToRooms[norm].push(idx);
-            }
-          });
-        });
-        allRooms.forEach((card, idx) => {
-          let isDuplicate = false;
-          ['sv1', 'sv2'].forEach(cls => {
-            const val = card.querySelector(`.${cls}`)?.value;
-            if (val) {
-              const norm = normName(nameFromLabel(val));
-              if (surveillantToRooms[norm] && surveillantToRooms[norm].length > 1 && surveillantToRooms[norm].includes(idx)) {
-                isDuplicate = true;
-              }
-            }
-          });
-          if (isDuplicate) card.classList.add('sv-duplicate');
-          else card.classList.remove('sv-duplicate');
-        });
-      }
-      colorizeDuplicateSurveillants();
-
-      
-
       
       function snapshotRoomsFromModalAndSave() {
         const cards = [...document.querySelectorAll('.room-card')];
@@ -1192,66 +1743,82 @@ async function ajouterSallesViaModal(eleves, exclusions = []) {
         saveRooms(out);
       }
       function randomizeSurveillantsAcrossRooms() {
-        const pools = buildSurvPools(staff.surveillants || []); 
+        const pools = buildSurvPools(staff.surveillants || []);
         const usedNames = new Set(); // Suivre les noms déjà utilisés
         
         // Créer des copies mélangées des pools
-        const shuffledA = shuffleInPlace(pools.A.slice());
-        const shuffledB = shuffleInPlace(pools.B.slice());
+        const shuffledSeniors = shuffleInPlace(pools.B.slice()); // GROUP_B (seniors)
+        const shuffledAdjoints = shuffleInPlace(pools.A.slice()); // GROUP_A (adjoints)
         
         document.querySelectorAll('.room-card').forEach(card => {
-          const s1 = card.querySelector('.sv1');
-          const s2 = card.querySelector('.sv2');
-          
-          // Trouver un surveillant du groupe A non utilisé
-          let personA = null;
-          for (let i = 0; i < shuffledA.length; i++) {
-            if (!usedNames.has(normName(shuffledA[i].name))) {
-              personA = shuffledA[i];
-              usedNames.add(normName(personA.name));
-              break;
+            const s1 = card.querySelector('.sv1'); // Doit être un senior
+            const s2 = card.querySelector('.sv2'); // Doit être un adjoint
+            
+            // Trouver un senior non utilisé
+            let senior = null;
+            for (let i = 0; i < shuffledSeniors.length; i++) {
+                if (!usedNames.has(normName(shuffledSeniors[i].name))) {
+                    senior = shuffledSeniors[i];
+                    usedNames.add(normName(senior.name));
+                    break;
+                }
             }
-          }
-          
-          // Trouver un surveillant du groupe B non utilisé
-          let personB = null;
-          for (let i = 0; i < shuffledB.length; i++) {
-            if (!usedNames.has(normName(shuffledB[i].name))) {
-              personB = shuffledB[i];
-              usedNames.add(normName(personB.name));
-              break;
+            
+            // Trouver un adjoint non utilisé
+            let adjoint = null;
+            for (let i = 0; i < shuffledAdjoints.length; i++) {
+                if (!usedNames.has(normName(shuffledAdjoints[i].name))) {
+                    adjoint = shuffledAdjoints[i];
+                    usedNames.add(normName(adjoint.name));
+                    break;
+                }
             }
-          }
-          
-          // Assigner aléatoirement l'ordre
-          if (Math.random() < 0.5) {
-            s1.value = personB ? personB.label : '';
-            s2.value = personA ? personA.label : '';
-          } else {
-            s1.value = personA ? personA.label : '';
-            s2.value = personB ? personB.label : '';
-          }
+            
+            // Assigner les valeurs
+            s1.value = senior ? senior.label : '';
+            s2.value = adjoint ? adjoint.label : '';
         });
-      }
+    }
+    
       // Random : surveillants + estafettes auto
       randomBtn.addEventListener('click', () => {
         randomizeSurveillantsAcrossRooms();
         snapshotRoomsFromModalAndSave();
-        const autoMap = computeEstafettesParBat(getSallesSnapshot(), staff, {});
-        const estAssignObj = Object.fromEntries([...autoMap.entries()]);
+        
+        // Effacer les assignments d'estafettes existantes pour permettre le recalcul automatique
+        saveEstafettesAssign({});
+        
+        // Calculer les estafettes avec la nouvelle fonction
+        const estafettesData = computeEstafettesParBat(getSallesSnapshot(), staff, {});
+        const estAssignObj = Object.fromEntries([...estafettesData.estafettesMap.entries()]);
         saveEstafettesAssign(estAssignObj);
+        
         renderEstafettePanel();
         renderReprisePanel();
-        const estMap = computeEstafettesParBat(getSallesSnapshot(), staff, estAssignObj);
-        const { missingSV, missingEst } = colorizeShortages(estMap);
+        
+        const { missingSV, missingEst } = colorizeShortages(estafettesData);
+        
         if (missingSV > 0 || missingEst > 0) {
-          Swal.fire({ toast:true, position:"top-end", timer:2500, showConfirmButton:false, icon:"warning",
-            title:`Random terminé`, text:`Manques → Surveillants: ${missingSV} salle(s), Estafettes: ${missingEst}` });
+            Swal.fire({ 
+                toast: true, 
+                position: "top-end", 
+                timer: 2500, 
+                showConfirmButton: false, 
+                icon: "warning",
+                title: `Random terminé`, 
+                text: `Manques → Surveillants: ${missingSV} salle(s), Estafettes: ${missingEst}` 
+            });
         } else {
-          Swal.fire({ toast:true, position:"top-end", timer:1200, showConfirmButton:false, icon:"success", title:"Random ok" });
+            Swal.fire({ 
+                toast: true, 
+                position: "top-end", 
+                timer: 1200, 
+                showConfirmButton: false, 
+                icon: "success", 
+                title: "Random ok" 
+            });
         }
-      });
-      
+    });
       // Listeners basiques (inchangés)
       document.querySelectorAll('.btn-inc').forEach(btn=>{
         btn.addEventListener('click',()=>{ const idx=btn.getAttribute('data-idx'); const inp=document.querySelector(`.salle-nb[data-idx="${idx}"]`);
@@ -1296,24 +1863,47 @@ async function ajouterSallesViaModal(eleves, exclusions = []) {
           renderEstafettePanel();
           renderReprisePanel();
           colorizeDuplicateSurveillants();
-
         }
       });
       // Boutons import / personnel
       document.getElementById('btn-staff')?.addEventListener('click', async ()=>{ 
         await editerStaff(); 
         staff = loadStaff(); // Mettre à jour la variable staff
-        buildSurveillantOptions(); 
+        buildSurveillantOptions(staff); // Ajouter le paramètre
         colorizeDuplicateSurveillants();
         snapshotRoomsFromModalAndSave(); 
         renderEstafettePanel(); 
         renderReprisePanel();
       });
+      // Dans la fonction didOpen de ajouterSallesViaModal
+document.getElementById('btn-recalc-estafettes')?.addEventListener('click', () => {
+  // Effacer les assignments existantes
+  saveEstafettesAssign({});
+  
+  // Recalculer les estafettes
+  const estafettesData = computeEstafettesParBat(getSallesSnapshot(), staff, {});
+  const estAssignObj = Object.fromEntries([...estafettesData.estafettesMap.entries()]);
+  saveEstafettesAssign(estAssignObj);
+  
+  // Mettre à jour l'interface
+  renderEstafettePanel();
+  renderReprisePanel();
+  
+  // Afficher un message de confirmation
+  Swal.fire({
+      toast: true,
+      position: "top-end",
+      timer: 2000,
+      showConfirmButton: false,
+      icon: "success",
+      title: "Estafettes recalculées"
+  });
+});
       document.getElementById('btn-import-excel')?.addEventListener('click', async ()=>{ 
         const st=await importerPersonnelDepuisExcel(); 
         if(st){ 
           staff = st; // Mettre à jour la variable staff
-          buildSurveillantOptions(); 
+          buildSurveillantOptions(staff); // Ajouter le paramètre
           colorizeDuplicateSurveillants();
           snapshotRoomsFromModalAndSave(); 
           renderEstafettePanel(); 
@@ -1324,7 +1914,7 @@ async function ajouterSallesViaModal(eleves, exclusions = []) {
         const st=await importerPersonnelDepuisColler(); 
         if(st){ 
           staff = st; // Mettre à jour la variable staff
-          buildSurveillantOptions(); 
+          buildSurveillantOptions(staff); // Ajouter le paramètre
           colorizeDuplicateSurveillants();
           snapshotRoomsFromModalAndSave(); 
           renderEstafettePanel(); 
@@ -1332,17 +1922,34 @@ async function ajouterSallesViaModal(eleves, exclusions = []) {
         }
       });
       
-      // CORRECTION: D'abord construire les options, puis remplir les valeurs
-      buildSurveillantOptions();
-      colorizeDuplicateSurveillants()
+      // Ajouter ce CSS pour améliorer l'affichage des options longues
+      if (!document.getElementById('personnel-css')) {
+        const style = document.createElement('style'); style.id="personnel-css";
+        style.textContent=`
+            .sv1 option, .sv2 option {
+                white-space: pre-wrap;
+                max-width: 400px;
+            }
+        `;
+        document.head.appendChild(style);
+      }
+      
+      colorizeDuplicateSurveillants();
       
       // Pré-sélection surveillants depuis activeRooms (au lieu de savedRooms)
-      const pools = buildSurvPools(staff.surveillants || []); 
-      document.querySelectorAll('.room-card').forEach((card,i)=>{
-        const s1=card.querySelector('.sv1'), s2=card.querySelector('.sv2');
-        const saved = activeRooms[i]?.surveillants || [];
-        if(saved[0]) s1.value=saved[0];
-        if(saved[1]) s2.value=saved[1];
+      document.querySelectorAll('.room-card').forEach((card, i) => {
+          const s1 = card.querySelector('.sv1');
+          const s2 = card.querySelector('.sv2');
+          const saved = activeRooms[i]?.surveillants || [];
+          
+          // Gérer les deux formats: chaînes ou objets
+          const savedLabels = saved.map(s => {
+              if (typeof s === 'string') return s;
+              return s.label || `${s.grade} — ${s.name}`;
+          });
+          
+          if (savedLabels[0]) s1.value = savedLabels[0];
+          if (savedLabels[1]) s2.value = savedLabels[1];
       });
       
       updateSum();
@@ -1378,51 +1985,46 @@ async function ajouterSallesViaModal(eleves, exclusions = []) {
   }
 }
 // Calcule la proposition "À reprendre" selon la règle : 3 si dispo ≥3 ; sinon 1/2 ; sinon 0
-function computeSuggestedReprise(snapshot, staff, estAssign) {
+function computeSuggestedReprise(snapshot, staff, estafettesData) {
   // 1) Noms déjà utilisés (surveillants + estafettes)
   const survUsed = new Set(
-    (snapshot || [])
-      .flatMap(s => s.surveillants || [])
-      .map(lbl => normName(nameFromLabel(lbl)))
-      .filter(Boolean)
+      (snapshot || [])
+          .flatMap(s => s.surveillants || [])
+          .map(lbl => normName(nameFromLabel(lbl)))
+          .filter(Boolean)
   );
-  const usedEst = new Set(
-    Object.values(estAssign || {})
-      .flat()
-      .map(lbl => normName(nameFromLabel(lbl)))
-      .filter(Boolean)
-  );
-
+  
+  // Récupérer les noms des estafettes déjà assignées
+  const usedEst = estafettesData.usedEstafettes || new Set();
+  
   // 2) Base "surveillants" déclarés (toutes les personnes possibles côté staff.surveillants)
   const parsed = (staff?.surveillants || [])
-    .map(parseSurveillantLine)
-    .filter(Boolean)
-    // On ne retient que ceux qui ne sont ni déjà surveillants ni déjà estafettes
-    .filter(p => {
-      const n = normName(p.name);
-      return !survUsed.has(n) && !usedEst.has(n);
-    });
-
+      .map(parseSurveillantLine)
+      .filter(Boolean)
+      // On ne retient que ceux qui ne sont ni déjà surveillants ni déjà estafettes
+      .filter(p => {
+          const n = normName(p.name);
+          return !survUsed.has(n) && !usedEst.has(n);
+      });
+  
   // 3) Compter par groupes
   let seniors = 0, adjoints = 0;
   for (const p of parsed) {
-    const g = String(p.grade || "").toUpperCase();
-    if (GROUP_B.has(g)) seniors++;               // GPCE/GPHC/GP1C/GP2C
-    else if (GROUP_A.has(g)) adjoints++;         // GHC/G1C/G2C/GST
+      const g = String(p.grade || "").toUpperCase();
+      if (GROUP_B.has(g)) seniors++;               // GPCE/GPHC/GP1C/GP2C
+      else if (GROUP_A.has(g)) adjoints++;         // GHC/G1C/G2C/GST
   }
-
-  // 4) Règle de sortie
-  const pick = (n) => (n >= 3 ? 3 : n);          // 0, 1, 2 ou 3
-
+  
+  // 4) Règle de sortie : 3 seniors et 3 adjoints maximum
   const out = [];
-  const s = pick(seniors);
-  const a = pick(adjoints);
+  const s = Math.min(seniors, 3);
+  const a = Math.min(adjoints, 3);
+  
   if (s > 0) out.push({ nom: "Réserve seniors (GPCE/GPHC/GP1C/GP2C)", nombre: s });
   if (a > 0) out.push({ nom: "Réserve adjoints (GHC/G1C/G2C/GST)", nombre: a });
+  
   return out;
 }
-
-
 
 /******************************************************
  * 6) PERSONNEL — affectation final (export)
@@ -1430,18 +2032,27 @@ function computeSuggestedReprise(snapshot, staff, estAssign) {
 function affecterPersonnel(salles, staff){
   // Pas d'auto-complétion surveillants si insuffisant
   const savedAssign = loadEstafettesAssign(); // {bat -> [labels]}
-  const estMap = computeEstafettesParBat(salles, staff, savedAssign);
+  
+  // Calculer les estafettes avec la nouvelle fonction
+  const estafettesData = computeEstafettesParBat(salles, staff, savedAssign);
+  const estMap = estafettesData.estafettesMap;
+  
   const estafettesParBatiment = Array.from(estMap.entries()).map(([batiment, estafettes])=>{
-    const nbSalles = salles.filter(s => (_clean(s.batiment)||"—")===batiment).length;
-    return { batiment, estafettes, nbSalles };
+      const nbSalles = salles.filter(s => (_clean(s.batiment)||"—")===batiment).length;
+      return { batiment, estafettes, nbSalles };
   });
-
+  
   const missingSV = salles.reduce((acc,s)=> acc + Math.max(0, 2 - (Array.isArray(s.surveillants)?s.surveillants.length:0)), 0);
   const alerts=[];
   if(missingSV>0) alerts.push(`Salles sans 2 surveillants: ${missingSV}.`);
-  return { salles, estafettesParBatiment, alerts };
+  
+  return { 
+      salles, 
+      estafettesParBatiment, 
+      alerts,
+      estafettesData // Ajout pour les calculs ultérieurs
+  };
 }
-
 /******************************************************
  * 7) RÉPARTITION ÉLÈVES
  ******************************************************/
@@ -1452,13 +2063,10 @@ async function genererRepartitionDepuisCartes(eleves, cartes, exclusionsDict={})
     if(exclusionSet.has(inc)){ e.salle=exclusionsDict[inc]||"Non affecté"; elevesExclus.push(e); return false; }
     return true;
   });
-
   const shuffle=arr=>{ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } };
   shuffle(elevesFiltres);
-
   const pools={}; elevesFiltres.forEach(e=>{ if(!pools[e.escadron]) pools[e.escadron]=[]; pools[e.escadron].push(e); });
   Object.keys(pools).forEach(k=>shuffle(pools[k]));
-
   const salles=[]; const restants=[];
   (cartes||[]).forEach(({numero,capacite,description,batiment,surveillants})=>{
     const salle=[]; const quotas={};
@@ -1476,10 +2084,8 @@ async function genererRepartitionDepuisCartes(eleves, cartes, exclusionsDict={})
     while(salle.length<capacite && round(3)>0){}; while(salle.length<capacite && round(4)>0){};
     salles.push({ numero, effectif:salle.length, eleves:salle, description:description||"", batiment:batiment||"", surveillants:surveillants||[] });
   });
-
   Object.values(pools).forEach(l=>restants.push(...l)); shuffle(restants);
   if(restants.length>0){ restants.forEach(e=>{ e.salle="Reste"; e.batiment=""; }); salles.push({ numero:"Reste", effectif:restants.length, eleves:restants, description:"" }); }
-
   const staff=loadStaff();
   const {estafettesParBatiment, alerts}=affecterPersonnel(salles, staff);
   if(alerts.length) console.warn(alerts.join(' | '));
@@ -1497,147 +2103,215 @@ function checkNoDoublonSurvEstaf(salles, estafettesParBatiment){
   }
 }
 
-
 /******************************************************
  * 8) EXPORT EXCEL (identique à ta version)
  ******************************************************/
 function sanitizeSheetName(name){ return String(name).replace(/[:\\/?*\[\]]/g,'').slice(0,31); }
 function uniqueSheetName(wb, base){ let name=sanitizeSheetName(base); let i=2; while(wb.SheetNames.includes(name)){ name=sanitizeSheetName(`${base.slice(0,28)}_${i++}`); } return name; }
-
-async function exporterVersExcel(tousEleves, salles, elevesExclus=[], estafettesParBatiment=[]){
-  const wb=XLSX.utils.book_new();
-
-  const repartitionParSalle = salles.map(s=>{
-    const lib = s.numero==="Reste" ? "Salle Reste" : (s.description ? `Salle ${s.numero} (${s.description})` : `Salle ${s.numero}`);
-    const nb = (typeof s.effectif==="number") ? s.effectif : (Array.isArray(s.eleves)?s.eleves.length:0);
+async function exporterVersExcel(tousEleves, salles, elevesExclus = [], estafettesParBatiment = []) {
+  const wb = XLSX.utils.book_new();
+  /* ---------- 1.  RÉSUMÉ -------------------------------------------------- */
+  const repartitionParSalle = salles.map(s => {
+    const lib = s.numero === "Reste"
+      ? "Salle Reste"
+      : (s.description ? `Salle ${s.numero} (${s.description})` : `Salle ${s.numero}`);
+    const nb  = typeof s.effectif === "number"
+      ? s.effectif
+      : ((s.eleves || []).length);
     const bat = s.batiment ? ` [Bâtiment ${s.batiment}]` : "";
     return `${lib}${bat} : ${nb} élèves`;
   });
-
-  const escadronsList=[...new Set(tousEleves.map(e=>e.escadron))].filter(x=>x!==undefined&&x!==null&&x!=="").sort((a,b)=>(Number(a)||0)-(Number(b)||0));
-  const repartitionParEscadron = escadronsList.map(esc=>`Escadron ${esc} : ${tousEleves.filter(e=>e.escadron===esc).length} élèves`);
-
-  const exclMap=new Map();
-  if(Array.isArray(elevesExclus)&&elevesExclus.length){
-    elevesExclus.forEach(e=>{
-      const inc=(e.numeroIncorporation??'').toString().trim()||"(?)";
-      const motif=(e.salle??'Exclu').toString().trim();
-      const key=`${inc} — ${motif}`; exclMap.set(key,(exclMap.get(key)||0)+1);
-    });
-  }
-  const exclusionsLignes=[...exclMap.entries()].map(([k,n])=> n>1?`${k} (${n})`:k);
-
-  const resumeData=[
-    {Clé:"Total élèves", Valeur:tousEleves.length},
-    {Clé:"Nombre de salles", Valeur:salles.length},
-    {Clé:"Répartition par salle", Valeur:""},
-    ...repartitionParSalle.map(line=>({Clé:"", Valeur:line})),
-    {Clé:"", Valeur:""},
-    {Clé:"Surveillants (2 / salle)", Valeur:""},
-    ...salles.map(s=>({Clé:"", Valeur:`${s.numero==="Reste"?"Salle Reste":`Salle ${s.numero}`} : ${(s.surveillants||[]).join(", ")||"—"}`})),
-    {Clé:"", Valeur:""},
-    {Clé:"Estafettes par bâtiment", Valeur:""},
-    ...estafettesParBatiment.map(b=>({Clé:"", Valeur:`${b.batiment} : ${b.estafettes.join(", ")||"—"} (${b.nbSalles} salle(s))`})),
-    {Clé:"", Valeur:""},
-    {Clé:"Répartition par escadron", Valeur:""},
-    ...repartitionParEscadron.map(line=>({Clé:"", Valeur:line})),
-    ...(exclusionsLignes.length?[{Clé:"",Valeur:""},{Clé:"Exclusions (incorporation : motif)",Valeur:""}, ...exclusionsLignes.map(line=>({Clé:"",Valeur:line}))]:[])
+  const escadrons = [...new Set(tousEleves.map(e => e.escadron))]
+    .filter(Boolean)
+    .sort((a, b) => (+a || 0) - (+b || 0));
+  const repartitionParEscadron =
+    escadrons.map(esc => `Escadron ${esc} : ${tousEleves.filter(e => e.escadron === esc).length} élèves`);
+  // exclusions
+  const exclMap = new Map();
+  elevesExclus.forEach(e => {
+    const inc   = String(e.numeroIncorporation ?? "").trim() || "(?)";
+    const motif = String(e.salle ?? "Exclu").trim();
+    const key   = `${inc} — ${motif}`;
+    exclMap.set(key, (exclMap.get(key) || 0) + 1);
+  });
+  const exclusionsLignes =
+    [...exclMap].map(([k, n]) => n > 1 ? `${k} (${n})` : k);
+  const resumeData = [
+    { Clé: "Total élèves",      Valeur: tousEleves.length },
+    { Clé: "Nombre de salles",  Valeur: salles.length },
+    { Clé: "",                  Valeur: "" },
+    { Clé: "Répartition par salle", Valeur: "" },
+    ...repartitionParSalle.map(line => ({ Clé: "", Valeur: line })),
+    { Clé: "", Valeur: "" },
+    { Clé: "Surveillants",      Valeur: "Voir feuille « Surveillants »" },
+    { Clé: "", Valeur: "" },
+    { Clé: "Estafettes par bâtiment", Valeur: "" },
+    ...estafettesParBatiment.map(b => ({
+      Clé: "",
+      Valeur: `${b.batiment || "—"} : ${(b.estafettes || []).join(", ") || "—"} (${b.nbSalles} salle(s))`
+    })),
+    { Clé: "", Valeur: "" },
+    { Clé: "Répartition par escadron", Valeur: "" },
+    ...repartitionParEscadron.map(line => ({ Clé: "", Valeur: line })),
+    ...(exclusionsLignes.length
+      ? [{ Clé: "", Valeur: "" },
+         { Clé: "Exclusions (incorporation : motif)", Valeur: "" },
+         ...exclusionsLignes.map(line => ({ Clé: "", Valeur: line }))]
+      : [])
   ];
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumeData), "Résumé");
-
-  // Feuilles par salle
-  salles.forEach(salle=>{
-    const header=["NR","Nom","Prénom","Escadron","Peloton","Incorporation","Salle (num)","Bâtiment"];
-    const titre=(salle.numero==="Reste"?"SALLE RESTE":`SALLE ${salle.numero}`).toUpperCase();
-    const aoa=[]; const merges=[];
-    aoa.push([titre]); merges.push({s:{r:0,c:0}, e:{r:0,c:header.length-1}});
-    if(salle.description && salle.numero!=="Reste"){ aoa.push([String(salle.description).toUpperCase()]); merges.push({s:{r:1,c:0}, e:{r:1,c:header.length-1}}); }
-    else aoa.push([]);
-    // Nouvelle version — formaté comme dans ton exemple
-    if (salle.surveillants && salle.surveillants.length) {
-      salle.surveillants.forEach(label => {
-        let grade = "", nom = "", phone = "", info = "";
-        const parts = label.split("—").map(s => s.trim());
-        if (parts.length > 1) { grade = parts[0]; nom = parts.slice(1).join(" — "); }
-        else { nom = parts[0]; }
-        // => Récupérer phone/info ici si tu veux
-        aoa.push([grade, nom, phone, info]);
-      });
+  XLSX.utils.book_append_sheet(
+    wb,
+    XLSX.utils.json_to_sheet(resumeData, { skipHeader: true }),
+    "Résumé"
+  );
+  /* ---------- 2.  FEUILLES SALLES ----------------------------------------- */
+  salles.forEach(salle => {
+    const header = ["NR", "Nom", "Prénom", "Escadron", "Peloton", "Incorporation", "Salle", "Bâtiment"];
+    const titre  = (salle.numero === "Reste" ? "SALLE RESTE" : `SALLE ${salle.numero}`).toUpperCase();
+    const aoa    = [];
+    const merges = [];
+    aoa.push([titre]); merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: header.length - 1 } });
+    if (salle.description && salle.numero !== "Reste") {
+      aoa.push([String(salle.description).toUpperCase()]);
+      merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: header.length - 1 } });
     } else {
-      aoa.push(["—", "Aucun surveillant"]);
+      aoa.push([]);
     }
-    aoa.push([]); // ligne vide avant header élève
-
-    aoa.push(header);
-    const sorted=(salle.eleves||[]).slice().sort((a,b)=>(Number(a.numeroIncorporation)||0)-(Number(b.numeroIncorporation)||0));
-    sorted.forEach((e,idx)=>{ aoa.push([idx+1, e.nom||"", e.prenom||"", e.escadron??"", e.peloton??"", e.numeroIncorporation??"", (salle.numero==="Reste"?"Reste":salle.numero), salle.batiment||""]); });
-    const ws=XLSX.utils.aoa_to_sheet(aoa); ws['!merges']=merges;
-    ws['!cols']=[{wpx:40},{wpx:200},{wpx:180},{wpx:80},{wpx:80},{wpx:120},{wpx:110},{wpx:90}];
-    const baseName=(salle.numero==="Reste")?"Salle Reste":(salle.description?`Salle ${salle.numero} - ${salle.description}`:`Salle ${salle.numero}`);
-    XLSX.utils.book_append_sheet(wb, ws, uniqueSheetName(wb, baseName));
-  });
-
-  // Feuilles par escadron
-  const escs=[...new Set(tousEleves.map(e=>e.escadron))].filter(x=>x!==undefined&&x!==null&&x!=="").sort((a,b)=>(Number(a)||0)-(Number(b)||0));
-  escs.forEach((esc,i)=>{
-    const sorted=tousEleves.filter(e=>e.escadron===esc).sort((a,b)=>{
-      const pa=Number(a.peloton)||0, pb=Number(b.peloton)||0; if(pa!==pb) return pa-pb;
-      const ia=Number(a.numeroIncorporation)||0, ib=Number(b.numeroIncorporation)||0; return ia-ib;
+    // bloc surveillants (non fusionné : lecture rapide)
+    (salle.surveillants || []).forEach(lab => {
+      const grade = gradeFromLabel(lab);
+      const nom   = nameFromLabel(lab);
+      aoa.push([grade, nom]); // 2 colonnes remplies, les autres laissées vides
     });
-    const aoa=[]; const merges=[]; const header=["NR","Nom","Prénom","Escadron","Peloton","Incorporation","Salle (num)","Bâtiment"];
-    const titre=`${esc}° ESCADRON`.toUpperCase(); aoa.push([titre]); merges.push({s:{r:0,c:0},e:{r:0,c:header.length-1}});
-    aoa.push([]);
+    aoa.push([]); // ligne vide
     aoa.push(header);
-    let currentPeloton=null, nr=0;
-    sorted.forEach(e=>{
-      if(e.peloton!==currentPeloton){ currentPeloton=e.peloton; aoa.push([`=== Peloton ${currentPeloton} ===`]); merges.push({s:{r:aoa.length-1,c:0},e:{r:aoa.length-1,c:header.length-1}}); }
-      nr+=1; aoa.push([nr, e.nom||"", e.prenom||"", e.escadron??"", e.peloton??"", e.numeroIncorporation??"", e.salle||"Non assigné", e.batiment||""]);
+    const eleves = (salle.eleves || [])
+      .slice()
+      .sort((a, b) => (+a.numeroIncorporation || 0) - (+b.numeroIncorporation || 0));
+    eleves.forEach((e, idx) => {
+      aoa.push([
+        idx + 1,
+        e.nom || "",
+        e.prenom || "",
+        e.escadron ?? "",
+        e.peloton ?? "",
+        e.numeroIncorporation ?? "",
+        salle.numero === "Reste" ? "Reste" : salle.numero,
+        salle.batiment || ""
+      ]);
     });
-    const ws=XLSX.utils.aoa_to_sheet(aoa); ws['!merges']=merges;
-    ws['!cols']=[{wpx:40},{wpx:200},{wpx:180},{wpx:80},{wpx:80},{wpx:120},{wpx:110},{wpx:90}];
-    XLSX.utils.book_append_sheet(wb, ws, uniqueSheetName(wb, `${i+1}e Escadron`));
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws["!merges"] = merges;
+    ws["!cols"]   = [
+      { wpx: 38 },  { wpx: 200 }, { wpx: 180 },
+      { wpx: 80 },  { wpx: 80 },  { wpx: 120 },
+      { wpx: 65 },  { wpx: 90 }
+    ];
+    const base = salle.numero === "Reste"
+      ? "Salle Reste"
+      : (salle.description ? `Salle ${salle.numero} - ${salle.description}` : `Salle ${salle.numero}`);
+    XLSX.utils.book_append_sheet(wb, ws, uniqueSheetName(wb, base));
   });
-
-  // Exclus
-  if(Array.isArray(elevesExclus)&&elevesExclus.length){
-    const data=elevesExclus.map((e,idx)=>({NR:idx+1, Nom:e.nom, "Prénom":e.prenom, Escadron:e.escadron, Peloton:e.peloton, Incorporation:e.numeroIncorporation, Motif:e.salle}));
+ /* ---------- 3. FEUILLE « Surveillants » -------------------------------- */
+{
+  const aoa = [["NR", "GRADE", "NOM ET PRENOMS", "MLE", "NR TPH", "UNITE", "SALLE"]];
+  let nr = 1;
+  const sallesOrdre = [...salles].sort(
+      (a, b) =>
+          (a.numero === "Reste" ? 1e9 : +a.numero) -
+          (b.numero === "Reste" ? 1e9 : +b.numero)
+  );
+  
+  // Créer une Map pour trouver facilement la salle d'un surveillant
+  const surveillantToSalle = new Map();
+  sallesOrdre.forEach(salle => {
+      (salle.surveillants || []).forEach(label => {
+          const nom = normName(nameFromLabel(label));
+          surveillantToSalle.set(nom, salle.numero === "Reste" ? "Reste" : salle.numero);
+      });
+  });
+  // Récupérer les données du personnel pour trouver MLE, TPH, UNITE
+  const staff = loadStaff();
+  const staffData = new Map();
+  
+  // Créer une map avec les noms normalisés comme clés
+  [...staff.surveillants, ...staff.estafettes].forEach(person => {
+      const nom = normName(person.name);
+      staffData.set(nom, {
+          mle: person.mle || "",
+          nrTph: person.nrTph || "",
+          unite: person.unite || ""
+      });
+  });
+  sallesOrdre.forEach(salle => {
+      (salle.surveillants || []).forEach(label => {
+          const nomComplet = nameFromLabel(label);
+          const nomNormalise = normName(nomComplet);
+          const salleAssignee = surveillantToSalle.get(nomNormalise) || "";
+          
+          // Chercher les informations dans les données du personnel
+          const info = staffData.get(nomNormalise) || {};
+          
+          aoa.push([
+              nr++,
+              gradeFromLabel(label),
+              nomComplet,
+              info.mle || "",
+              info.nrTph || "",
+              info.unite || "",
+              salleAssignee
+          ]);
+      });
+  });
+  
+  
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"] = [
+      { wpx: 42 }, { wpx: 55 }, { wpx: 235 },
+      { wpx: 80 }, { wpx: 105 }, { wpx: 90 }, { wpx: 55 }
+  ];
+  XLSX.utils.book_append_sheet(wb, ws, "Surveillants");
+}
+  /* ---------- 4.  FEUILLE « À reprendre » --------------------------------- */
+  {
+    const reprise = loadReprise(); // [{ nom, nombre }]
+    const aoa = [["Nom", "Nombre"]];
+    (reprise || []).forEach(r => {
+      if ((r.nom || "").trim() || +r.nombre > 0) aoa.push([r.nom, +r.nombre || ""]);
+    });
+    if (aoa.length === 1) aoa.push(["—", ""]); // vide
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"] = [{ wpx: 280 }, { wpx: 70 }];
+    XLSX.utils.book_append_sheet(wb, ws, "À reprendre");
+  }
+  /* ---------- 5.  FEUILLE « Estafettes » ---------------------------------- */
+  {
+    const aoa = [["NR", "Bâtiment", "Nb salles", "Estafettes"]];
+    estafettesParBatiment.forEach((b, i) => {
+      aoa.push([i + 1, b.batiment, b.nbSalles, (b.estafettes || []).join(", ")]);
+    });
+    if (aoa.length === 1) aoa.push(["—", "—", "—", "—"]);
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"] = [{ wpx: 40 }, { wpx: 110 }, { wpx: 80 }, { wpx: 400 }];
+    XLSX.utils.book_append_sheet(wb, ws, "Estafettes");
+  }
+  /* ---------- 6.  FEUILLE « Exclus » -------------------------------------- */
+  if (elevesExclus.length) {
+    const data = elevesExclus.map((e, idx) => ({
+      NR: idx + 1,
+      Nom: e.nom,
+      "Prénom": e.prenom,
+      Escadron: e.escadron,
+      Peloton: e.peloton,
+      Incorporation: e.numeroIncorporation,
+      Motif: e.salle
+    }));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "Exclus");
   }
-
-  // Estafettes
-  // Estafettes + À reprendre (réserves)
-{
-  const aoa = [["NR","Bâtiment","Nb salles","Estafettes"]];
-  if (Array.isArray(estafettesParBatiment) && estafettesParBatiment.length) {
-    estafettesParBatiment.forEach((b, idx) => {
-      aoa.push([idx+1, b.batiment, b.nbSalles, (b.estafettes||[]).join(", ")]);
-    });
-  } else {
-    aoa.push(["—","—","—","—"]);
-  }
-
-  // Bloc "À reprendre" (depuis le modal)
-  const reprise = loadReprise(); // [{nom, nombre}]
-  aoa.push([]);
-  aoa.push(["À reprendre"]);
-  aoa.push(["Nom","Nombre"]);
-  (reprise||[]).forEach(r => {
-    if ((r.nom||"").trim() || Number(r.nombre)>0) {
-      aoa.push([r.nom||"", Number(r.nombre)||0]);
-    }
-  });
-
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  // Largeurs de colonnes
-  ws['!cols'] = [{wpx:50},{wpx:120},{wpx:90},{wpx:380}];
-  XLSX.utils.book_append_sheet(wb, ws, "Estafettes");
+  /* ---------- 7.  SAUVEGARDE ---------------------------------------------- */
+  const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  saveAs(new Blob([wbout], { type: "application/octet-stream" }), "repartition_salles.xlsx");
 }
-
-
-  const wbout=XLSX.write(wb,{bookType:"xlsx",type:"array"});
-  saveAs(new Blob([wbout],{type:"application/octet-stream"}), "repartition_salles.xlsx");
-}
-
 /******************************************************
  * 9) FAÇADES
  ******************************************************/
@@ -1646,7 +2320,6 @@ async function ouvrirEditeurRepartition(eleves){
   const excl=await exclureIncorporations();
   await ajouterSallesViaModal(eleves, excl);
 }
-
 async function validerRepartitionRapide(eleves){
   const rooms=loadRooms(), excl=loadExclusions();
   if(!rooms.length){
