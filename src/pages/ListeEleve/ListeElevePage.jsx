@@ -1683,8 +1683,8 @@ function snapshotRoomsFromModalAndSave() {
           /* ---------- Rendu ------------------------------------------------------- */
           const header = `
             <div class="repr-head">
-              <div class="repr-title">Adjoints<span class="repr-sub">(GHC/G1C/G2C/GST)</span></div>
-              <div class="repr-title">Seniors<span class="repr-sub">(GPCE/GPHC/GP1C/GP2C)</span></div>
+              <div class="repr-title">GENDARMES<span class="repr-sub">(GHC/G1C/G2C/GST)</span></div>
+              <div class="repr-title">GRADES<span class="repr-sub">(GPCE/GPHC/GP1C/GP2C)</span></div>
             </div>
             <div id="repr-status" class="repr-status"></div>
           `;
