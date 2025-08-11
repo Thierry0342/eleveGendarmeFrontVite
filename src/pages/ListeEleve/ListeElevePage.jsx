@@ -37,6 +37,8 @@ const ListeElevePge = () => {
   const [searchText, setSearchText] = useState("");
   const [niveauFilter, setNiveauFilter] = useState("");
   const [showRepModal, setShowRepModal] = useState(false);
+// juste avant le JSX :
+const canEdit = ['peda', 'admin', 'superadmin'].includes(String(user?.type).toLowerCase());
 
   
   const [filter, setFilter] = useState({ escadron: '', peloton: '' ,search:'' ,cour:''});
@@ -196,6 +198,50 @@ const ListeElevePge = () => {
   }
   function saveRooms(rooms){ try{ localStorage.setItem(STORAGE_KEYS.rooms, JSON.stringify(rooms||[])); }catch{} }
   function loadRooms(){ try{ const a=JSON.parse(localStorage.getItem(STORAGE_KEYS.rooms)||'[]'); return Array.isArray(a)?a:[]; }catch{ return []; } }
+  /* =========================
+   PERF HELPERS (NOUVEAU)
+   ========================= */
+
+// Cache mémoire pour écriture incrémentale
+let _roomsCache = Array.isArray(loadRooms()) ? loadRooms() : [];
+
+// petit debounce
+function debounce(fn, wait = 200) {
+  let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(null, args), wait); };
+}
+
+// sauvegarde coalescée
+const saveRoomsDebounced = debounce(() => { try { saveRooms(_roomsCache); } catch {} }, 250);
+
+// MàJ d’un seul champ de salle
+function updateRoomField(idx, field, value) {
+  if (!_roomsCache[idx]) _roomsCache[idx] = { numero: idx + 1, capacite: 0, description: "", batiment: "", surveillants: [] };
+  _roomsCache[idx][field] = value;
+  saveRoomsDebounced();
+}
+
+// (optionnel) MàJ d’un surveillant sans snapshot complet
+function updateRoomSurveillant(idx, pos /*1|2*/, label) {
+  if (!_roomsCache[idx]) _roomsCache[idx] = { numero: idx + 1, capacite: 0, description: "", batiment: "", surveillants: [] };
+  const arr = Array.isArray(_roomsCache[idx].surveillants) ? _roomsCache[idx].surveillants.slice(0, 2) : [];
+  arr[pos - 1] = label || "";
+  _roomsCache[idx].surveillants = arr.filter(Boolean);
+  saveRoomsDebounced();
+}
+
+// repousse les gros rendus quand le thread est libre
+function idleDebounce(fn, timeout = 600) {
+  let pending = false, lastArgs = null;
+  const runner = () => { pending = false; const a = lastArgs; lastArgs = null; fn.apply(null, a || []); };
+  return (...args) => {
+    lastArgs = args;
+    if (pending) return;
+    pending = true;
+    if (window.requestIdleCallback) requestIdleCallback(runner, { timeout });
+    else setTimeout(runner, Math.min(timeout, 200));
+  };
+}
+
   function clearRooms(){ try{ localStorage.removeItem(STORAGE_KEYS.rooms); }catch{} }
   function saveExclusions(excl){ try{ localStorage.setItem(STORAGE_KEYS.exclusions, JSON.stringify(excl||{})); }catch{} }
   function loadExclusions(){ try{ const a=JSON.parse(localStorage.getItem(STORAGE_KEYS.exclusions)||'{}'); return (a && typeof a==='object')?a:{}; }catch{ return {}; } }
@@ -276,6 +322,7 @@ function loadReprise() {
       return (o && typeof o==='object') ? o : {};
     }catch{ return {}; }
   }
+  
   /******************************************************
    * 1) UTILITAIRES texte / grades / personnes
    ******************************************************/
@@ -538,7 +585,7 @@ function loadReprise() {
     const rowHTML=(n="",m="")=>`
       <div class="ex-row">
         <input class="incorp" placeholder="Incorporation ex: 123" value="${n}">
-        <input class="motif" placeholder="Motif ex: Cas médical" value="${m}">
+        <input class="motif" placeholder="Motif ex: EVASAN" value="${m}">
         <button type="button" class="rm" title="Supprimer">×</button>
       </div>`;
     const html=`
@@ -554,7 +601,7 @@ function loadReprise() {
         <div class="ex-foot"><span>Astuce : Entrée = valider • Échap = annuler</span><span id="count">1 ligne</span></div>
       </div>`;
     const res = await Swal.fire({
-      title:"Exclure des incorporations", html, width:820, focusConfirm:false, showCancelButton:true, confirmButtonText:"Valider",
+      title:"MOTIF DES ABSENTS", html, width:820, focusConfirm:false, showCancelButton:true, confirmButtonText:"Valider",
       didOpen:()=>{
         const rows=document.getElementById('rows'); const count=document.getElementById('count');
         const upd=()=>{ const n=rows.querySelectorAll('.ex-row').length; count.textContent=`${n} ${n>1?'lignes':'ligne'}`; };
@@ -680,8 +727,9 @@ function resetSurveillantsAfterImport() {
 }
 
 // Modifier les fonctions d'import pour conserver l'état du modal
+// === UNIQUE === Remplace toutes les définitions par celle-ci
 async function importerPersonnelDepuisColler() {
-  // Sauvegarder l'état actuel AVANT l'import
+  // Sauvegarder l'état actuel AVANT l'import si le modal salles est ouvert
   if (document.querySelector('.room-card')) {
     snapshotRoomsFromModalAndSave();
   }
@@ -691,35 +739,36 @@ async function importerPersonnelDepuisColler() {
     <textarea id="txtImport" rows="12" placeholder="Collez ici…" style="width:100%;border:1px solid #d1d5db;border-radius:10px;padding:10px 12px;outline:none"></textarea>
     <small style="color:#64748b">Format attendu : NR | GRADE | NOM ET PRENOMS | MLE | NR TPH | UNITE</small>
   </div>`;
-  
+
   const res = await Swal.fire({
-    title: "Importer le personnel (coller depuis Excel)", 
-    html, 
-    width: 720, 
-    focusConfirm: false, 
-    showCancelButton: true, 
+    title: "Importer le personnel (coller depuis Excel)",
+    html,
+    width: 720,
+    focusConfirm: false,
+    showCancelButton: true,
     confirmButtonText: "Importer",
-    preDestroy: () => {
-      // Restaurer l'état du modal après fermeture
+    // ⬇️ preDestroy ➜ willClose
+    willClose: () => {
       if (document.querySelector('.room-card')) {
         hydrateRoomsInputsFromStorage();
       }
     }
   });
-  
+
   if (!res.isConfirmed) return null;
+
   const raw = document.getElementById('txtImport').value || '';
   const parsed = parsePersonnelFromPasted(raw);
-  
-  if (!parsed.total) { 
-    await Swal.fire("Aucun agent détecté", "Vérifie la présence des colonnes GRADE/NOM.", "warning"); 
-    return null; 
+
+  if (!parsed.total) {
+    await Swal.fire("Aucun agent détecté", "Vérifie la présence des colonnes GRADE/NOM.", "warning");
+    return null;
   }
-  
-  saveStaff({surveillants: parsed.surveillants, estafettes: parsed.estafettes});
+
+  saveStaff({ surveillants: parsed.surveillants, estafettes: parsed.estafettes });
   verifierDonneesPersonnel();
   resetSurveillantsAfterImport();
-  
+
   if (document.querySelector('.room-card')) {
     const staff = loadStaff();
     buildSurveillantOptions(staff);
@@ -727,9 +776,9 @@ async function importerPersonnelDepuisColler() {
     const t = document.querySelector('.sv1') || document.querySelector('.room-building');
     if (t) t.dispatchEvent(new Event('change', { bubbles: true }));
   }
-  
+
   await Swal.fire({
-    icon: "success", 
+    icon: "success",
     title: "Import réussi",
     html: `<div style="text-align:left">
       <p>Agents détectés : <b>${parsed.total}</b></p>
@@ -738,12 +787,14 @@ async function importerPersonnelDepuisColler() {
       <p style="color:#10b981;font-size:12px;margin-top:8px">Les configurations ont été conservées.</p>
     </div>`
   });
-  
+
   return loadStaff();
 }
 
+
+// === UNIQUE === Remplace toutes les définitions par celle-ci
 async function importerPersonnelDepuisExcel() {
-  // Sauvegarder l'état actuel AVANT l'import
+  // Sauvegarder l'état actuel AVANT l'import si le modal salles est ouvert
   if (document.querySelector('.room-card')) {
     snapshotRoomsFromModalAndSave();
   }
@@ -753,51 +804,46 @@ async function importerPersonnelDepuisExcel() {
     <small style="color:#64748b">Le fichier doit contenir <b>GRADE</b> et <b>NOM ET PRENOMS</b>.<br>
     Les colonnes <b>MLE</b>, <b>NR TPH</b> et <b>UNITE</b> seront également importées si disponibles.</small>
   </div>`;
-  
+
   const res = await Swal.fire({
-    title: "Importer le personnel depuis un fichier", 
-    html, 
-    width: 560, 
+    title: "Importer le personnel depuis un fichier",
+    html,
+    width: 560,
     focusConfirm: false,
-    showCancelButton: true, 
+    showCancelButton: true,
     confirmButtonText: "Importer",
-    preDestroy: () => {
-      // Restaurer l'état du modal après fermeture
+    // ⬇️ preDestroy ➜ willClose
+    willClose: () => {
       if (document.querySelector('.room-card')) {
         hydrateRoomsInputsFromStorage();
       }
     },
     preConfirm: async () => {
-      const input = document.getElementById('excelFile'); 
-      const file = input?.files?.[0];
-      if (!file) { 
-        Swal.showValidationMessage("Sélectionnez un fichier."); 
-        return false; 
-      }
+      const input = document.getElementById('excelFile');
+      const file  = input?.files?.[0];
+      if (!file) { Swal.showValidationMessage("Sélectionnez un fichier."); return false; }
       try {
-        const buf = await file.arrayBuffer(); 
-        const wb = XLSX.read(buf, {type: "array"}); 
+        const buf   = await file.arrayBuffer();
+        const wb    = XLSX.read(buf, { type: "array" });
         const sheet = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet, {defval: "", raw: false}); 
+        const rows  = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false });
         const parsed = parsePersonnelFromObjects(rows);
-        if (!parsed.total) { 
-          Swal.showValidationMessage("Impossible de détecter des agents."); 
-          return false; 
-        }
+        if (!parsed.total) { Swal.showValidationMessage("Impossible de détecter des agents."); return false; }
         return parsed;
       } catch (e) {
-        console.error(e); 
-        Swal.showValidationMessage("Erreur de lecture du fichier."); 
+        console.error(e);
+        Swal.showValidationMessage("Erreur de lecture du fichier.");
         return false;
       }
     }
   });
-  
+
   if (!res.isConfirmed) return null;
-  saveStaff({surveillants: res.value.surveillants, estafettes: res.value.estafettes}); 
+
+  saveStaff({ surveillants: res.value.surveillants, estafettes: res.value.estafettes });
   verifierDonneesPersonnel();
   resetSurveillantsAfterImport();
-  
+
   if (document.querySelector('.room-card')) {
     const staff = loadStaff();
     buildSurveillantOptions(staff);
@@ -805,10 +851,10 @@ async function importerPersonnelDepuisExcel() {
     const t = document.querySelector('.sv1') || document.querySelector('.room-building');
     if (t) t.dispatchEvent(new Event('change', { bubbles: true }));
   }
-  
+
   const p = res.value;
   await Swal.fire({
-    icon: "success", 
+    icon: "success",
     title: "Import réussi",
     html: `<div style="text-align:left">
       <p>Agents détectés : <b>${p.total}</b></p>
@@ -817,9 +863,10 @@ async function importerPersonnelDepuisExcel() {
       <p style="color:#10b981;font-size:12px;margin-top:8px">Les configurations ont été conservées.</p>
     </div>`
   });
-  
+
   return loadStaff();
 }
+
 
 // Ajouter cette fonction pour gérer la sauvegarde/restauration
 function snapshotRoomsFromModalAndSave() {
@@ -833,97 +880,8 @@ function snapshotRoomsFromModalAndSave() {
   }));
   saveRooms(currentRooms);
 }
-  async function importerPersonnelDepuisColler(){
-    const html=`<div style="display:grid;gap:10px">
-        <p style="margin:0;color:#475569">Collez les lignes (avec <b>GRADE</b> et <b>NOM ET PRENOMS</b>).</p>
-        <textarea id="txtImport" rows="12" placeholder="Collez ici…" style="width:100%;border:1px solid #d1d5db;border-radius:10px;padding:10px 12px;outline:none"></textarea>
-        <small style="color:#64748b">Format attendu : NR | GRADE | NOM ET PRENOMS | MLE | NR TPH | UNITE</small>
-    </div>`;
-    const res=await Swal.fire({ title:"Importer le personnel (coller depuis Excel)", html, width:720, focusConfirm:false, showCancelButton:true, confirmButtonText:"Importer" });
-    if(!res.isConfirmed) return null;
-    const raw=document.getElementById('txtImport').value||'';
-    const parsed=parsePersonnelFromPasted(raw);
-    if(!parsed.total){ 
-      await Swal.fire("Aucun agent détecté","Vérifie la présence des colonnes GRADE/NOM.","warning"); 
-      return null; 
-    }
-    // 1) Enregistre le nouveau staff
-    saveStaff({surveillants:parsed.surveillants, estafettes:parsed.estafettes});
-    verifierDonneesPersonnel();
-    // 2) Reset surveillants (on garde salles/bât/descr/capacités)
-    resetSurveillantsAfterImport();
-    // 3) Si le modal est ouvert, on rafraîchit l’UI en place
-    if (document.querySelector('.room-card')) {
-      const staff = loadStaff();
-      buildSurveillantOptions(staff);       // remet les options avec le nouveau staff
-      hydrateRoomsInputsFromStorage();      // remet les valeurs salles/bât/descr/capas visibles
-      // délenche un 'change' pour recalcul estafettes/reprise via les listeners du modal
-      const t = document.querySelector('.sv1') || document.querySelector('.room-building');
-      if (t) t.dispatchEvent(new Event('change', { bubbles:true }));
-    }
-    await Swal.fire({
-      icon:"success", title:"Import réussi",
-      html:`<div style="text-align:left">
-        <p>Agents détectés : <b>${parsed.total}</b></p>
-        <p>Surveillants : <b>${parsed.surveillants.length}</b></p>
-        <p>Estafettes (GST/G2C) : <b>${parsed.estafettes.length}</b></p>
-        <p style="color:#10b981;font-size:12px;margin-top:8px">Les surveillants ont été remis à zéro (salles/bâtiments/descriptions conservés).</p>
-      </div>`
-    });
-    return loadStaff();
-  }
-  async function importerPersonnelDepuisExcel(){
-    const html=`<div style="display:grid;gap:10px">
-      <input id="excelFile" type="file" accept=".xlsx,.xls,.csv" style="border:1px solid #d1d5db;border-radius:10px;padding:8px 10px" />
-      <small style="color:#64748b">Le fichier doit contenir <b>GRADE</b> et <b>NOM ET PRENOMS</b>.<br>
-      Les colonnes <b>MLE</b>, <b>NR TPH</b> et <b>UNITE</b> seront également importées si disponibles.</small>
-    </div>`;
-    const res=await Swal.fire({
-      title:"Importer le personnel depuis un fichier", html, width:560, focusConfirm:false,
-      showCancelButton:true, confirmButtonText:"Importer",
-      preConfirm:async()=>{
-        const input=document.getElementById('excelFile'); 
-        const file=input?.files?.[0];
-        if(!file){ Swal.showValidationMessage("Sélectionnez un fichier."); return false; }
-        try{
-          const buf=await file.arrayBuffer(); 
-          const wb=XLSX.read(buf,{type:"array"}); 
-          const sheet=wb.Sheets[wb.SheetNames[0]];
-          const rows=XLSX.utils.sheet_to_json(sheet,{defval:"",raw:false}); 
-          const parsed=parsePersonnelFromObjects(rows);
-          if(!parsed.total){ Swal.showValidationMessage("Impossible de détecter des agents."); return false; }
-          // 1) Enregistre le nouveau staff
-          saveStaff({surveillants:parsed.surveillants, estafettes:parsed.estafettes}); 
-          verifierDonneesPersonnel();
-          return parsed;
-        }catch(e){
-          console.error(e); Swal.showValidationMessage("Erreur de lecture du fichier."); return false;
-        }
-      }
-    });
-    if(!res.isConfirmed) return null;
-    // 2) Reset surveillants (on garde salles/bât/descr/capacités)
-    resetSurveillantsAfterImport();
-    // 3) Si le modal est ouvert, rafraîchir l’UI
-    if (document.querySelector('.room-card')) {
-      const staff = loadStaff();
-      buildSurveillantOptions(staff);
-      hydrateRoomsInputsFromStorage();
-      const t = document.querySelector('.sv1') || document.querySelector('.room-building');
-      if (t) t.dispatchEvent(new Event('change', { bubbles:true }));
-    }
-    const p=res.value;
-    await Swal.fire({
-      icon:"success", title:"Import réussi",
-      html:`<div style="text-align:left">
-        <p>Agents détectés : <b>${p.total}</b></p>
-        <p>Surveillants : <b>${p.surveillants.length}</b></p>
-        <p>Estafettes (GST/G2C) : <b>${p.estafettes.length}</b></p>
-        <p style="color:#10b981;font-size:12px;margin-top:8px">Les surveillants ont été remis à zéro (salles/bâtiments/descriptions conservés).</p>
-      </div>`
-    });
-    return loadStaff();
-  }
+ 
+ 
   /******************************************************
    * 4) ESTAFETTES — calcul auto en excluant les surveillants
    ******************************************************/
@@ -1062,9 +1020,11 @@ function snapshotRoomsFromModalAndSave() {
    * 5) MODAL principal (salles + à droite onglet Estafettes)
    ******************************************************/
   async function ajouterSallesViaModal(eleves, exclusions = []) {
+    // 1) Récup rooms sauvegardées & nombre
     const savedRooms = loadRooms();
-    const prevCount = savedRooms.length || 0;
-    const { value } = await Swal.fire({
+    const prevCount  = savedRooms.length || 0;
+  
+    const ask = await Swal.fire({
       title: "Combien de salles ?",
       input: "number",
       inputLabel: "Nombre total de salles",
@@ -1080,13 +1040,15 @@ function snapshotRoomsFromModalAndSave() {
         return n;
       }
     });
-    if (!value) return;
-    const nbSalles = parseInt(value, 10);
-    let activeRooms = savedRooms.slice(0, nbSalles);
-    if (activeRooms.length < nbSalles) {
-      for (let i = activeRooms.length; i < nbSalles; i++) {
-        activeRooms.push({ numero: i + 1, capacite: 0, description: "", batiment: "", surveillants: [] });
-      }
+    if (!ask.value) return;
+  
+    const nbSalles = parseInt(ask.value, 10);
+  
+    // 2) Construire l’état actif des salles
+    let activeRooms = (savedRooms || []).slice(0, nbSalles);
+    while (activeRooms.length < nbSalles) {
+      const i = activeRooms.length;
+      activeRooms.push({ numero: i + 1, capacite: 0, description: "", batiment: "", surveillants: [] });
     }
     activeRooms = activeRooms.map((r, i) => ({
       numero: i + 1,
@@ -1096,6 +1058,10 @@ function snapshotRoomsFromModalAndSave() {
       surveillants: Array.isArray(r.surveillants) ? r.surveillants.slice(0, 2) : []
     }));
     saveRooms(activeRooms);
+    // ↓ pour que le cache reflète exactement l’état d’ouverture du modal
+_roomsCache = activeRooms.slice();
+  
+    // 3) CSS (une seule fois)
     if (!document.getElementById('swal-repart-css')) {
       const style = document.createElement('style'); style.id = 'swal-repart-css';
       style.textContent = `
@@ -1106,24 +1072,24 @@ function snapshotRoomsFromModalAndSave() {
         .repart-toolbar-left{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
         .repart-toolbar-left input{padding:8px 10px;border:1px solid #cfd4dc;border-radius:10px}
         .repart-body{display:grid;grid-template-columns:1fr 320px;gap:12px}
-        .repart-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;max-height:480px;overflow:auto;padding-right:2px}
-        .room-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;box-shadow:0 1px 3px rgba(16,24,40,.06)}
-        .room-head{display:flex;align-items:center;justify-content:center}
-        .room-badge{font-weight:700;font-size:13px;background:#eef2ff;color:#4338ca;padding:6px 10px;border-radius:999px;border:1px solid #c7d2fe}
+        .repart-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;max-height:78vh;overflow:auto;padding-right:4px}
+        .room-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;box-shadow:0 1px 3px rgba(16,24,40,.06);min-height:400px}
+        .room-head{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+        .room-badge{font-weight:700;font-size:14px;background:#eef2ff;color:#4338ca;padding:8px 12px;border-radius:999px;border:1px solid #c7d2fe}
         .room-input-group{display:flex;align-items:center;gap:8px;justify-content:center}
-        .room-input-group input.salle-nb{width:92px;text-align:center;padding:10px 8px;border:1px solid #cfd4dc;border-radius:10px;font-weight:700}
-        .btn-inc,.btn-dec{width:34px;height:34px;border-radius:10px;border:1px solid #e5e7eb;background:#f3f4f6;font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center}
-        .room-building,.room-desc{width:100%;padding:8px 10px;border:1px solid #cfd4dc;border-radius:10px}
-        .room-staff{display:flex;flex-direction:column;gap:6px;padding:8px;border:1px dashed #e5e7eb;border-radius:10px;background:#f8fafc;font-size:12.5px}
+        .room-input-group input.salle-nb{width:92px;text-align:center;padding:10px 12px;border:1px solid #cfd4dc;border-radius:10px;font-weight:700;height:44px;font-size:16px}
+        .btn-inc,.btn-dec{width:42px;height:42px;border-radius:10px;border:1px solid #e5e7eb;background:#f3f4f6;font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center}
+        .room-building,.room-desc{width:100%;padding:8px 10px;border:1px solid #cfd4dc;border-radius:10px;height:60px;font-size:14px}
+        .room-staff{display:flex;flex-direction:column;gap:6px;padding:10px;border:1px dashed #e5e7eb;border-radius:10px;background:#f8fafc;font-size:12.5px}
         .room-staff .lab{font-weight:700;color:#334155}
-        .room-staff select{width:100%;padding:8px 10px;border:1px solid #cfd4dc;border-radius:10px}
+        .room-staff select{width:100%;padding:8px 10px;border:1px solid #cfd4dc;border-radius:10px;height:40px;font-size:14px}
         .repart-sidebar{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:10px}
         .side-title{font-weight:800;font-size:14px}
         .est-item{border:1px dashed #e5e7eb;border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px}
         .est-head{display:flex;justify-content:space-between;align-items:center;font-weight:600}
         .est-list select{width:100%;margin-top:6px;padding:8px 10px;border:1px solid #cfd4dc;border-radius:10px}
         .room-card.sv-missing{border-color:#ef4444 !important;box-shadow:0 0 0 3px rgba(239,68,68,.12)}
-        .estaf-missing{color:#b91c1c;font-weight:600}
+        .room-card.sv-duplicate{border-color:#a855f7 !important;box-shadow:0 0 0 3px rgba(168,85,247,.18)}
         .repart-footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:8px 10px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;font-size:13px;color:#334155}
         .footer-kpi{display:flex;gap:12px;align-items:center}
         .kpi{background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;padding:6px 10px;border-radius:10px;font-weight:700}
@@ -1131,41 +1097,24 @@ function snapshotRoomsFromModalAndSave() {
         .short-ok{background:#dcfce7;color:#065f46;border:1px solid #bbf7d0}
         .short-warn{background:#fef9c3;color:#92400e;border:1px solid #fde68a}
         .short-bad{background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
-        .room-card.sv-duplicate { border-color:#a855f7 !important; box-shadow:0 0 0 3px rgba(168,85,247,.18); }
-        .reprise-box{border:1px solid #e5e7eb;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px}
-        .reprise-head{display:flex;justify-content:space-between;align-items:center;font-weight:700}
-        .reprise-grid{display:grid;grid-template-columns:1fr 110px 34px;gap:6px}
-        .reprise-grid input{padding:8px 10px;border:1px solid #cfd4dc;border-radius:10px}
-        .reprise-add{padding:6px 10px;border:none;border-radius:10px;background:#3b82f6;color:#fff;cursor:pointer}
-        .reprise-del{border:1px solid #e5e7eb;border-radius:10px;background:#f3f4f6;cursor:pointer}
-        /* Badge + puces surveillants visibles en haut */
-        .room-head{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; }
-        .sv-badges{ display:flex; gap:6px; flex-wrap:wrap; justify-content:center; max-width:100%; }
-        .sv-chip{ background:#eef2ff; border:1px solid #c7d2fe; color:#3730a3; padding:2px 8px; border-radius:999px; font-size:12px; line-height:18px; max-width:100%; }
-        /* message + erreur estafettes (pas de SweetAlert) */
-        .estaf-msg{ display:none; margin:4px 0 8px; font-size:12px; color:#b91c1c; }
-        .est-sel.est-invalid{ border-color:#ef4444 !important; box-shadow:0 0 0 3px rgba(239,68,68,.15); }
+        .sv-badges{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:100%}
+        .sv-chip{background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;padding:2px 8px;border-radius:999px;font-size:12px;line-height:18px;max-width:100%}
+        @media (max-width:1200px){ .repart-body{grid-template-columns:1fr 400px} }
       `;
       document.head.appendChild(style);
     }
-    // Overrides hauteur
-    {
-      const css = `
-        .repart-grid{max-height:78vh;padding-right:4px}
-        .room-card{padding:14px;min-height:400px}
-        .room-input-group input.salle-nb{height:44px;font-size:16px;padding:10px 12px}
-        .btn-inc,.btn-dec{width:42px;height:42px;font-size:20px}
-        .room-building,.room-desc{height:60px;font-size:14px}
-        .room-staff{padding:10px;gap:8px}
-        .room-staff select{height:40px;font-size:14px}
-        .room-badge{font-size:14px;padding:8px 12px}
-        @media (max-width:1200px){ .repart-body{grid-template-columns:1fr 400px} }
-      `;
-      const s = document.getElementById('swal-repart-css') || (()=> {
-        const st = document.createElement('style'); st.id='swal-repart-css'; document.head.appendChild(st); return st;
-      })();
-      s.textContent += css;
+    if (!document.getElementById('repart-invalid-css')) {
+      const st = document.createElement('style'); st.id = 'repart-invalid-css';
+      st.textContent = `.invalid{border-color:#ef4444 !important;background:#fff1f2 !important}`;
+      document.head.appendChild(st);
     }
+    if (!document.getElementById('personnel-css')) {
+      const style = document.createElement('style'); style.id="personnel-css";
+      style.textContent=` .sv1 option, .sv2 option { white-space: pre-wrap; max-width: 400px; } `;
+      document.head.appendChild(style);
+    }
+  
+    // 4) HTML cartes
     const cardsHTML = activeRooms.map((r, i) => {
       const cap = r.capacite ?? "";
       const desc = r.description ?? "";
@@ -1187,6 +1136,8 @@ function snapshotRoomsFromModalAndSave() {
           </div>
         </div>`;
     }).join("");
+  
+    // 5) Toolbar / Aside / Footer
     const toolbar = `
       <div class="repart-toolbar">
         <div class="repart-toolbar-left">
@@ -1195,7 +1146,7 @@ function snapshotRoomsFromModalAndSave() {
           <button id="btn-import-paste" class="btn-chip ghost">Coller Excel</button>
           <input id="cap-def" type="number" min="1" placeholder="Capacité par défaut"/><button id="apply-all" class="btn-chip">Appliquer à toutes</button>
           <input id="desc-def" type="text" placeholder="Description par défaut"/><button id="apply-desc-all" class="btn-chip alt">Appliquer descriptions</button>
-          <input id="builds" type="text" placeholder="Bâtiments (ex: BAT 1°ESC)"/><button id="apply-buildings" class="btn-chip ghost">Assigner bâtiments</button>
+          <input id="builds" type="text" placeholder="Bâtiments (ex: A,B,C)"/><button id="apply-buildings" class="btn-chip ghost">Assigner bâtiments</button>
           <input id="group-size" type="number" min="2" value="3" placeholder="Taille cible"/><input id="group-max" type="number" min="3" value="5" placeholder="Taille max"/><button id="auto-group-buildings" class="btn-chip">Grouper (A,B,C…)</button>
           <button id="clear-all" class="btn-chip ghost">Tout vider</button>
         </div>
@@ -1207,10 +1158,10 @@ function snapshotRoomsFromModalAndSave() {
         <aside class="repart-sidebar">
           <div class="side-title">Onglet — Estafettes par bâtiment</div>
           <div id="estafette-panel"></div>
-          <div class="reprise-box" id="reprise-box">
-            <div class="reprise-head">
+          <div class="reprise-box" id="reprise-box" style="border:1px solid #e5e7eb;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px">
+            <div class="reprise-head" style="display:flex;justify-content:space-between;align-items:center;font-weight:700">
               <span>À reprendre (réserves)</span>
-              <button type="button" id="reprise-add" class="reprise-add">+ Ligne</button>
+              <button type="button" id="reprise-add" class="btn-chip">+ Ligne</button>
             </div>
             <div class="reprise-grid" id="reprise-grid"></div>
           </div>
@@ -1226,6 +1177,8 @@ function snapshotRoomsFromModalAndSave() {
         </div>
         <div style="font-size:12px;color:#6b7280">Astuce : utilisez les boutons +/−</div>
       </div>`;
+  
+    // 6) Affichage modal principal
     const result = await Swal.fire({
       title: "Effectif, bâtiments & surveillants des salles",
       html: `${toolbar}${bodyHTML}${footer}`,
@@ -1236,9 +1189,12 @@ function snapshotRoomsFromModalAndSave() {
       showCancelButton: true,
       confirmButtonText: "Valider Répartition",
       didOpen: () => {
+        // ---- helpers ----
+    
         const inputs = [...document.querySelectorAll('.salle-nb')];
-        const sumEl = document.getElementById('sum-cap');
-        const total = Array.isArray(eleves) ? eleves.length : null;
+        const sumEl  = document.getElementById('sum-cap');
+        const total  = Array.isArray(eleves) ? eleves.length : null;
+  
         const updateSum = () => {
           const sum = inputs.reduce((a, inp) => a + (parseInt(inp.value, 10) || 0), 0);
           if (sumEl) {
@@ -1249,21 +1205,92 @@ function snapshotRoomsFromModalAndSave() {
             }
           }
         };
-        // bouton Random
-        const confirmBtn = Swal.getConfirmButton();
-        const randomBtn = document.createElement('button');
-        randomBtn.id = 'btn-random-staff';
-        randomBtn.textContent = 'Random personnels';
-        randomBtn.className = 'btn-chip alt';
-        randomBtn.style.marginRight = '8px';
-        confirmBtn.parentNode.insertBefore(randomBtn, confirmBtn);
-        let estAssign = loadEstafettesAssign();
-        let staff = loadStaff();
-        // options surveillants
-        function buildSurveillantOptions(staff) {
+        const getSallesSnapshot = () => [...document.querySelectorAll('.room-card')].map((card, i) => ({
+          numero: i + 1,
+          batiment: (card.querySelector('.room-building')?.value || '').trim() || '—',
+          surveillants: [card.querySelector('.sv1')?.value, card.querySelector('.sv2')?.value].filter(Boolean)
+        }));
+  
+        function updateRoomHeadChips() {
+          document.querySelectorAll('.room-card').forEach((card, i) => {
+            const head = card.querySelector('.room-head');
+            const s1 = card.querySelector('.sv1')?.value;
+            const s2 = card.querySelector('.sv2')?.value;
+            const chips = [s1, s2].filter(Boolean).map(lab => `<span class="sv-chip">${lab}</span>`).join('');
+            head.innerHTML = `<span class="room-badge">Salle ${i+1}</span>${chips ? `<div class="sv-badges">${chips}</div>` : ''}`;
+          });
+        }
+        function colorizeDuplicateSurveillants() {
+          const allRooms = [...document.querySelectorAll('.room-card')];
+          const map = {};
+          allRooms.forEach((card, idx) => {
+            ['sv1', 'sv2'].forEach(cls => {
+              const val = card.querySelector(`.${cls}`)?.value;
+              if (!val) return;
+              const norm = normName(nameFromLabel(val));
+              (map[norm] ||= []).push(idx);
+            });
+          });
+          allRooms.forEach((card, idx) => {
+            let dup = false;
+            ['sv1', 'sv2'].forEach(cls => {
+              const val = card.querySelector(`.${cls}`)?.value;
+              if (val) {
+                const norm = normName(nameFromLabel(val));
+                if (map[norm] && map[norm].length > 1) dup = true;
+              }
+            });
+            card.classList.toggle('sv-duplicate', !!dup);
+          });
+        }
+        function colorizeShortages(estafettesData) {
+          const cards = [...document.querySelectorAll('.room-card')];
+          let missingSV = 0, missingEst = 0;
+          const cfg = loadEstafettesCfg();
+          const snapshot = getSallesSnapshot();
+          const countByBat = new Map();
+          snapshot.forEach(s => countByBat.set(s.batiment, (countByBat.get(s.batiment) || 0) + 1));
+          const needFor = bat => (countByBat.get(bat) || 0) >= cfg.useThreeWhenRoomsGte
+            ? Math.max(3, cfg.minPerBuilding) : Math.max(2, cfg.minPerBuilding);
+  
+          cards.forEach(card => {
+            const sv1 = card.querySelector('.sv1')?.value, sv2 = card.querySelector('.sv2')?.value;
+            if (!sv1 || !sv2) { card.classList.add('sv-missing'); missingSV++; }
+            else               { card.classList.remove('sv-missing'); }
+          });
+  
+          let iter;
+          if (estafettesData?.estafettesMap instanceof Map) iter = estafettesData.estafettesMap.entries();
+          else if (estafettesData instanceof Map)          iter = estafettesData.entries();
+          else                                            iter = Object.entries(estafettesData || {});
+          for (const [bat, list] of iter) {
+            const need = needFor(bat);
+            const have = Array.isArray(list) ? list.length : 0;
+            missingEst += Math.max(0, need - have);
+          }
+  
+          const badge = document.getElementById('shortage-indicator');
+          if (!badge) return { missingSV, missingEst };
+  
+          if (missingSV === 0 && missingEst === 0) {
+            badge.style.display = 'inline-block';
+            badge.className = 'shortage-badge short-ok';
+            badge.textContent = 'Aucun manque de personnel';
+          } else {
+            badge.style.display = 'inline-block';
+            const parts = [];
+            if (missingSV > 0) parts.push(`${missingSV} salle(s) sans 2 surveillants`);
+            if (missingEst > 0) parts.push(`estafettes manquantes: ${missingEst}`);
+            const sev = (missingSV > 0 && missingEst > 0) ? 'short-bad' : 'short-warn';
+            badge.className = `shortage-badge ${sev}`;
+            badge.textContent = parts.join(' · ');
+          }
+          return { missingSV, missingEst };
+        }
+  
+        // -- Options surveillants
+        function _buildSurveillantOptions(staff) {
           const pools = buildSurvPools(staff?.surveillants || []);
-        
-          // comptage déjà pris comme surveillants dans l'UI courante (si modal ouvert)
           const allRooms = [...document.querySelectorAll('.room-card')];
           const surveillantCount = {};
           allRooms.forEach(card => {
@@ -1275,18 +1302,14 @@ function snapshotRoomsFromModalAndSave() {
               }
             });
           });
-        
-          // nettoie les estafettes sauvegardées (jamais de seniors dedans)
-          const estAssign = loadEstafettesAssign() || {};
-          Object.keys(estAssign).forEach(bat => {
-            estAssign[bat] = (estAssign[bat] || []).filter(lab => !GROUP_B.has(gradeFromLabel(lab)));
+          const assign = loadEstafettesAssign() || {};
+          Object.keys(assign).forEach(bat => {
+            assign[bat] = (assign[bat] || []).filter(lab => !GROUP_B.has(gradeFromLabel(lab)));
           });
-          saveEstafettesAssign(estAssign);
-        
-          const allEstafette = getAllEstafetteNames(estAssign);
+          saveEstafettesAssign(assign);
+          const allEstafette = getAllEstafetteNames(assign);
           const seniors  = pools.display.filter(p => GROUP_B.has(p.grade));
           const adjoints = pools.display.filter(p => GROUP_A.has(p.grade));
-        
           const createOptions = (people, groupName) => {
             if (!people.length) return "";
             let options = `<option disabled style="font-weight:bold;background:#f3f4f6;color:#374151;">--- ${groupName} ---</option>`;
@@ -1310,143 +1333,43 @@ function snapshotRoomsFromModalAndSave() {
             });
             return options;
           };
-        
-          const html =
-            createOptions(seniors , "GRADES") +
-            createOptions(adjoints, "GENDARMES");
-        
+          const html = createOptions(seniors , "GRADES") + createOptions(adjoints, "GENDARMES");
           document.querySelectorAll('.sv1,.sv2').forEach(sel => {
             const cur = sel.value;
             sel.innerHTML = `<option value=""></option>` + html;
             if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur; else sel.selectedIndex = 0;
           });
-        
-          if (!document.getElementById('personnel-group-css')) {
-            const style = document.createElement('style'); style.id="personnel-group-css";
-            style.textContent = `
-              .sv1 option, .sv2 option { white-space: pre-wrap; max-width: 400px; }
-              .sv1 option:disabled, .sv2 option:disabled { font-weight: bold; background:#f3f4f6 !important; color:#374151 !important; font-style: italic; }
-            `;
-            document.head.appendChild(style);
-          }
         }
-        
-        buildSurveillantOptions(staff);
-        const getSallesSnapshot = () => [...document.querySelectorAll('.room-card')].map((card, i) => ({
-          numero: i + 1,
-          batiment: (card.querySelector('.room-building')?.value || '').trim() || '—',
-          surveillants: [card.querySelector('.sv1')?.value, card.querySelector('.sv2')?.value].filter(Boolean)
-        }));
-        function colorizeDuplicateSurveillants() {
-          const allRooms = [...document.querySelectorAll('.room-card')];
-          const surveillantToRooms = {};
-          allRooms.forEach((card, idx) => {
-            ['sv1', 'sv2'].forEach(cls => {
-              const val = card.querySelector(`.${cls}`)?.value;
-              if (val) {
-                const norm = normName(nameFromLabel(val));
-                if (!surveillantToRooms[norm]) surveillantToRooms[norm] = [];
-                surveillantToRooms[norm].push(idx);
-              }
-            });
-          });
-          allRooms.forEach((card, idx) => {
-            let isDuplicate = false;
-            ['sv1', 'sv2'].forEach(cls => {
-              const val = card.querySelector(`.${cls}`)?.value;
-              if (val) {
-                const norm = normName(nameFromLabel(val));
-                if (surveillantToRooms[norm] && surveillantToRooms[norm].length > 1) isDuplicate = true;
-              }
-            });
-            if (isDuplicate) card.classList.add('sv-duplicate');
-            else card.classList.remove('sv-duplicate');
-          });
-        }
-        function colorizeShortages(estafettesData) {
-          const cards = [...document.querySelectorAll('.room-card')];
-          let missingSV = 0, missingEst = 0;
-          const cfg = loadEstafettesCfg();
-          const snapshot = getSallesSnapshot();
-          const countByBat = new Map();
-          snapshot.forEach(s => countByBat.set(s.batiment, (countByBat.get(s.batiment) || 0) + 1));
-          const needFor = bat => (countByBat.get(bat) || 0) >= cfg.useThreeWhenRoomsGte ? Math.max(3, cfg.minPerBuilding) : Math.max(2, cfg.minPerBuilding);
-          cards.forEach(card => {
-              const sv1 = card.querySelector('.sv1')?.value, sv2 = card.querySelector('.sv2')?.value;
-              if (!sv1 || !sv2) { card.classList.add('sv-missing'); missingSV++; } else { card.classList.remove('sv-missing'); }
-          });
-          let estMap = estafettesData?.estafettesMap || estafettesData;
-          for (const [bat, list] of estMap.entries()) {
-              const need = needFor(bat); 
-              missingEst += Math.max(0, need - (list?.length || 0));
-          }
-          const badge = document.getElementById('shortage-indicator');
-          if (missingSV === 0 && missingEst === 0) {
-              badge.style.display = 'inline-block'; 
-              badge.className = 'shortage-badge short-ok'; 
-              badge.textContent = 'Aucun manque de personnel';
-          } else {
-              badge.style.display = 'inline-block';
-              const parts = []; 
-              if (missingSV > 0) parts.push(`${missingSV} salle(s) sans 2 surveillants`); 
-              if (missingEst > 0) parts.push(`estafettes manquantes: ${missingEst}`);
-              const sev = (missingSV > 0 && missingEst > 0) ? 'short-bad' : 'short-warn';
-              badge.className = `shortage-badge ${sev}`; 
-              badge.textContent = parts.join(' · ');
-          }
-          return { missingSV, missingEst };
-        }
-        // chips surveillants affichés en haut
-        function updateRoomHeadChips() {
-          document.querySelectorAll('.room-card').forEach((card, i) => {
-            const head = card.querySelector('.room-head');
-            const s1 = card.querySelector('.sv1')?.value;
-            const s2 = card.querySelector('.sv2')?.value;
-            const chips = [s1, s2].filter(Boolean)
-              .map(lab => `<span class="sv-chip">${lab}</span>`).join('');
-            head.innerHTML = `<span class="room-badge">Salle ${i+1}</span>${chips ? `<div class="sv-badges">${chips}</div>` : ''}`;
-          });
-        }
+  
         function renderEstafettePanel() {
           const panel = document.getElementById('estafette-panel');
           if (!panel) return;
-        
-          const snapshot = (typeof getSallesSnapshot === "function")
-            ? getSallesSnapshot()
-            : [...document.querySelectorAll('.room-card')].map((card, i) => ({
-                numero: i + 1,
-                batiment: (card.querySelector('.room-building')?.value || '').trim() || '—',
-                surveillants: [card.querySelector('.sv1')?.value, card.querySelector('.sv2')?.value].filter(Boolean)
-              }));
-        
+  
+          const snapshot = getSallesSnapshot();
           const estAssign = loadEstafettesAssign() || {};
           const perBat    = loadEstafettesPerBuilding() || {};
           const staff     = loadStaff();
-        
+  
           const estafettesData = computeEstafettesParBat(snapshot, staff, estAssign);
           const estMap         = estafettesData.estafettesMap;
           const autoAssignments= estafettesData.autoAssignments;
           const availableStaff = estafettesData.availableStaff;
-        
-          // options (uniquement GST/G2C/G1C, info extra visible)
+  
           const allAvailableOptions = availableStaff.map(p=>{
             let lab = p.label || `${p.grade} — ${p.name}`;
-            const extra=[];
-            if (p.mle)   extra.push(`MLE:${p.mle}`);
-            if (p.nrTph) extra.push(`TPH:${p.nrTph}`);
-            if (p.unite) extra.push(`UNITÉ:${p.unite}`);
+            const extra=[]; if (p.mle) extra.push(`MLE:${p.mle}`); if (p.nrTph) extra.push(`TPH:${p.nrTph}`); if (p.unite) extra.push(`UNITÉ:${p.unite}`);
             if (extra.length) lab += ` [${extra.join(', ')}]`;
             return `<option value="${(p.label||'').replace(/"/g,'&quot;')}">${lab}</option>`;
           }).join('');
-        
+  
           const cfg = loadEstafettesCfg();
           const countByBat = new Map();
           snapshot.forEach(s => countByBat.set(s.batiment, (countByBat.get(s.batiment) || 0) + 1));
           const needFor = bat => perBat[bat] ?? ((countByBat.get(bat) || 0) >= cfg.useThreeWhenRoomsGte
                             ? Math.max(3, cfg.minPerBuilding) : Math.max(2,cfg.minPerBuilding));
-        
+  
           const bats = [...new Set(snapshot.map(s => s.batiment))];
-        
+  
           panel.innerHTML = `
             <div id="estaf-msg" class="estaf-msg" style="display:none;margin:4px 0 8px;font-size:12px;color:#b91c1c"></div>
             ${bats.map(bat=>{
@@ -1458,8 +1381,8 @@ function snapshotRoomsFromModalAndSave() {
                 </select>`).join('');
               const manque = Math.max(0, need - (list?.length || 0));
               return `
-                <div class="est-item" style="border:1px dashed #e5e7eb;border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px">
-                  <div class="est-head" style="display:flex;justify-content:space-between;align-items:center;font-weight:600">
+                <div class="est-item">
+                  <div class="est-head">
                     <span>Bâtiment <b>${bat}</b></span>
                     <span>${manque>0?`(manque ${manque})`:`${need} requis`}
                       <button class="btn-set-estaf" data-bat="${bat}" style="margin-left:6px">🖉</button>
@@ -1469,37 +1392,13 @@ function snapshotRoomsFromModalAndSave() {
                 </div>`;
             }).join('')}
           `;
-          document.addEventListener('change', (e)=>{
-            if(e.target.matches('.sv1,.sv2,.room-building')){
-              snapshotRoomsFromModalAndSave();
-              renderEstafettePanel();
-              renderReprisePanel();
-            }
-          });
-          
-        
+  
           const showMsg = (txt) => {
             const m = panel.querySelector('#estaf-msg');
-            m.textContent = txt || '';
-            m.style.display = txt ? 'block' : 'none';
+            m.textContent = txt || ''; m.style.display = txt ? 'block' : 'none';
           };
-        
-          // bouton réglage par bat
-          panel.querySelectorAll('.btn-set-estaf').forEach(btn=>{
-            btn.addEventListener('click', ()=>{
-              const bat = btn.getAttribute('data-bat');
-              const prev = perBat[bat] ?? '';
-              const val = prompt(`Nb d'estafettes pour ${bat}`, prev === '' ? '' : String(prev));
-              if (val === null) return;
-              if (val === '' || isNaN(Number(val))) delete perBat[bat];
-              else perBat[bat] = Math.max(1, Number(val));
-              saveEstafettesPerBuilding(perBat);
-              renderEstafettePanel();
-              renderReprisePanel(); // pour MAJ des conflits
-            });
-          });
-        
-          // pré-remplissage : sauvegarde UI sinon auto
+  
+          // Pré-remplir
           panel.querySelectorAll('.est-sel').forEach(sel=>{
             const bat = sel.getAttribute('data-bat');
             const idx = +sel.getAttribute('data-idx');
@@ -1509,178 +1408,163 @@ function snapshotRoomsFromModalAndSave() {
             if (target && [...sel.options].some(o=>o.value===target)) sel.value = target;
             else sel.selectedIndex = 0;
           });
-        
-          // anti-doublons inline
-          const getSelectedNames = (exceptSel = null) => {
-            const set = new Set();
-            panel.querySelectorAll('.est-sel').forEach(s=>{
-              if (s===exceptSel) return;
-              const v = s.value;
-              if (!v) return;
-              const n = normName(nameFromLabel(v));
-              if (n) set.add(n);
+  
+          if (!panel._bound) {
+            panel._bound = true;
+  
+            panel.addEventListener('click', (e)=>{
+              const btn = e.target.closest('.btn-set-estaf'); if (!btn) return;
+              const bat = btn.getAttribute('data-bat');
+              const prev = perBat[bat] ?? '';
+              const val = prompt(`Nb d'estafettes pour ${bat}`, prev === '' ? '' : String(prev));
+              if (val === null) return;
+              if (val === '' || isNaN(Number(val))) delete perBat[bat];
+              else perBat[bat] = Math.max(1, Number(val));
+              saveEstafettesPerBuilding(perBat);
+              renderEstafettePanel();
+              renderReprisePanel(); // MAJ conflits
             });
-            return set;
-          };
-        
-          panel.querySelectorAll('.est-sel').forEach(sel=>{
-            sel.addEventListener('change', ()=>{
+  
+            const getSelectedNames = (exceptSel = null) => {
+              const set = new Set();
+              panel.querySelectorAll('.est-sel').forEach(s=>{
+                if (s===exceptSel) return;
+                const v = s.value;
+                if (!v) return;
+                const n = normName(nameFromLabel(v));
+                if (n) set.add(n);
+              });
+              return set;
+            };
+  
+            panel.addEventListener('change', (e)=>{
+              const sel = e.target.closest('.est-sel'); if (!sel) return;
               const bat = sel.getAttribute('data-bat');
               const idx = +sel.getAttribute('data-idx');
-        
+              const estAssignLoc = loadEstafettesAssign() || {};
+  
               if (!sel.value) {
-                const arr = (estAssign[bat] || []).slice();
+                const arr = (estAssignLoc[bat] || []).slice();
                 arr[idx] = '';
-                estAssign[bat] = arr.filter(Boolean);
-                saveEstafettesAssign(estAssign);
+                estAssignLoc[bat] = arr.filter(Boolean);
+                saveEstafettesAssign(estAssignLoc);
                 showMsg('');
                 return;
               }
-        
+  
               const picked = normName(nameFromLabel(sel.value));
               const already = getSelectedNames(sel);
               if (already.has(picked)) {
                 sel.classList.add('est-invalid');
-                showMsg("Cet agent est déjà affecté comme estafette ailleurs. Choisissez une autre personne.");
+                showMsg("il/elle ets déjà affecté comme estafette ailleurs. Choisissez une autre personne.");
                 sel.value = '';
                 setTimeout(()=>sel.classList.remove('est-invalid'), 1200);
                 return;
               }
-        
+  
               sel.classList.remove('est-invalid');
               showMsg('');
-              const arr = (estAssign[bat] || []).slice();
+              const arr = (estAssignLoc[bat] || []).slice();
               arr[idx] = sel.value;
-              estAssign[bat] = arr.filter(Boolean);
-              saveEstafettesAssign(estAssign);
-        
+              estAssignLoc[bat] = arr.filter(Boolean);
+              saveEstafettesAssign(estAssignLoc);
+  
               renderEstafettePanel();
               renderReprisePanel();
             });
-          });
-        }
-        
-              function renderReprisePanel(staffObj, estafettesData) {
-                const grid = document.getElementById('reprise-grid');
-                if (!grid) return;
-              
-                /* ---------- CSS (une seule fois) --------------------------------------- */
-                if (!document.getElementById('repr-reset-css')) {
-                  const s = document.createElement('style'); s.id = 'repr-reset-css';
-                  s.textContent = `
-                    #reprise-grid{display:block !important}
-                    .repr-wrap{display:flex;flex-direction:column;gap:12px}
-                    .repr-head{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-                    .repr-title{font-weight:800;text-align:center;font-size:16px;line-height:1.1}
-                    .repr-sub{display:block;font-weight:600;color:#475569;font-size:12px;margin-top:2px}
-                    .repr-status{border:1px solid #e5e7eb;border-radius:12px;padding:8px 10px;font-size:12.5px}
-                    .repr-ok{background:#ecfdf5;color:#065f46;border-color:#bbf7d0}
-                    .repr-warn{background:#fff7ed;color:#9a3412;border-color:#fed7aa}
-                    .repr-bad{background:#fef2f2;color:#991b1b;border-color:#fecaca}
-                    .repr-rows{display:grid;grid-template-columns:1fr 1fr 42px;gap:8px}
-                    .repr-row{display:contents}
-                    .repr-sel{width:100%;padding:10px;border:1px solid #cfd4dc;border-radius:12px;background:#fff}
-                    .repr-sel.repr-error{border-color:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.12)}
-                    .repr-del{height:42px;border:1px solid #e5e7eb;border-radius:12px;background:#f3f4f6;cursor:pointer}
-                    .repr-foot{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-                    .repr-foot small{color:#64748b;text-align:center}
-                  `;
-                  document.head.appendChild(s);
-                }
-              
-                /* ---------- État persistant -------------------------------------------- */
-                const saved = loadReprise();
-                let state;
-              
-                // Migration ancien format (array [{nom,nombre}] ou similaire)
-                if (Array.isArray(saved)) {
-                  state = { adjoints: ["" ,"" ,""], seniors: ["" ,"" ,""] };
-                } else if (saved && typeof saved === 'object') {
-                  state = {
-                    adjoints: Array.isArray(saved.adjoints) ? saved.adjoints.slice() : [],
-                    seniors : Array.isArray(saved.seniors)  ? saved.seniors.slice()  : []
-                  };
-                } else {
-                  state = { adjoints: [], seniors: [] };
-                }
-              
-                // Toujours au moins 1 ligne
-                const normalizeSameLength = () => {
-                  const n = Math.max(state.adjoints.length || 1, state.seniors.length || 1);
-                  while (state.adjoints.length < n) state.adjoints.push("");
-                  while (state.seniors.length  < n) state.seniors.push("");
-                };
-                normalizeSameLength();
-              
-                /* ---------- Contexte d’exclusion (SV + Estafettes) --------------------- */
-                const snapshot = (typeof getSallesSnapshot === "function") ? getSallesSnapshot() : [];
-                const usedSV  = new Set(snapshot.flatMap(s=>s.surveillants||[]).map(nameFromLabel).map(normName));
-                const usedEst = (estafettesData && estafettesData.usedEstafettes) ? estafettesData.usedEstafettes : new Set();
-              
-                /* ---------- Pools disponibles ------------------------------------------ */
-                const staff = staffObj || loadStaff();
-                const allPeople = [...(staff?.surveillants||[]), ...(staff?.estafettes||[])];
-              
-                const keep = p => {
-                  const n = normName(p.name);
-                  return n && !usedSV.has(n) && !usedEst.has(n);
-                };
-              
-                const adjPool = allPeople
-                  .filter(p => GROUP_A.has(p.grade))   // GHC/G1C/G2C/GST
-                  .filter(keep)
-                  .sort((a,b)=> gradeRank(a.grade)-gradeRank(b.grade) || a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
-              
-                const senPool = allPeople
-                  .filter(p => GROUP_B.has(p.grade))   // GPCE/GPHC/GP1C/GP2C
-                  .filter(keep)
-                  .sort((a,b)=> gradeRank(a.grade)-gradeRank(b.grade) || a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
-              
-                /* ---------- Auto-remplissage doux (seulement si tout est vide) ---------- */
-                const allEmpty =
-                  state.adjoints.every(v => !v) &&
-                  state.seniors.every(v => !v);
-              
-                if (allEmpty) {
-                  const already = new Set();
-                  const take = (pool, k) => {
-                    const out = [];
-                    for (const p of pool) {
-                      const n = normName(p.name);
-                      if (already.has(n)) continue;
-                      out.push(p.label);
-                      already.add(n);
-                      if (out.length === k) break;
-                    }
-                    return out;
-                  };
-                  // jusqu’à 3 + 3 si disponible
-                  const aFill = take(adjPool, 3);
-                  const sFill = take(senPool, 3);
-              
-                  // Met 3 lignes si possible, sinon garde au moins 1
-                  const rows = Math.max(1, Math.max(aFill.length, sFill.length, 3));
-                  state.adjoints = Array.from({length: rows}, (_,i)=> aFill[i] || "");
-                  state.seniors  = Array.from({length: rows}, (_,i)=> sFill[i] || "");
-                } else {
-                  // sinon : maintenir le nombre de lignes existant
-                  normalizeSameLength();
-                }
-              
-                /* ---------- Construction des <option> ----------------------------------- */
-                const optionLabel = (p) => {
-                  let lab = p.label || `${p.grade} — ${p.name}`;
-                  const extra = [];
-            if (p.mle)   extra.push(`MLE:${p.mle}`);
-            if (p.nrTph) extra.push(`TPH:${p.nrTph}`);
-            if (p.unite) extra.push(`UNITÉ:${p.unite}`);
+          }
+  
+          // KPI manques
+          colorizeShortages(estafettesData);
+        } // renderEstafettePanel
+  
+        function renderReprisePanel(staffObj, estafettesData) {
+          const grid = document.getElementById('reprise-grid');
+          if (!grid) return;
+  
+          if (!document.getElementById('repr-reset-css')) {
+            const s = document.createElement('style'); s.id = 'repr-reset-css';
+            s.textContent = `
+              #reprise-grid{display:block !important}
+              .repr-wrap{display:flex;flex-direction:column;gap:12px}
+              .repr-head{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+              .repr-title{font-weight:800;text-align:center;font-size:16px;line-height:1.1}
+              .repr-sub{display:block;font-weight:600;color:#475569;font-size:12px;margin-top:2px}
+              .repr-status{border:1px solid #e5e7eb;border-radius:12px;padding:8px 10px;font-size:12.5px}
+              .repr-ok{background:#ecfdf5;color:#065f46;border-color:#bbf7d0}
+              .repr-warn{background:#fff7ed;color:#9a3412;border-color:#fed7aa}
+              .repr-bad{background:#fef2f2;color:#991b1b;border-color:#fecaca}
+              .repr-rows{display:grid;grid-template-columns:1fr 1fr 42px;gap:8px}
+              .repr-row{display:contents}
+              .repr-sel{width:100%;padding:10px;border:1px solid #cfd4dc;border-radius:12px;background:#fff}
+              .repr-sel.repr-error{border-color:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.12)}
+              .repr-del{height:42px;border:1px solid #e5e7eb;border-radius:12px;background:#f3f4f6;cursor:pointer}
+              .repr-foot{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+              .repr-foot small{color:#64748b;text-align:center}
+            `;
+            document.head.appendChild(s);
+          }
+  
+          const saved = loadReprise(); // { adjoints:[], seniors:[] } ou ancien array
+          let state;
+          if (Array.isArray(saved)) { state = { adjoints: [""], seniors: [""] }; }
+          else if (saved && typeof saved === 'object') {
+            state = {
+              adjoints: Array.isArray(saved.adjoints) ? saved.adjoints.slice() : [""],
+              seniors : Array.isArray(saved.seniors)  ? saved.seniors.slice()  : [""]
+            };
+          } else { state = { adjoints: [""], seniors: [""] }; }
+  
+          const normalizeSameLength = () => {
+            const n = Math.max(state.adjoints.length || 1, state.seniors.length || 1);
+            while (state.adjoints.length < n) state.adjoints.push("");
+            while (state.seniors.length  < n) state.seniors.push("");
+          };
+          normalizeSameLength();
+  
+          const snapshot = getSallesSnapshot();
+          const usedSV  = new Set(snapshot.flatMap(s=>s.surveillants||[]).map(nameFromLabel).map(normName));
+          const usedEst = (estafettesData && estafettesData.usedEstafettes) ? estafettesData.usedEstafettes : new Set();
+  
+          const staff = staffObj || loadStaff();
+          const allPeople = [...(staff?.surveillants||[]), ...(staff?.estafettes||[])];
+          const keep = p => { const n = normName(p.name); return n && !usedSV.has(n) && !usedEst.has(n); };
+  
+          const adjPool = allPeople.filter(p=>GROUP_A.has(p.grade)).filter(keep)
+            .sort((a,b)=> gradeRank(a.grade)-gradeRank(b.grade) || a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
+          const senPool = allPeople.filter(p=>GROUP_B.has(p.grade)).filter(keep)
+            .sort((a,b)=> gradeRank(a.grade)-gradeRank(b.grade) || a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
+  
+          const allEmpty = state.adjoints.every(v => !v) && state.seniors.every(v => !v);
+          if (allEmpty) {
+            const already = new Set();
+            const take = (pool, k) => {
+              const out = [];
+              for (const p of pool) {
+                const n = normName(p.name);
+                if (already.has(n)) continue;
+                out.push(p.label);
+                already.add(n);
+                if (out.length === k) break;
+              }
+              return out;
+            };
+            const aFill = take(adjPool, 3);
+            const sFill = take(senPool, 3);
+            const rows = Math.max(1, Math.max(aFill.length, sFill.length, 3));
+            state.adjoints = Array.from({length: rows}, (_,i)=> aFill[i] || "");
+            state.seniors  = Array.from({length: rows}, (_,i)=> sFill[i] || "");
+          } else normalizeSameLength();
+  
+          const optionLabel = (p) => {
+            let lab = p.label || `${p.grade} — ${p.name}`;
+            const extra = []; if (p.mle) extra.push(`MLE:${p.mle}`); if (p.nrTph) extra.push(`TPH:${p.nrTph}`); if (p.unite) extra.push(`UNITÉ:${p.unite}`);
             if (extra.length) lab += ` [${extra.join(', ')}]`;
             const val = (p.label || `${p.grade} — ${p.name}`).replace(/"/g,'&quot;');
             return `<option value="${val}">${lab}</option>`;
           };
           const buildOptions = (pool) => `<option value=""></option>` + pool.map(optionLabel).join('');
-        
-          /* ---------- Rendu ------------------------------------------------------- */
+  
           const header = `
             <div class="repr-head">
               <div class="repr-title">GENDARMES<span class="repr-sub">(GHC/G1C/G2C/GST)</span></div>
@@ -1688,7 +1572,6 @@ function snapshotRoomsFromModalAndSave() {
             </div>
             <div id="repr-status" class="repr-status"></div>
           `;
-        
           const rowsCount = Math.max(state.adjoints.length, state.seniors.length);
           const rowsHTML = Array.from({length: rowsCount}).map((_, i) => `
             <div class="repr-row" data-idx="${i}">
@@ -1701,131 +1584,87 @@ function snapshotRoomsFromModalAndSave() {
               <button type="button" class="repr-del" title="Supprimer la ligne">×</button>
             </div>
           `).join('');
-        
           const foot = `
             <div class="repr-foot">
               <small>Choisissez des réserves non déjà affectées.</small>
               <small>Évitez les doublons et conflits.</small>
             </div>
           `;
-        
           grid.innerHTML = `<div class="repr-wrap">${header}<div class="repr-rows">${rowsHTML}</div>${foot}</div>`;
-        
-          // Pré-sélection
+  
           grid.querySelectorAll('.repr-adj').forEach((sel, i) => { if (state.adjoints[i]) sel.value = state.adjoints[i]; });
           grid.querySelectorAll('.repr-sen').forEach((sel, i) => { if (state.seniors[i])  sel.value = state.seniors[i];  });
-        
-          /* ---------- Persistance (NE PAS filtrer les vides) ---------------------- */
-          const persist = () => saveReprise({
-            adjoints: state.adjoints,
-            seniors : state.seniors
-          });
-        
-          /* ---------- Statut / validations --------------------------------------- */
+  
+          const persist = () => saveReprise({ adjoints: state.adjoints, seniors: state.seniors });
           const statusEl = document.getElementById('repr-status');
-        
+  
           function computeDupFlags() {
-            const normalizeArr = arr => arr
-              .map(v => v ? normName(nameFromLabel(v)) : '')
-              .filter(Boolean);
-        
+            const normalizeArr = arr => arr.map(v => v ? normName(nameFromLabel(v)) : '').filter(Boolean);
             const all = [...normalizeArr(state.adjoints), ...normalizeArr(state.seniors)];
             const seen = new Set(); let dup = false;
             for (const n of all) { if (seen.has(n)) { dup = true; break; } seen.add(n); }
-        
             let clash = false;
             for (const n of all) { if (usedSV.has(n) || usedEst.has(n)) { clash = true; break; } }
-        
             return { dup, clash };
           }
-        
           function updateStatus() {
             const emptyAdj = state.adjoints.filter(v=>!v).length;
             const emptySen = state.seniors .filter(v=>!v).length;
             const { dup, clash } = computeDupFlags();
-        
             let cls = 'repr-ok', txt = 'Réserves complètes';
             const parts = [];
             if (emptyAdj || emptySen) parts.push(`Adjoints vides: ${emptyAdj} • Seniors vides: ${emptySen}`);
             if (dup)   parts.push('Doublon dans les réserves');
             if (clash) parts.push('Conflit avec surveillant/estafette');
-        
-            if (parts.length) {
-              txt = parts.join(' • ');
-              cls = (clash ? 'repr-bad' : 'repr-warn');
-            }
-            statusEl.className = `repr-status ${cls}`;
-            statusEl.textContent = txt;
+            if (parts.length) { txt = parts.join(' • '); cls = (clash ? 'repr-bad' : 'repr-warn'); }
+            statusEl.className = `repr-status ${cls}`; statusEl.textContent = txt;
           }
-        
-          updateStatus();
-          persist();
-        
-          function isTaken(value, idx, side) {
-            const n = normName(nameFromLabel(value)); if (!n) return false;
-            if (usedSV.has(n) || usedEst.has(n)) return true;
-            const inAdj = state.adjoints.some((v,j)=> j!==idx && normName(nameFromLabel(v||""))===n);
-            const inSen = state.seniors .some((v,j)=> j!==idx && normName(nameFromLabel(v||""))===n);
-            return inAdj || inSen;
+          updateStatus(); persist();
+  
+          if (!grid._bound) {
+            grid._bound = true;
+            grid.addEventListener('change', (e) => {
+              const sel = e.target.closest('.repr-sel'); if (!sel) return;
+              const idx  = Number(sel.dataset.idx || -1);
+              const side = sel.classList.contains('repr-adj') ? 'adj' : 'sen';
+              const val  = sel.value || "";
+              sel.classList.remove('repr-error');
+  
+              const n = val ? normName(nameFromLabel(val)) : '';
+              const usedSVEst = new Set([...usedSV, ...usedEst]);
+              const inAdj = state.adjoints.some((v,j)=> j!==idx && v && normName(nameFromLabel(v))===n);
+              const inSen = state.seniors .some((v,j)=> j!==idx && v && normName(nameFromLabel(v))===n);
+              if (val && (usedSVEst.has(n) || inAdj || inSen)) {
+                sel.classList.add('repr-error');
+                sel.value = "";
+                return;
+              }
+              if (side === 'adj') state.adjoints[idx] = val; else state.seniors[idx] = val;
+              updateStatus(); persist();
+            });
+            grid.addEventListener('click', (e) => {
+              const btn = e.target.closest('.repr-del'); if (!btn) return;
+              const row = btn.closest('.repr-row'); const idx = Number(row?.dataset.idx ?? -1);
+              if (idx < 0) return;
+              state.adjoints.splice(idx, 1);
+              state.seniors .splice(idx, 1);
+              if (state.adjoints.length === 0 && state.seniors.length === 0) { state.adjoints.push(""); state.seniors.push(""); }
+              persist(); renderReprisePanel(staff, estafettesData);
+            });
           }
-        
-          // Changement d’un select
-          grid.addEventListener('change', (e) => {
-            const sel = e.target.closest('.repr-sel'); if (!sel) return;
-            const idx  = Number(sel.dataset.idx || -1);
-            const side = sel.classList.contains('repr-adj') ? 'adj' : 'sen';
-            const val  = sel.value || "";
-        
-            sel.classList.remove('repr-error');
-        
-            if (val && isTaken(val, idx, side)) {
-              sel.classList.add('repr-error');
-              sel.value = "";
-              return;
-            }
-        
-            if (side === 'adj') state.adjoints[idx] = val; else state.seniors[idx] = val;
-            updateStatus();
-            persist();
-          });
-        
-          // Suppression d’une paire
-          grid.addEventListener('click', (e) => {
-            const btn = e.target.closest('.repr-del'); if (!btn) return;
-        
-            const row = btn.closest('.repr-row');
-            const idx = Number(row?.dataset.idx ?? -1);
-            if (idx < 0) return;
-        
-            state.adjoints.splice(idx, 1);
-            state.seniors .splice(idx, 1);
-        
-            if (state.adjoints.length === 0 && state.seniors.length === 0) {
-              state.adjoints.push("");
-              state.seniors.push("");
-            }
-        
-            persist();
-            renderReprisePanel(staff, estafettesData);
-          });
-        
-          // Bouton “+ Ligne” (en dehors du grid)
+  
           const addBtn = document.getElementById('reprise-add');
           if (addBtn && !addBtn._reprBound) {
             addBtn._reprBound = true;
             addBtn.addEventListener('click', () => {
-              state.adjoints.push("");
-              state.seniors.push("");
-              persist();
-              renderReprisePanel(staff, estafettesData);
-              setTimeout(() => {
-                document
-                  .querySelector('.repr-rows .repr-row:last-child .repr-adj')
-                  ?.focus();
-              }, 0);
+              state.adjoints.push(""); state.seniors.push("");
+              persist(); renderReprisePanel(staff, estafettesData);
+              setTimeout(() => { document.querySelector('.repr-rows .repr-row:last-child .repr-adj')?.focus(); }, 0);
             });
           }
-        }
+        } // renderReprisePanel
+  
+        // -- Hydratation simple des inputs depuis storage (sans surveillants)
         function hydrateRoomsInputsFromStorage() {
           const rooms = loadRooms();
           if (!rooms || !rooms.length) return;
@@ -1836,53 +1675,25 @@ function snapshotRoomsFromModalAndSave() {
             const d  = card.querySelector('.room-desc');      if (d)  d.value = r.description ?? '';
           });
         }
-        
-      //
-        // Random surveillants
-        function snapshotRoomsFromModalAndSave() {
-          const cards = [...document.querySelectorAll('.room-card')];
-          const out = cards.map((card, i) => ({
-            numero: i + 1,
-            capacite: parseInt(card.querySelector('.salle-nb')?.value, 10) || 0,
-            description: (card.querySelector('.room-desc')?.value || '').trim(),
-            batiment: (card.querySelector('.room-building')?.value || '').trim(),
-            surveillants: [card.querySelector('.sv1')?.value, card.querySelector('.sv2')?.value].filter(Boolean)
-          }));
-          saveRooms(out);
-        }
-        function prioritizePinned(list) {
-          const pins   = list.filter(isAlwaysSurveillant);
-          const others = list.filter(p => !isAlwaysSurveillant(p));
-          return [...pins, ...others];
-        }
-        
+  
+        // -- Random surveillants
         function randomizeSurveillantsAcrossRooms() {
-          const _staff = (typeof staff !== "undefined" && staff) ? staff : loadStaff();
-        
-          const pools = buildSurvPools(_staff.surveillants || []);
+          const staff = loadStaff();
+          const pools = buildSurvPools(staff.surveillants || []);
           const used = new Set();
-        
-          // priorités demandées
-          const SENIOR_ORDER  = ["GP2C","GP1C","GPHC","GPCE"]; // groupe B
-          const ADJO_ORDER    = ["GST","G2C","G1C","GHC"];     // groupe A
-        
+          const SENIOR_ORDER  = ["GP2C","GP1C","GPHC","GPCE"];
+          const ADJO_ORDER    = ["GST","G2C","G1C","GHC"];
           function makePrioritized(list, order){
             const map = new Map(order.map(g=>[g,[]]));
-            (list||[]).forEach(p=>{
-              if(!p || !p.grade || !p.name) return;
-              const g = String(p.grade).toUpperCase();
-              if(map.has(g)) map.get(g).push(p);
-            });
+            (list||[]).forEach(p=>{ const g=String(p.grade).toUpperCase(); if(map.has(g)) map.get(g).push(p); });
             order.forEach(g=>shuffleInPlace(map.get(g)));
             const all = order.flatMap(g=>map.get(g));
             const vip = all.filter(isAlwaysSurveillant);
             const rest= all.filter(p=>!isAlwaysSurveillant(p));
             return [...vip, ...rest];
           }
-        
           const seniors  = makePrioritized(pools.B || [], SENIOR_ORDER);
           const adjoints = makePrioritized(pools.A || [], ADJO_ORDER);
-        
           function takeNext(arr){
             for(const p of arr){
               if(!p || !p.name) continue;
@@ -1893,54 +1704,67 @@ function snapshotRoomsFromModalAndSave() {
             }
             return null;
           }
-        
           document.querySelectorAll(".room-card").forEach(card=>{
-            const s1 = card.querySelector(".sv1"); // senior
-            const s2 = card.querySelector(".sv2"); // adjoint
+            const s1 = card.querySelector(".sv1");
+            const s2 = card.querySelector(".sv2");
             if(!s1 || !s2) return;
-        
             const senior  = takeNext(seniors);
             const adjoint = takeNext(adjoints);
-        
             const lab1 = senior  ? (senior.label  || `${senior.grade} — ${senior.name}`) : "";
             const lab2 = adjoint ? (adjoint.label || `${adjoint.grade} — ${adjoint.name}`) : "";
-        
             s1.value = lab1 && [...s1.options].some(o=>o.value===lab1) ? lab1 : "";
             s2.value = lab2 && [...s2.options].some(o=>o.value===lab2) ? lab2 : "";
           });
         }
-        
-        
-        
-        // Random : surveillants + estafettes auto (sans toast)
+  
+        // -- Bouton Random inséré avant le bouton de validation
+        const confirmBtn = Swal.getConfirmButton();
+        const randomBtn = document.createElement('button');
+        randomBtn.id = 'btn-random-staff';
+        randomBtn.textContent = 'Random personnels';
+        randomBtn.className = 'btn-chip alt';
+        randomBtn.style.marginRight = '8px';
+        confirmBtn.parentNode.insertBefore(randomBtn, confirmBtn);
         randomBtn.addEventListener('click', () => {
           randomizeSurveillantsAcrossRooms();
           snapshotRoomsFromModalAndSave();
           saveEstafettesAssign({});
-          const estafettesData = computeEstafettesParBat(getSallesSnapshot(), staff, {});
+          const estafettesData = computeEstafettesParBat(getSallesSnapshot(), loadStaff(), {});
           saveEstafettesAssign(Object.fromEntries([...estafettesData.estafettesMap.entries()]));
           renderEstafettePanel();
-          renderReprisePanel(staff, estafettesData);
+          renderReprisePanel(loadStaff(), estafettesData);
           colorizeShortages(estafettesData);
           updateRoomHeadChips();
         });
-        // listeners basiques
+  
+        // -- Listeners UI simples
         document.querySelectorAll('.btn-inc').forEach(btn=>{
           btn.addEventListener('click',()=>{ const idx=btn.getAttribute('data-idx'); const inp=document.querySelector(`.salle-nb[data-idx="${idx}"]`);
-            inp.value=Math.max(0,parseInt(inp.value||'0',10))+1; updateSum(); });
+            inp.value=Math.max(0,parseInt(inp.value||'0',10))+1; updateSum(); snapshotRoomsFromModalAndSave(); });
         });
         document.querySelectorAll('.btn-dec').forEach(btn=>{
           btn.addEventListener('click',()=>{ const idx=btn.getAttribute('data-idx'); const inp=document.querySelector(`.salle-nb[data-idx="${idx}"]`);
-            const v=Math.max(0,(parseInt(inp.value||'0',10)-1)); inp.value=v||''; updateSum(); });
+            const v=Math.max(0,(parseInt(inp.value||'0',10)-1)); inp.value=v||''; updateSum(); snapshotRoomsFromModalAndSave(); });
         });
-        inputs.forEach(inp=>{ inp.addEventListener('input',()=>{ updateSum(); }); inp.addEventListener('wheel',e=>e.preventDefault(),{passive:false}); });
-        document.getElementById('apply-all')?.addEventListener('click',()=>{ const v=parseInt(document.getElementById('cap-def').value,10); if(!isNaN(v)&&v>0){ inputs.forEach(i=>i.value=v); updateSum(); }});
-        document.getElementById('apply-desc-all')?.addEventListener('click',()=>{ const d=document.getElementById('desc-def').value||''; document.querySelectorAll('.room-desc').forEach(i=>i.value=d); });
+        inputs.forEach(inp=>{
+          inp.addEventListener('input',()=>{ updateSum(); });
+          inp.addEventListener('wheel',e=>e.preventDefault(),{passive:false});
+        });
+  
+        document.getElementById('apply-all')?.addEventListener('click',()=>{
+          const v=parseInt(document.getElementById('cap-def').value,10);
+          if(!isNaN(v)&&v>0){ inputs.forEach(i=>i.value=v); updateSum(); snapshotRoomsFromModalAndSave(); }
+        });
+        document.getElementById('apply-desc-all')?.addEventListener('click',()=>{
+          const d=document.getElementById('desc-def').value||'';
+          document.querySelectorAll('.room-desc').forEach(i=>i.value=d);
+          snapshotRoomsFromModalAndSave();
+        });
         document.getElementById('apply-buildings')?.addEventListener('click',()=>{
           const raw=(document.getElementById('builds').value||'').trim(); if(!raw) return;
           const arr=raw.split(/[,;]+/).map(s=>s.trim()).filter(Boolean); if(!arr.length) return;
           const bInputs=[...document.querySelectorAll('.room-building')]; bInputs.forEach((i,idx)=>i.value=arr[idx%arr.length]);
-          saveBuildings(arr); snapshotRoomsFromModalAndSave(); renderEstafettePanel();renderReprisePanel(); updateRoomHeadChips();
+          saveBuildings(arr); snapshotRoomsFromModalAndSave(); renderEstafettePanel(); renderReprisePanel(); updateRoomHeadChips();
         });
         document.getElementById('auto-group-buildings')?.addEventListener('click',()=>{
           const bInputs=[...document.querySelectorAll('.room-building')];
@@ -1952,7 +1776,7 @@ function snapshotRoomsFromModalAndSave() {
           const labelOf=idx=>String.fromCharCode(65+idx); let cur=0;
           sizes.forEach((sz,g)=>{ const lab=labelOf(g); for(let k=0;k<sz&&cur<total;k++,cur++){ bInputs[cur].value=lab; }});
           saveBuildings(sizes.map((_,i)=>String.fromCharCode(65+i)));
-          snapshotRoomsFromModalAndSave(); renderEstafettePanel();renderReprisePanel(); updateRoomHeadChips();
+          snapshotRoomsFromModalAndSave(); renderEstafettePanel(); renderReprisePanel(); updateRoomHeadChips();
         });
         document.getElementById('clear-all')?.addEventListener('click',()=>{
           document.querySelectorAll('.salle-nb').forEach(i=>i.value='');
@@ -1961,43 +1785,12 @@ function snapshotRoomsFromModalAndSave() {
           document.querySelectorAll('.sv1,.sv2').forEach(s=>s.selectedIndex=-1);
           saveEstafettesAssign({}); snapshotRoomsFromModalAndSave(); renderEstafettePanel(); updateSum(); updateRoomHeadChips();
         });
-        if (!document.getElementById('reprise-ui-fix')) {
-          const st = document.createElement('style');
-          st.id = 'reprise-ui-fix';
-          st.textContent = `
-            .reprise-box { padding:12px; }
-            .reprise-head { font-weight:800; font-size:14px; }
-            #reprise-grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px 14px; align-items:start; }
-            #reprise-grid .repr-col-title{ grid-column: span 1; text-align:center; font-weight:700; line-height:1.1; margin-bottom:2px; }
-            #reprise-grid .repr-sel{ width:100%; min-width:160px; font-size:12px; padding:8px 10px; border:1px solid #cfd4dc; border-radius:10px; }
-            #reprise-grid .hint{ grid-column: span 1; font-size:11px; color:#64748b; text-align:center; }
-          `;
-          document.head.appendChild(st);
-        }
-        document.addEventListener('change', (e)=>{
-          if(e.target.matches('.sv1,.sv2,.room-building')){
-            snapshotRoomsFromModalAndSave();
-            renderEstafettePanel();
-            renderReprisePanel();
-            colorizeDuplicateSurveillants();
-            updateRoomHeadChips();
-          }
-        });
-        document.getElementById('btn-staff')?.addEventListener('click', async ()=>{ 
-          await editerStaff(); 
-          staff = loadStaff();
-          buildSurveillantOptions(staff);
-          colorizeDuplicateSurveillants();
-          snapshotRoomsFromModalAndSave(); 
-          renderEstafettePanel(); 
-          renderReprisePanel();
-          updateRoomHeadChips();
-        });
+  
+       
         document.getElementById('btn-import-excel')?.addEventListener('click', async ()=>{ 
           const st=await importerPersonnelDepuisExcel(); 
           if(st){ 
-            staff = st;
-            buildSurveillantOptions(staff);
+            _buildSurveillantOptions(st);
             colorizeDuplicateSurveillants();
             snapshotRoomsFromModalAndSave(); 
             renderEstafettePanel(); 
@@ -2008,8 +1801,7 @@ function snapshotRoomsFromModalAndSave() {
         document.getElementById('btn-import-paste')?.addEventListener('click', async ()=>{ 
           const st=await importerPersonnelDepuisColler(); 
           if(st){ 
-            staff = st;
-            buildSurveillantOptions(staff);
+            _buildSurveillantOptions(st);
             colorizeDuplicateSurveillants();
             snapshotRoomsFromModalAndSave(); 
             renderEstafettePanel(); 
@@ -2017,33 +1809,88 @@ function snapshotRoomsFromModalAndSave() {
             updateRoomHeadChips();
           }
         });
-        if (!document.getElementById('personnel-css')) {
-          const style = document.createElement('style'); style.id="personnel-css";
-          style.textContent=` .sv1 option, .sv2 option { white-space: pre-wrap; max-width: 400px; } `;
-          document.head.appendChild(style);
-        }
-        colorizeDuplicateSurveillants();
-        // pré-sélection sauvegardée
+  
+        // Pré-sélection des SV sauvegardés
         document.querySelectorAll('.room-card').forEach((card, i) => {
-            const s1 = card.querySelector('.sv1');
-            const s2 = card.querySelector('.sv2');
-            const saved = activeRooms[i]?.surveillants || [];
-            const savedLabels = saved.map(s => (typeof s === 'string') ? s : (s.label || `${s.grade} — ${s.name}`));
-            if (savedLabels[0]) s1.value = savedLabels[0];
-            if (savedLabels[1]) s2.value = savedLabels[1];
+          const s1 = card.querySelector('.sv1');
+          const s2 = card.querySelector('.sv2');
+          const saved = activeRooms[i]?.surveillants || [];
+          const savedLabels = saved.map(s => (typeof s === 'string') ? s : (s.label || `${s.grade} — ${s.name}`));
+          if (savedLabels[0]) s1.value = savedLabels[0];
+          if (savedLabels[1]) s2.value = savedLabels[1];
         });
+  
+        // Options SV + Rendu initial
+        _buildSurveillantOptions(loadStaff());
         updateSum();
         renderEstafettePanel();
         renderReprisePanel();
         updateRoomHeadChips();
+        colorizeDuplicateSurveillants();
+  
+        // --- Un SEUL listener "input/change" sur le popup, avec debounce ---
+       
+        // Rebuild lourd (panneaux) repoussé au repos
+const debouncedRebuild = idleDebounce(() => {
+  // On prend un snapshot complet UNIQUEMENT quand c’est pertinent
+  snapshotRoomsFromModalAndSave();
+  renderEstafettePanel();
+  renderReprisePanel();
+  colorizeDuplicateSurveillants();
+  updateRoomHeadChips();
+}, 2000);
+
+// 1) Sur frappe dans Bâtiment / Description / Capacité -> mise à jour ciblée + save coalescée
+const popup = Swal.getPopup();
+popup.addEventListener('input', (e) => {
+  const t = e.target;
+  if (t.classList.contains('room-building')) {
+    updateRoomField(+t.dataset.idx, 'batiment', (t.value || '').trim());
+  } else if (t.classList.contains('room-desc')) {
+    updateRoomField(+t.dataset.idx, 'description', (t.value || '').trim());
+  } else if (t.classList.contains('salle-nb')) {
+    updateRoomField(+t.dataset.idx, 'capacite', parseInt(t.value, 10) || 0);
+    // on garde le KPI réactif sans snapshot global
+    const inputs = [...document.querySelectorAll('.salle-nb')];
+    const sum = inputs.reduce((a, inp) => a + (parseInt(inp.value, 10) || 0), 0);
+    const sumEl = document.getElementById('sum-cap'); if (sumEl) sumEl.textContent = sum;
+  }
+});
+
+// 2) Quand l’utilisateur “valide” (blur/change) -> on reconstruit les panneaux
+popup.addEventListener('change', (e) => {
+  if (e.target.matches('.sv1, .sv2')) {
+    updateRoomSurveillant(+e.target.dataset.idx, e.target.classList.contains('sv1')?1:2, e.target.value);
+    debouncedRebuild();
+  } else if (e.target.matches('.room-building, .room-desc')) {
+    debouncedRebuild();
+  }
+});
+
+  
+        if (!popup._boundHandlers) {
+          popup._boundHandlers = true;
+  
+          // En tapant dans Bâtiment/Description -> on sauve seulement (léger)
+      
+  
+          // Sur "change" (validation) -> on reconstruit panels (debounced)
+          popup.addEventListener('change', (e) => {
+            if (e.target.matches('.sv1, .sv2, .room-building, .room-desc')) {
+              debouncedRebuild();
+            }
+          });
+        }
+  
+        // Enter = confirmer
         Swal.getPopup().addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); Swal.clickConfirm(); }});
       },
       preConfirm: () => {
-        const nbs=[...document.querySelectorAll('.salle-nb')];
+        const nbs  = [...document.querySelectorAll('.salle-nb')];
+        const descs= [...document.querySelectorAll('.room-desc')];
+        const bats = [...document.querySelectorAll('.room-building')];
+        const cards= [...document.querySelectorAll('.room-card')];
         let firstInvalid=null; const out=[];
-        const descs=[...document.querySelectorAll('.room-desc')];
-        const bats=[...document.querySelectorAll('.room-building')];
-        const cards=[...document.querySelectorAll('.room-card')];
         for(let i=0;i<nbs.length;i++){
           const inp=nbs[i]; const v=parseInt(inp.value,10);
           if(isNaN(v)||v<1){ inp.classList.add('invalid'); if(!firstInvalid) firstInvalid=inp; }
@@ -2059,12 +1906,16 @@ function snapshotRoomsFromModalAndSave() {
         return out;
       }
     });
+  
     const salles = result.isConfirmed ? result.value : null;
+  
+    // 7) Enchaînement répartition si élèves fournis
     if (salles && Array.isArray(eleves)) {
       saveRooms(salles);
       await genererRepartitionDepuisCartes(eleves, salles, exclusions);
     }
   }
+  
   // (optionnel) Suggestion reprise non utilisée directement
   function computeSuggestedReprise(snapshot, staff, estafettesData) {
     const survUsed = new Set((snapshot || []).flatMap(s => s.surveillants || []).map(lbl => normName(nameFromLabel(lbl))).filter(Boolean));
@@ -2079,8 +1930,8 @@ function snapshotRoomsFromModalAndSave() {
     const out = [];
     const s = Math.min(seniors, 3);
     const a = Math.min(adjoints, 3);
-    if (s > 0) out.push({ nom: "Réserve seniors (GPCE/GPHC/GP1C/GP2C)", nombre: s });
-    if (a > 0) out.push({ nom: "Réserve adjoints (GHC/G1C/G2C/GST)", nombre: a });
+    if (s > 0) out.push({ nom: "GRADES", nombre: s });
+    if (a > 0) out.push({ nom: "GENDARMES", nombre: a });
     return out;
   }
   /******************************************************
@@ -2196,14 +2047,26 @@ function snapshotRoomsFromModalAndSave() {
     await exporterVersExcel(tousEleves, salles, elevesExclus, estafettesParBatiment);
   }
   
-  function checkNoDoublonSurvEstaf(salles, estafettesParBatiment){
-    const allSV = new Set((salles||[]).flatMap(s=>s.surveillants||[]).map(nameFromLabel).map(normName));
-    const allEST = new Set(estafettesParBatiment.flatMap(b=>b.estafettes||[]).map(nameFromLabel).map(normName));
+  function checkNoDoublonSurvEstaf(salles, estafettesParBatiment) {
+    const allSV = new Set((salles || [])
+      .flatMap(s => s.surveillants || [])
+      .map(nameFromLabel).map(normName));
+  
+    const allEST = new Set((estafettesParBatiment || [])
+      .flatMap(b => b.estafettes || [])
+      .map(nameFromLabel).map(normName));
+  
     const doublons = [...allSV].filter(n => allEST.has(n));
-    if(doublons.length){
-      alert("Erreur : Les agents suivants sont à la fois surveillants ET estafettes :\n" + doublons.join(", "));
+    if (doublons.length) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Conflits de rôles',
+        html: 'Ces agents sont à la fois <b>surveillants</b> et <b>estafettes</b> :<br><b>' +
+              doublons.join('</b>, <b>') + '</b>'
+      });
     }
   }
+  
   /******************************************************
    * 8) EXPORT EXCEL
    ******************************************************/
@@ -2539,8 +2402,8 @@ function snapshotRoomsFromModalAndSave() {
       (Array.isArray(reprise.adjoints) || Array.isArray(reprise.seniors))) {
 
     const lignes = [];
-    (reprise.adjoints || []).filter(Boolean).forEach(lab => lignes.push({ cat: "Adjoint", lab }));
-    (reprise.seniors  || []).filter(Boolean).forEach(lab => lignes.push({ cat: "Senior",  lab }));
+    (reprise.adjoints || []).filter(Boolean).forEach(lab => lignes.push({ cat: "GENDARME", lab }));
+    (reprise.seniors  || []).filter(Boolean).forEach(lab => lignes.push({ cat: "GRADE",  lab }));
 
     const aoa = [["NR","Catégorie","GRADE","NOM ET PRENOMS","MLE","NR TPH","UNITE"]];
     lignes.forEach((row, i) => {
@@ -3324,27 +3187,35 @@ function handleExportExcel2() {
         👥 Liste des élèves Gendarme
       </h5>
 
+      {canEdit && (
+  <div className="d-flex flex-wrap gap-2">
+    <button
+      className="btn btn-secondary shadow-sm rounded-3"
+      onClick={() => validerRepartitionRapide(eleves)}
+      title="Valider la répartition"
+    >
+      <i className="fa fa-check me-2"></i>
+      Valider la répartition
+    </button>
+
+    <button
+      className="btn btn-warning shadow-sm rounded-3"
+      onClick={async () => {
+        const excl = await exclureIncorporations(); // se sauvegarde déjà
+        await ajouterSallesViaModal(eleves, excl);
+      }}
+      title="Modifier ou redéfinir les capacités"
+    >
+      <i className="fa fa-sliders me-2"></i>
+      Modifier / (Re)définir les capacités
+    </button>
+  </div>
+)}
+
+  
+
       {user.type !== 'saisie' && (
   <div className="d-flex gap-2">
- <button className="btn btn-secondary" onClick={() => validerRepartitionRapide(eleves)}>
-  Valider la répartition
-</button>
-
-<button className="btn btn-warning" onClick={async () => {
-  const excl = await exclureIncorporations(); // se sauvegarde déjà
-  await ajouterSallesViaModal(eleves, excl);
-}}>
-  Modifier / (Re)définir les capacités
-</button>
-
-
-
-
-
-
-
-
-
     <button
       className="btn btn-warning"
       onClick={() => setShowNoteModal(true)}

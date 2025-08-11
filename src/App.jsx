@@ -34,7 +34,7 @@ function AppRoutes() {
         <Routes>
           <Route path="/" element={<HomePage />}/>
           <Route path="/eleve" element={<PrivateRoute allowedRoles={['superadmin','admin']}><ElevePage /></PrivateRoute>} />
-          <Route path="/eleve/listeEleveGendarme"element={<PrivateRoute allowedRoles={['superadmin','admin','user','saisie']}> <ListeElevePge /></PrivateRoute>} />
+          <Route path="/eleve/listeEleveGendarme"element={<PrivateRoute allowedRoles={['superadmin','admin','user','saisie','peda']}> <ListeElevePge /></PrivateRoute>} />
           <Route path="/admin/" element={<PrivateRoute allowedRoles={['superadmin']}><CourPage /></PrivateRoute>} />
           <Route path="/eleve/absence" element={<PrivateRoute allowedRoles={['user','saisie','superadmin','spa']}><AbsencePage /></PrivateRoute>} />
           <Route path="/cadre" element={<PrivateRoute allowedRoles={['admin']} ><CadrePage /></PrivateRoute>} />

@@ -176,6 +176,7 @@ const CourPage = () => {
            <option value="saisie" ${user.type === 'saisie' ? 'selected' : ''}>saisie</option>
            <option value="admin" ${user.type === 'admin' ? 'selected' : ''}>admin</option>
            <option value="superadmin" ${user.type === 'superadmin' ? 'selected' : ''}>superadmin</option>
+           <option value="peda" ${user.type === 'peda' ? 'selected' : ''}>peda</option>
            <option value="spa" ${user.type === 'spa' ? 'selected' : ''}>spa</option>
          </select>` +
         `<input id="swal-input3" class="swal2-input" type="password" placeholder="Mot de passe actuel">` +
@@ -376,6 +377,7 @@ const CourPage = () => {
                 >
                   <option value="">-- Sélectionner un type --</option>
                   <option value="spa">spa</option>
+                  <option value="peda">peda</option>
                   <option value="saisie">Saisie</option>
                   <option value="user">User</option>
                   <option value="admin">Admin</option>
