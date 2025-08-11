@@ -1195,7 +1195,7 @@ function snapshotRoomsFromModalAndSave() {
           <button id="btn-import-paste" class="btn-chip ghost">Coller Excel</button>
           <input id="cap-def" type="number" min="1" placeholder="Capacité par défaut"/><button id="apply-all" class="btn-chip">Appliquer à toutes</button>
           <input id="desc-def" type="text" placeholder="Description par défaut"/><button id="apply-desc-all" class="btn-chip alt">Appliquer descriptions</button>
-          <input id="builds" type="text" placeholder="Bâtiments (ex: A,B,C)"/><button id="apply-buildings" class="btn-chip ghost">Assigner bâtiments</button>
+          <input id="builds" type="text" placeholder="Bâtiments (ex: BAT 1°ESC)"/><button id="apply-buildings" class="btn-chip ghost">Assigner bâtiments</button>
           <input id="group-size" type="number" min="2" value="3" placeholder="Taille cible"/><input id="group-max" type="number" min="3" value="5" placeholder="Taille max"/><button id="auto-group-buildings" class="btn-chip">Grouper (A,B,C…)</button>
           <button id="clear-all" class="btn-chip ghost">Tout vider</button>
         </div>
@@ -1227,7 +1227,7 @@ function snapshotRoomsFromModalAndSave() {
         <div style="font-size:12px;color:#6b7280">Astuce : utilisez les boutons +/−</div>
       </div>`;
     const result = await Swal.fire({
-      title: "Effectif, bâtiments & personnels des salles",
+      title: "Effectif, bâtiments & surveillants des salles",
       html: `${toolbar}${bodyHTML}${footer}`,
       width: 'min(1400px, 96vw)',
       focusConfirm: false,
@@ -1312,8 +1312,8 @@ function snapshotRoomsFromModalAndSave() {
           };
         
           const html =
-            createOptions(seniors , "SENIORS (GPCE, GPHC, GP1C, GP2C)") +
-            createOptions(adjoints, "ADJOINTS (GHC, G1C, G2C, GST)");
+            createOptions(seniors , "GRADES") +
+            createOptions(adjoints, "GENDARMES");
         
           document.querySelectorAll('.sv1,.sv2').forEach(sel => {
             const cur = sel.value;
