@@ -90,40 +90,53 @@ const canEdit = ['peda', 'admin', 'superadmin'].includes(String(user?.type).toLo
   }, [showNoteModal]);
   const openModal = () => setShowNoteModal(true);
   const closeModal = () => setShowNoteModal(false);
+
   const modalStyles = {
     overlay: {
       position: 'fixed',
-      top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      zIndex: 1000,
+      inset: 0,
+      backgroundColor: 'rgba(0,0,0,.5)',
+      zIndex: 1050,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '2rem',               // marge autour du modal
     },
     modal: {
-      position: 'fixed',
-      top: '50%', left: '50%',
-      transform: 'translate(-50%, -50%)',
-      backgroundColor: '#fff',
-      borderRadius: '8px',
-      maxWidth: '900px',
-      width: '90%',
-      maxHeight: '80vh',
-      overflowY: 'auto',
-      padding: '20px',
-      zIndex: 1001,
+      width: 'min(1400px, 98vw)',    // très large
+      height: 'min(92vh, 1000px)',   // très haut
+      background: '#fff',
+      borderRadius: '16px',
+      boxShadow: '0 10px 40px rgba(0,0,0,.2)',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',            // cache débordement, le body va scroller
     },
     header: {
+      padding: '12px 16px',
+      borderBottom: '1px solid #eee',
       display: 'flex',
-      justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: '10px',
+      justifyContent: 'space-between',
+      position: 'sticky',
+      top: 0,
+      background: '#fff',
+      zIndex: 1,
+    },
+    body: {
+      flex: 1,
+      overflow: 'auto',
+      padding: '16px',
     },
     closeBtn: {
-      cursor: 'pointer',
       border: 'none',
-      background: 'none',
-      fontSize: '1.5rem',
-      fontWeight: 'bold',
-    }
+      background: 'transparent',
+      fontSize: '24px',
+      lineHeight: 1,
+      cursor: 'pointer',
+    },
   };
+  
   //table note 
   const columns2 = [
     { name: 'Nom', selector: row => row.Eleve?.nom || '-', sortable: true },
@@ -2849,6 +2862,12 @@ const fetchAllData = async () => {
     }
   };
 
+  const normSexe = (v) => {
+    const s = (v ?? '').toString().trim().toLowerCase();
+    if (['m', 'masculin', 'male', 'garçon', 'garcon'].includes(s)) return 'M';
+    if (['f', 'féminin', 'feminin', 'female', 'fille'].includes(s)) return 'F';
+    return '';
+  };
   
  
   // Application du filtre
@@ -2856,10 +2875,17 @@ const fetchAllData = async () => {
     const escadronMatch = filter.escadron === '' || eleve.escadron === Number(filter.escadron);
     const pelotonMatch = filter.peloton === '' || eleve.peloton === Number(filter.peloton);
     const courMatch = filter.cour === '' || eleve.cour === Number(filter.cour); // <- Ajout ici
+    const sexeEleve = normSexe(eleve.sexe ?? eleve.gender ?? eleve.sex);
+     // ⚠️ On prend la meilleure clé dispo pour le matricule (mle/matricule/matriculeNumber)
+  const matricule = eleve.matricule ?? eleve.mle ?? eleve.matriculeNumber;
+  const sexeMatch = !filter.sexe || sexeEleve === filter.sexe;
+
     const matchSearch = !filter.search || (
       eleve.nom?.toLowerCase().includes(filter.search.toLowerCase()) ||
       eleve.prenom?.toLowerCase().includes(filter.search.toLowerCase()) ||
-      eleve.numeroIncorporation?.toString().includes(filter.search)
+      eleve.numeroIncorporation?.toString().includes(filter.search) ||
+      eleve.matricule?.toString().includes(filter.search) 
+      || (['m','f'].includes(filter.search) && sexeEleve.toLowerCase() === filter.search)
     );
   
     // Si peloton sélectionné sans escadron mais une recherche est présente → OK
@@ -2867,12 +2893,13 @@ const fetchAllData = async () => {
       return true;
     }
   
-    return escadronMatch && pelotonMatch && courMatch && matchSearch; // <- Ajout ici
+    return escadronMatch && pelotonMatch && courMatch  && sexeMatch && matchSearch; // <- Ajout ici
   });
   
   const columns = [
     { name: 'Nom', selector: row => row.nom, sortable: true },
     { name: 'Prénom', selector: row => row.prenom, sortable: true ,},
+    { name: 'Sexe', selector: row => row.sexe, sortable: true ,},
     { name: 'Esc', selector: row => row.escadron, sortable: true ,width:"90px"},
     { name: 'Pon', selector: row => row.peloton ,width:"90px"},
     { name: 'Matricule', selector: row => row.matricule ,sortable: true},
@@ -3124,7 +3151,7 @@ function handleExportExcel2() {
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Nom, prénom ou incorporation"
+                    placeholder="Nom, prénom ou incorporation ou matricule"
                     name="search"
                     value={filter.search}
                     onChange={handleFilterChange}
@@ -3162,12 +3189,27 @@ function handleExportExcel2() {
                     ))}
                   </select>
                 </div>
+                {/* Sexe */}
+                  <div className="col-md-6">
+                    <label className="form-label fw-semibold">Sexe</label>
+                    <select
+                      className="form-select"
+                      name="sexe"
+                      value={filter.sexe}
+                      onChange={handleFilterChange}
+                    >
+                      <option value="">Tous les sexes</option>
+                      <option value="M">Masculin (M)</option>
+                      <option value="F">Féminin (F)</option>
+                    </select>
+                  </div>
+
 
                 {/* Bouton Réinitialiser */}
                 <div className="col-12 mt-3">
                   <button
                     className="btn btn-outline-secondary w-100"
-                    onClick={() => setFilter({ escadron: '', peloton: '', search: '', cour: '' })}
+                    onClick={() => setFilter({ escadron: '', peloton: '', search: '', cour: '',sexe: '' })}
                   >
                     <i className="fa fa-refresh me-2"></i> Réinitialiser les filtres
                   </button>
@@ -3377,89 +3419,90 @@ function handleExportExcel2() {
 {showNoteModal && (
   <div style={modalStyles.overlay} onClick={closeModal}>
     <div
+      role="dialog"
+      aria-modal="true"
       style={modalStyles.modal}
-      onClick={e => e.stopPropagation()} // éviter fermeture en click sur modal
+      onClick={e => e.stopPropagation()}
     >
       <div style={modalStyles.header}>
-        <h5>Liste des Notes Français</h5>
+        <h5 style={{ margin: 0 }}>Liste des Notes Français</h5>
         <button style={modalStyles.closeBtn} onClick={closeModal}>&times;</button>
       </div>
 
-      {/* Recherche */}
-      <input
-        type="text"
-        placeholder="Rechercher par nom, prénom ou incorporation..."
-        value={searchTerm}
-        onChange={e => setSearchTerm(e.target.value)}
-        style={{
-          width: '100%',
-          padding: '8px',
-          marginBottom: '10px',
-          borderRadius: '4px',
-          border: '1px solid #ccc',
-          boxSizing: 'border-box'
-        }}
-      />
-
-      {/* Cards filtres niveau */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '15px' }}>
-        {["D", "I", "A"].map(cat => (
-          <div
-            key={cat}
-            onClick={() => setNiveauFilter(niveauFilter === cat ? "" : cat)} // toggle filtre
-            style={{
-              cursor: "pointer",
-              padding: "8px 16px",
-              borderRadius: "8px",
-              border: "1px solid",
-              borderColor: niveauFilter === cat ? "#0d6efd" : "#ccc",
-              backgroundColor: niveauFilter === cat ? "#cfe2ff" : "#f8f9fa",
-              fontWeight: "bold",
-              userSelect: "none",
-              minWidth: 100,
-              textAlign: "center",
-              transition: "all 0.3s",
-             
-            }}
-            title={
-              cat === "D" ? "Débutant" :
-              cat === "I" ? "Intermédiaire" :
-              "Avancé"
-            }
-          >
-            {cat === "D" ? "Débutant" : cat === "I" ? "Intermédiaire" : "Avancé"}
-          </div>
-        ))}
-      </div>
-
-      {loading ? (
-        <p>Chargement...</p>
-      ) : (
-        <DataTable
-          columns={columns2}
-          data={filteredNotes} // filteredNotes = notes filtrées selon recherche + niveauFilter
-          pagination
-          highlightOnHover
-          striped
-          dense
-          noHeader
+      <div style={modalStyles.body}>
+        {/* Recherche */}
+        <input
+          type="text"
+          placeholder="Rechercher par nom, prénom ou incorporation..."
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '8px',
+            marginBottom: '10px',
+            borderRadius: '4px',
+            border: '1px solid #ccc',
+            boxSizing: 'border-box'
+          }}
         />
-      )}
-      {/* Bouton Exporter */}
-    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
-      <button
-        className="btn btn-success"
-        onClick={handleExportExcel2}
-      >
-        <i className="fa fa-file-excel me-2"></i>
-        Exporter (.xlsx)
-      </button>
-    </div>
 
+        {/* Cards filtres niveau */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '15px' }}>
+          {["D", "I", "A"].map(cat => (
+            <div
+              key={cat}
+              onClick={() => setNiveauFilter(niveauFilter === cat ? "" : cat)}
+              style={{
+                cursor: "pointer",
+                padding: "8px 16px",
+                borderRadius: "8px",
+                border: "1px solid",
+                borderColor: niveauFilter === cat ? "#0d6efd" : "#ccc",
+                backgroundColor: niveauFilter === cat ? "#cfe2ff" : "#f8f9fa",
+                fontWeight: "bold",
+                userSelect: "none",
+                minWidth: 100,
+                textAlign: "center",
+                transition: "all 0.3s",
+              }}
+              title={cat === "D" ? "Débutant" : cat === "I" ? "Intermédiaire" : "Avancé"}
+            >
+              {cat === "D" ? "Débutant" : cat === "I" ? "Intermédiaire" : "Avancé"}
+            </div>
+          ))}
+        </div>
+
+        {loading ? (
+          <p>Chargement...</p>
+        ) : (
+          <div style={{ height: '100%', minHeight: 0 }}>
+            <DataTable
+              columns={columns2}
+              data={filteredNotes}
+              pagination
+              highlightOnHover
+              paginationPerPage={100}                   // <- 100 lignes par page (par défaut)
+              paginationRowsPerPageOptions={[25,50,100,200]} // <- options au choix
+              striped
+              dense
+              noHeader
+              // si tu utilises react-data-table-component, ça fixe le header et gère le scroll interne :
+              fixedHeader
+              fixedHeaderScrollHeight="60vh"
+            />
+          </div>
+        )}
+
+        {/* Bouton Exporter */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+          <button className="btn btn-success" onClick={handleExportExcel2}>
+            <i className="fa fa-file-excel me-2"></i>
+            Exporter (.xlsx)
+          </button>
+        </div>
+      </div>
     </div>
-    
   </div>
-  
 )}
 
 

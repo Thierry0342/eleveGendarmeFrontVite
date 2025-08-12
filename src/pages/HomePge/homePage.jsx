@@ -32,39 +32,45 @@ const HomePage = ({ user: propUser }) => {
     else setUser((u) => u ?? readUserFromLocalStorage());
   }, [propUser]);
 
-  const showChangelog = useCallback(async () => {
-    await Swal.fire({
+  const showChangelog = useCallback(() => {
+    const Toast = Swal.mixin({
+      toast: true,
+      position: 'top-end',     // haut-droite
+      showConfirmButton: false,
+      showCloseButton: true,   // petite croix pour fermer
+      timer: 5000,
+      timerProgressBar: true,
+      width: 420,
+      customClass: { popup: 'rounded-4 shadow-sm changelog-toast' },
+      didOpen: (toast) => {
+        // pause le timer au survol
+        toast.addEventListener('mouseenter', Swal.stopTimer);
+        toast.addEventListener('mouseleave', Swal.resumeTimer);
+      },
+    });
+  
+    Toast.fire({
       icon: 'info',
       title: 'Version 2.1 — Répartition par salle',
-      width: 640,
-      showCloseButton: true,
-      confirmButtonText: 'OK, compris',
-      focusConfirm: false,
-      customClass: { popup: 'rounded-4' },
       html: `
-        <div style="text-align:left; line-height:1.6">
-          <div style="
-            display:inline-block; margin-bottom:8px;
+        <div style="text-align:left; line-height:1.5; font-size:13px">
+          <span style="
+            display:inline-block; margin-bottom:6px;
             background:#e8f0fe; color:#1e3a8a; border:1px solid #bfdbfe;
-            padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700;
-          ">
-            MISE À JOUR
+            padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700;
+          ">MISE À JOUR</span>
+          <div>
+            La <b>répartition par salle</b> des <b>élèves gendarmes</b> et <b>surveillants</b> est active :
+            <b>plus simple</b>, <b>moins d’erreurs</b>.
           </div>
-
-          <p style="margin:0 0 10px">
-            La <b>répartition des élèves gendarmes et des surveillants par salle</b> est désormais en place.
-            Objectif : <b>faciliter la répartition</b> et <b>éviter les erreurs</b>.
-          </p>
-
-         
-
-          <p style="margin:10px 0 0; font-size:12px; color:#64748b">
-            Astuce : utilisez “Modifier / (Re)définir les capacités” depuis la page Répartition.
-          </p>
+          <div style="margin-top:6px; color:#64748b; font-size:12px">
+            Astuce : « Modifier / (Re)définir les capacités » depuis la page Répartition.
+          </div>
         </div>
       `,
     });
   }, []);
+  
 
   // Affiche le message à chaque ouverture (une fois par montage)
   useEffect(() => {
