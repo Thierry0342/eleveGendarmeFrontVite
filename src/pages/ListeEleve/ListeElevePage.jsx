@@ -3122,163 +3122,325 @@ function handleExportExcel2() {
   Liste des Élèves Gendarmes
 </h1>
 
-      <div className="row justify-content-center mb-5">
-        <div className="col-md-10 col-lg-8">
-          <div className="card shadow-sm border-0">
-            <div className="card-body">
-              <div className="row g-3">
-                {/* Cours */}
-                <div className="col-md-6">
-                  <label className="form-label fw-semibold">Cours</label>
-                  <select
-                    className="form-select"
-                    name="cour"
-                    value={filter.cour}
-                    onChange={handleFilterChange}
-                  >
-                    <option value="">Tous les cours</option>
-                    {coursList.map((c) => (
-                      <option key={c.id} value={c.cour}>
-                        {c.cour}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Recherche par nom, prénom ou incorporation */}
-                <div className="col-md-6">
-                  <label className="form-label fw-semibold">Recherche</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Nom, prénom ou incorporation ou matricule"
-                    name="search"
-                    value={filter.search}
-                    onChange={handleFilterChange}
-                  />
-                </div>
-
-                {/* Escadron */}
-                <div className="col-md-6">
-                  <label className="form-label fw-semibold">Escadron</label>
-                  <select
-                    className="form-select"
-                    name="escadron"
-                    value={filter.escadron}
-                    onChange={handleFilterChange}
-                  >
-                    <option value="">Tous les escadrons</option>
-                    {[...Array(10)].map((_, i) => (
-                      <option key={i + 1} value={i + 1}>{i + 1}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Peloton */}
-                <div className="col-md-6">
-                  <label className="form-label fw-semibold">Peloton</label>
-                  <select
-                    className="form-select"
-                    name="peloton"
-                    value={filter.peloton}
-                    onChange={handleFilterChange}
-                  >
-                    <option value="">Tous les pelotons</option>
-                    {[1, 2, 3].map((p) => (
-                      <option key={p} value={p}>{p}</option>
-                    ))}
-                  </select>
-                </div>
-                {/* Sexe */}
-                  <div className="col-md-6">
-                    <label className="form-label fw-semibold">Sexe</label>
-                    <select
-                      className="form-select"
-                      name="sexe"
-                      value={filter.sexe}
-                      onChange={handleFilterChange}
-                    >
-                      <option value="">Tous les sexes</option>
-                      <option value="M">Masculin (M)</option>
-                      <option value="F">Féminin (F)</option>
-                    </select>
-                  </div>
-
-
-                {/* Bouton Réinitialiser */}
-                <div className="col-12 mt-3">
-                  <button
-                    className="btn btn-outline-secondary w-100"
-                    onClick={() => setFilter({ escadron: '', peloton: '', search: '', cour: '',sexe: '' })}
-                  >
-                    <i className="fa fa-refresh me-2"></i> Réinitialiser les filtres
-                  </button>
-                </div>
-              </div>
+     {/* SearchCard — version Bootstrap améliorée */}
+<div className="row justify-content-center mb-5">
+  <div className="col-md-11 col-lg-9">
+    <div className="card border-0 shadow rounded-4">
+      {/* Header */}
+      <div
+        className="card-header border-0 p-3 rounded-top-4"
+        style={{ background: "linear-gradient(135deg,#f8f9fa,#eef2f7)" }}
+      >
+        <div className="d-flex align-items-center justify-content-between">
+          <div className="d-flex align-items-center gap-2">
+            <i className="fa fa-search fs-5 text-secondary" aria-hidden="true"></i>
+            <div>
+              <h6 className="mb-0">Recherche d’élèves</h6>
+              <small className="text-muted">
+                Filtre par cours, escadron, peloton, sexe, ou saisis un nom/incorporation.
+              </small>
             </div>
           </div>
+
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary"
+            onClick={() =>
+              setFilter({ escadron: "", peloton: "", search: "", cour: "", sexe: "" })
+            }
+          >
+            <i className="fa fa-refresh me-1"></i> Réinitialiser
+            {(filter.cour || filter.search || filter.escadron || filter.peloton || filter.sexe) && (
+              <span className="badge text-bg-secondary ms-2">
+                {Number(Boolean(filter.cour)) +
+                  Number(Boolean(filter.search)) +
+                  Number(Boolean(filter.escadron)) +
+                  Number(Boolean(filter.peloton)) +
+                  Number(Boolean(filter.sexe))}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
+      {/* Body */}
+      <div className="card-body">
+        <div className="row g-3">
+          {/* Recherche (avec icône + bouton effacer) */}
+          <div className="col-12">
+            <label className="form-label fw-semibold" htmlFor="search">
+              Recherche
+            </label>
+            <div className="position-relative">
+              <span
+                className="position-absolute top-50 translate-middle-y ms-3"
+                aria-hidden="true"
+              >
+                <i className="fa fa-search text-muted"></i>
+              </span>
+
+              <input
+                id="search"
+                type="text"
+                className="form-control ps-5"
+                placeholder="Nom, prénom, incorporation ou matricule"
+                name="search"
+                value={filter.search}
+                onChange={handleFilterChange}
+                aria-label="Recherche par nom, prénom, incorporation ou matricule"
+              />
+
+              {filter.search && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-link text-decoration-none position-absolute top-50 end-0 translate-middle-y me-2"
+                  onClick={() => setFilter({ ...filter, search: "" })}
+                  aria-label="Effacer la recherche"
+                  title="Effacer"
+                >
+                  <i className="fa fa-times-circle"></i>
+                </button>
+              )}
+            </div>
+           
+          </div>
+
+          {/* Cours */}
+          <div className="col-md-6">
+            <label className="form-label fw-semibold" htmlFor="cours">
+              Cours
+            </label>
+            <select
+              id="cours"
+              className="form-select"
+              name="cour"
+              value={filter.cour}
+              onChange={handleFilterChange}
+            >
+              <option value="">Tous les cours</option>
+              {coursList.map((c) => (
+                <option key={c.id} value={c.cour}>
+                  {c.cour}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Escadron */}
+          <div className="col-md-6">
+            <label className="form-label fw-semibold" htmlFor="escadron">
+              Escadron
+            </label>
+            <select
+              id="escadron"
+              className="form-select"
+              name="escadron"
+              value={filter.escadron}
+              onChange={handleFilterChange}
+            >
+              <option value="">Tous les escadrons</option>
+              {[...Array(10)].map((_, i) => (
+                <option key={i + 1} value={i + 1}>
+                  {i + 1}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Peloton */}
+          <div className="col-md-6">
+            <label className="form-label fw-semibold" htmlFor="peloton">
+              Peloton
+            </label>
+            <select
+              id="peloton"
+              className="form-select"
+              name="peloton"
+              value={filter.peloton}
+              onChange={handleFilterChange}
+            >
+              <option value="">Tous les pelotons</option>
+              {[1, 2, 3].map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Sexe */}
+          <div className="col-md-6">
+            <label className="form-label fw-semibold" htmlFor="sexe">
+              Sexe
+            </label>
+            <select
+              id="sexe"
+              className="form-select"
+              name="sexe"
+              value={filter.sexe}
+              onChange={handleFilterChange}
+            >
+              <option value="">Tous les sexes</option>
+              <option value="M">Masculin (M)</option>
+              <option value="F">Féminin (F)</option>
+            </select>
+          </div>
+
+          {/* Astuce UX */}
+         
+
+          {/* Bouton Réinitialiser pleine largeur (optionnel) */}
+        
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
                 
                
-      <div className="card shadow-sm border-0 mb-4">
-  <div className="card-body">
-    <div className="d-flex justify-content-between align-items-center mb-3">
-      <h5 className="fw-bold text-primary m-0">
-        👥 Liste des élèves Gendarme
-      </h5>
+   <div className="card border-0 shadow rounded-4 mb-4">
+  {/* HEADER */}
+  <div
+    className="card-header border-0 rounded-top-4 py-3"
+    style={{ background: "linear-gradient(135deg,#f8f9fa,#eef2f7)" }}
+  >
+    <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+      {/* Titre + compteur */}
+      <div className="d-flex align-items-center gap-2">
+        <h5 className="fw-bold text-primary mb-0">
+          👥 Liste des élèves Gendarme
+        </h5>
+        <span className="badge text-bg-primary rounded-pill">
+          {eleves?.length ?? 0}
+        </span>
+      </div>
 
-      {canEdit && (
-  <div className="d-flex flex-wrap gap-2">
-    <button
-      className="btn btn-secondary shadow-sm rounded-3"
-      onClick={() => validerRepartitionRapide(eleves)}
-      title="Valider la répartition"
-    >
-      <i className="fa fa-check me-2"></i>
-      Valider la répartition
-    </button>
+      {/* Toolbar desktop */}
+      <div className="d-none d-md-flex align-items-center gap-2">
+        {canEdit && (
+          <>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm shadow-sm rounded-3"
+              onClick={() => validerRepartitionRapide(eleves)}
+              data-bs-toggle="tooltip"
+              title="Valider la répartition actuelle par salles"
+              aria-label="Valider la répartition"
+            >
+              <i className="fa fa-check me-2" aria-hidden="true"></i>
+              Valider la répartition
+            </button>
 
-    <button
-      className="btn btn-warning shadow-sm rounded-3"
-      onClick={async () => {
-        const excl = await exclureIncorporations(); // se sauvegarde déjà
-        await ajouterSallesViaModal(eleves, excl);
-      }}
-      title="Modifier ou redéfinir les capacités"
-    >
-      <i className="fa fa-sliders me-2"></i>
-      Modifier / (Re)définir les capacités
-    </button>
-  </div>
-)}
+            <button
+              type="button"
+              className="btn btn-outline-warning btn-sm shadow-sm rounded-3"
+              onClick={async () => {
+                const excl = await exclureIncorporations(); // se sauvegarde déjà
+                await ajouterSallesViaModal(eleves, excl);
+              }}
+              data-bs-toggle="tooltip"
+              title="Modifier ou redéfinir les capacités des salles"
+              aria-label="Modifier ou redéfinir les capacités"
+            >
+              <i className="fa fa-sliders me-2" aria-hidden="true"></i>
+              (Re)définir les capacités
+            </button>
+          </>
+        )}
 
-  
+        {user.type !== "saisie" && (
+          <>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm shadow-sm rounded-3"
+              onClick={() => setShowNoteModal(true)}
+              data-bs-toggle="tooltip"
+              title="Saisir ou éditer les notes de Français"
+              aria-label="Ouvrir la saisie des notes de Français"
+            >
+              <i className="fa fa-book me-2" aria-hidden="true"></i>
+              Note Français
+            </button>
 
-      {user.type !== 'saisie' && (
-  <div className="d-flex gap-2">
-    <button
-      className="btn btn-warning"
-      onClick={() => setShowNoteModal(true)}
-    >
-      <i className="fa fa-book me-2"></i>
-      Note Français
-    </button>
+            <button
+              type="button"
+              className="btn btn-success btn-sm shadow-sm rounded-3"
+              onClick={handleExportExcel}
+              data-bs-toggle="tooltip"
+              title="Exporter la liste au format Excel (.xlsx)"
+              aria-label="Exporter en Excel"
+            >
+              <i className="fa fa-file-excel me-2" aria-hidden="true"></i>
+              Exporter (.xlsx)
+            </button>
+          </>
+        )}
+      </div>
 
-    <button
-      className="btn btn-success"
-      onClick={handleExportExcel}
-    >
-      <i className="fa fa-file-excel me-2"></i>
-      Exporter (.xlsx)
-    </button>
-  </div>
-)}
+      {/* Toolbar mobile (menu condensé) */}
+      <div className="dropdown d-md-none">
+        <button
+          className="btn btn-light btn-sm shadow-sm rounded-3 dropdown-toggle"
+          type="button"
+          data-bs-toggle="dropdown"
+          aria-expanded="false"
+        >
+          Actions
+        </button>
+        <ul className="dropdown-menu dropdown-menu-end">
+          {canEdit && (
+            <>
+              <li>
+                <button
+                  className="dropdown-item d-flex align-items-center gap-2"
+                  onClick={() => validerRepartitionRapide(eleves)}
+                >
+                  <i className="fa fa-check" aria-hidden="true"></i>
+                  <span>Valider la répartition</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  className="dropdown-item d-flex align-items-center gap-2"
+                  onClick={async () => {
+                    const excl = await exclureIncorporations();
+                    await ajouterSallesViaModal(eleves, excl);
+                  }}
+                >
+                  <i className="fa fa-sliders" aria-hidden="true"></i>
+                  <span>(Re)définir les capacités</span>
+                </button>
+              </li>
+              <li><hr className="dropdown-divider" /></li>
+            </>
+          )}
 
-    </div>
-
-    <div>
+          {user.type !== "saisie" && (
+            <>
+              <li>
+                <button
+                  className="dropdown-item d-flex align-items-center gap-2"
+                  onClick={() => setShowNoteModal(true)}
+                >
+                  <i className="fa fa-book" aria-hidden="true"></i>
+                  <span>Note Français</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  className="dropdown-item d-flex align-items-center gap-2"
+                  onClick={handleExportExcel}
+                >
+                  <i className="fa fa-file-excel" aria-hidden="true"></i>
+                  <span>Exporter (.xlsx)</span>
+                </button>
+              </li>
+            </>
+          )}
+        </ul>
+      </div>
 
               {isLoading ? (
                 <div className="text-center my-4">
