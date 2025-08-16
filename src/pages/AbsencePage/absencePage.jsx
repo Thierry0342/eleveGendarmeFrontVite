@@ -44,7 +44,7 @@ import Select from 'react-select';
   const [totalA,setTotalA] = useState(0);
   const [spaNumber, setSpaNumber] = useState(1499); // Valeur par défaut
   const [showSpaSpecialeModal, setShowSpaSpecialeModal] = useState(false);
-  const [newSpaSpeciale, setNewSpaSpeciale] = useState({ motif: '', nombre: '', date:'' });
+  const [newSpaSpeciale, setNewSpaSpeciale] = useState({ motif: '', nombre: '', date:'',cour:''});
   //motif autre 
   const [incorporationSPA, setIncorporationSPA] = useState('');
   const [eleveSPAInfo, setEleveSPAInfo] = useState(null);
@@ -2027,7 +2027,13 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                                             {(user?.type !== 'user' && user?.type !== 'spa' )&&  (
                                             <button
                                               className="btn btn-outline-success w-100 w-md-auto"
-                                              onClick={() => setShowSpaSpecialeModal(true)}
+                                              onClick={() => {
+                                                setNewSpaSpeciale(prev => ({
+                                                  ...prev,
+                                                  cour: String(filter.cour || cour2 || '')
+                                                }));
+                                                setShowSpaSpecialeModal(true);
+                                              }}
                                             >
                                               ⚔️ SPA SPECIALE
                                             </button>
@@ -2077,38 +2083,66 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                                                       onChange={(e) => setNewSpaSpeciale({ ...newSpaSpeciale, date: e.target.value })}
                                                     />
                                                   </div>
+                                                  <div className="mb-3">
+                                                    <label className="form-label">Cours</label>
+                                                    <select
+                                                      className="form-control"
+                                                      value={newSpaSpeciale.cour}
+                                                      onChange={(e) => setNewSpaSpeciale({ ...newSpaSpeciale, cour: e.target.value })}
+                                                      required
+                                                    >
+                                                      <option value="">-- Choisir un cours --</option>
+                                                      {coursList.map((c) => (
+                                                        <option key={c.id} value={c.cour}>
+                                                          {c.cour}
+                                                        </option>
+                                                      ))}
+                                                    </select>
+                                                  </div>
+
                                                   <div className="d-flex justify-content-between">
                                                   <button
-                                                    type="button"
-                                                    className="btn btn-success"
-                                                    onClick={() => {
-                                                      if (!newSpaSpeciale.motif || !newSpaSpeciale.nombre || !newSpaSpeciale.date) {
-                                                        Swal.fire({
-                                                          icon: 'warning',
-                                                          title: 'Champs manquants',
-                                                          text: 'Veuillez remplir tous les champs requis (motif, nombre, date).',
-                                                        });
-                                                        return;
-                                                      }
+                                                type="button"
+                                                className="btn btn-success"
+                                                onClick={() => {
+                                                  const courValue = newSpaSpeciale.cour || filter.cour || cour2;
+                                                  if (!newSpaSpeciale.motif || !newSpaSpeciale.nombre || !newSpaSpeciale.date || !courValue) {
+                                                    Swal.fire({
+                                                      icon: 'warning',
+                                                      title: 'Champs manquants',
+                                                      text: 'Veuillez remplir motif, nombre, date et cours.',
+                                                    });
+                                                    return;
+                                                  }
 
-                                                      // Ajout au tableau temporaire
-                                                      const newEntry = { ...newSpaSpeciale, cour: filter.cour };
+                                                  const newEntry = {
+                                                    motif: newSpaSpeciale.motif.trim(),
+                                                    nombre: Number(newSpaSpeciale.nombre),
+                                                    date: newSpaSpeciale.date,
+                                                    cour: Number(courValue),                 // 🔸 cours ajouté
+                                                  };
 
-                                                      setSpaSpecialeTempList(prev => [...prev, newEntry]);
+                                                  setSpaSpecialeTempList(prev => [...prev, newEntry]);
 
-                                                      Swal.fire({
-                                                        icon: 'success',
-                                                        title: 'Ajouté au tableau temporaire',
-                                                        showConfirmButton: false,
-                                                        timer: 1000
-                                                      });
+                                                  Swal.fire({
+                                                    icon: 'success',
+                                                    title: 'Ajouté au tableau temporaire',
+                                                    showConfirmButton: false,
+                                                    timer: 1000
+                                                  });
 
-                                                      // Réinitialise le formulaire
-                                                      setNewSpaSpeciale({ motif: "", nombre: "", date: date });
-                                                    }}
-                                                  >
-                                                    Ajouter
-                                                  </button>
+                                                  // Réinitialiser uniquement les champs utiles, on garde le cours si tu veux
+                                                  setNewSpaSpeciale(prev => ({
+                                                    ...prev,
+                                                    motif: '',
+                                                    nombre: '',
+                                                    date: date,          // tu sembles utiliser la date serveur
+                                                    // cour: prev.cour,  // <— garde le cours sélectionné (décommente si souhaité)
+                                                  }));
+                                                }}
+                                              >
+                                                Ajouter
+                                              </button>
 
 
 
@@ -2120,8 +2154,9 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                                                       <tr>
                                                         <th>Motif</th>
                                                         <th>Nombre</th>
-                                                        <th>Date</th>
-                                                        <th>Actions</th>
+                                                        <th>Cour</th>
+                                                        <th>date</th>
+                                                        <th>Action</th>
                                                       </tr>
                                                     </thead>
                                                     <tbody>
@@ -2129,6 +2164,9 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
                                                         <tr key={index}>
                                                           <td>{item.motif}</td>
                                                           <td>{item.nombre}</td>
+                                                          <td>
+                                                            <span className="badge bg-secondary">{item.cour}</span> {/* 🔸 affichage cours */}
+                                                          </td>
                                                           <td>{item.date}</td>
                                                           <td>
                                                             <button

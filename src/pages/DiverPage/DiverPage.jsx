@@ -39,6 +39,34 @@ const DiverPage = () => {
   const specialiste = ['Info-Telecom', 'topo', 'mecanicien', 'infrastructure', 'Plombier','sport'];
 
   const religions = ['EKAR', 'FLM', 'FJKM', 'ISLAM', 'AUTRE'];
+  // 1) À définir dans ton composant
+const initialFilter = {
+  cour: '',
+  diplome: '',
+  religion: '',
+  fady: '',
+  genreConcours: '',
+  Specialiste: '',
+  ageRange: null,
+};
+
+const resetFilters = () => {
+  setFilter(initialFilter);
+  // (Optionnel) si tu relies aussi des champs de formulaire :
+  // setFormData(prev => ({ ...prev, ...initialFilter }));
+  // (Optionnel) reset pagination/recherche :
+  // setPage(1); setSearch('');
+};
+
+const isFilterEmpty =
+  !filter.cour &&
+  !filter.diplome &&
+  !filter.religion &&
+  !filter.fady &&
+  !filter.genreConcours &&
+  !filter.Specialiste &&
+  !filter.ageRange; // si ageRange est un objet, adapte selon ton modèle
+
 
   useEffect(() => {
     const fetchCours = async () => {
@@ -404,23 +432,37 @@ const exportPDF = () => {
     
 <div ref={tableRef}>
   <DataTable
-    title={
-      <div className="d-flex flex-column align-items-start">
-        <h5 className="mb-1 fw-bold text-primary">
-          📋 Liste des élèves
-          {filter.cour && ` · Cour ${filter.cour}`}
-          {filter.diplome && ` · ${filter.diplome}`}
-          {filter.religion && ` · ${filter.religion}`}
-          {filter.fady && ` · ${filter.fady}`}
-          {filter.genreConcours && ` · ${filter.genreConcours}`}
-          {filter.Specialiste && ` · ${filter.Specialiste}`}
-          {filter.ageRange && ` · Âge ${filter.ageRange.label}`}
-        </h5>
-        <small className="text-muted">
-          {filteredEleves.length} élève(s) affiché(s)
-        </small>
-      </div>
-    }
+    // 2) Ton title avec le bouton à droite
+title={
+  <div className="d-flex flex-wrap align-items-center justify-content-between w-100">
+    <div className="d-flex flex-column align-items-start">
+      <h5 className="mb-1 fw-bold text-primary">
+        📋 Liste des élèves
+        {filter.cour && ` · Cour ${filter.cour}`}
+        {filter.diplome && ` · ${filter.diplome}`}
+        {filter.religion && ` · ${filter.religion}`}
+        {filter.fady && ` · ${filter.fady}`}
+        {filter.genreConcours && ` · ${filter.genreConcours}`}
+        {filter.Specialiste && ` · ${filter.Specialiste}`}
+        {filter.ageRange && ` · Âge ${filter.ageRange.label}`}
+      </h5>
+      <small className="text-muted">
+        {filteredEleves.length} élève(s) affiché(s)
+      </small>
+    </div>
+
+    <button
+      type="button"
+      className="btn btn-outline-secondary btn-sm mt-2 mt-sm-0"
+      onClick={resetFilters}
+      disabled={isFilterEmpty}
+      title="Réinitialiser les filtres"
+    >
+      🔄 Réinitialiser
+    </button>
+  </div>
+}
+
     columns={columns}
     data={filteredEleves}
     pagination
