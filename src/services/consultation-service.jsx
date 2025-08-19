@@ -17,6 +17,11 @@ const consultationService = {
   delete(id) {
     return axiosInstance.delete(`${API_URL}/api/consultation/${id}`);
   },
+  // Obtenir les consultations par élève
+getByEleveId(eleveId) {
+  return axios.get(`${API_URL}/api/consultation/eleve/${eleveId}`);
+},
+
 
   // Obtenir une consultation par ID
   getById(id) {

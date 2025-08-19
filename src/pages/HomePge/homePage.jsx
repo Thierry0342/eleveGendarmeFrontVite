@@ -5,7 +5,7 @@ import Swal from 'sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
 import './styles.scss';
 
-const APP_VERSION = '2.1';
+const APP_VERSION = '2.1.1';
 
 // (Optionnel) lit l'utilisateur depuis le localStorage si besoin
 const readUserFromLocalStorage = () => {
@@ -51,7 +51,7 @@ const HomePage = ({ user: propUser }) => {
   
     Toast.fire({
       icon: 'info',
-      title: 'Version 2.1 — Répartition par salle',
+      title: 'Version 2.1.1 — Fiche élève (2×2)',
       html: `
         <div style="text-align:left; line-height:1.5; font-size:13px">
           <span style="
@@ -59,13 +59,18 @@ const HomePage = ({ user: propUser }) => {
             background:#e8f0fe; color:#1e3a8a; border:1px solid #bfdbfe;
             padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700;
           ">MISE À JOUR</span>
+  
           <div>
-            La <b>répartition par salle</b> des <b>élèves gendarmes</b> et <b>surveillants</b> est active :
-            <b>plus simple</b>, <b>moins d’erreurs</b>.
+            Nouvelle <b>fiche élève</b> en <b>2×2 colonnes</b> :
+            <b>Notes</b>, <b>Consultations externes</b>, <b>Absences</b> (groupées par motif),
+            <b>Sanctions</b> (positives / négatives).
           </div>
-          <div style="margin-top:6px; color:#64748b; font-size:12px">
-            Astuce : « Modifier / (Re)définir les capacités » depuis la page Répartition.
-          </div>
+  
+          <ul style="margin:6px 0 0 18px; padding:0; color:#64748b; font-size:12px">
+            <li><b>Absences</b> : regroupement par motif + total global.</li>
+            <li><b>Consultations</b> : dates départ/arrivée, calcul des jours, statut <i>« Pas encore arrivé »</i>.</li>
+
+          </ul>
         </div>
       `,
     });

@@ -8,6 +8,8 @@ import DataTable from 'react-data-table-component';
 import { data } from 'react-router-dom';
 import courService from '../../services/courService';
 import NotefrancaisService from '../../services/notefrancais-service';
+import consultationService from "../../services/consultation-service"; // adapte le chemin
+import absenceService from "../../services/absence-service"; // adapte le chemin
 const user = JSON.parse(localStorage.getItem('user'));
 import ExcelJS from 'exceljs';
 import ProgressBar from 'react-bootstrap/ProgressBar';
@@ -15,7 +17,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { Modal, Button } from 'react-bootstrap'; 
 import RepartitionModal from './RepartitionModal';
-
+import sanctionService from "../../services/sanction-service";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import autoTable from 'jspdf-autotable';
@@ -36,11 +38,27 @@ const ListeElevePge = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchText, setSearchText] = useState("");
   const [niveauFilter, setNiveauFilter] = useState("");
-  const [showRepModal, setShowRepModal] = useState(false);
+  const [showRepModal, setShowRepModal] = useState(false);4
+  // --- ÉTATS consultation par élève ---
+const [consultationsEleve, setConsultationsEleve] = useState([]);
+const [loadingConsultationsEleve, setLoadingConsultationsEleve] = useState(false);
+const [errorConsultationsEleve, setErrorConsultationsEleve] = useState(null);
+// --- ÉTATS absences par élève ---
+const [absencesEleve, setAbsencesEleve] = useState([]);
+const [loadingAbsencesEleve, setLoadingAbsencesEleve] = useState(false);
+const [errorAbsencesEleve, setErrorAbsencesEleve] = useState(null);
+// --- Sanctions: états ---
+const [sanctions, setSanctions] = useState([]);
+const [loadingSanctions, setLoadingSanctions] = useState(false);
+const [errorSanctions, setErrorSanctions] = useState(null);
 // juste avant le JSX :
 const canEdit = ['peda', 'admin', 'superadmin'].includes(String(user?.type).toLowerCase());
+// Formulaire (seulement pour admin/superadmin)
+const [sanctionForm, setSanctionForm] = useState({ type: "negative", motif: "" });
+const [sanctionEditingId, setSanctionEditingId] = useState(null);
+  // Droit d'édition
+const canEditSanctions = ["admin", "superadmin"].includes(user?.type);
 
-  
   const [filter, setFilter] = useState({ escadron: '', peloton: '' ,search:'' ,cour:''});
   const [notes, setNotes] = useState({
     finfetta: '',
@@ -188,7 +206,250 @@ const canEdit = ['peda', 'admin', 'superadmin'].includes(String(user?.type).toLo
     handleCloseModal(); // ferme le modal après succès
   };
 
+  // Helpers
 
+// Helpers dates
+// === HELPERS DATES & KEYS ROBUSTES ===
+// Helpers mapping robustes
+const getMotifAbs = (a) =>
+  a?.motif ?? a?.raison ?? a?.reason ?? a?.cause ?? "-";
+
+const getNombreAbs = (a) =>
+  a?.nbJours ?? a?.nombre ?? a?.nombreJours ?? a?.jours ?? a?.quantite ?? a?.duree ?? a?.count ?? a?.nb ?? null;
+// Normalise une clé de groupement
+const normalizeKey = (s) => String(s ?? "").trim().toLowerCase();
+
+// Parse un nombre même s'il est dans une string ("3", "3.0", "3 jours", etc.)
+const parseNumberFlexible = (v) => {
+  if (v === null || v === undefined || v === "") return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  const m = String(v).match(/-?\d+(\.\d+)?/);
+  return m ? Number(m[0]) : null;
+};
+
+// Chargement quand le modal s’ouvre
+React.useEffect(() => {
+  const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
+  if (!noteModalOpen || !eleveId) return;
+
+  let cancelled = false;
+  (async () => {
+    setLoadingAbsencesEleve(true);
+    setErrorAbsencesEleve(null);
+    try {
+      const { data } = await absenceService.getByEleveId(eleveId);
+      const list = Array.isArray(data) ? data : (data ? [data] : []);
+      if (!cancelled) setAbsencesEleve(list);
+    } catch (e) {
+      if (!cancelled) {
+        setAbsencesEleve([]);
+        setErrorAbsencesEleve("Impossible de charger les absences de l'élève.");
+      }
+    } finally {
+      if (!cancelled) setLoadingAbsencesEleve(false);
+    }
+  })();
+
+  return () => { cancelled = true; };
+}, [noteModalOpen, selectedEleve?.Id, selectedEleve?.id]);
+// Parse très permissif (YYYY-MM-DD, DD/MM/YYYY, ISO, timestamp)
+const parseDateFlexible = (v) => {
+  if (!v && v !== 0) return null;
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+  if (typeof v === "number") {
+    const dt = new Date(v);
+    return isNaN(dt.getTime()) ? null : dt;
+  }
+  const s = String(v).trim();
+  if (!s) return null;
+
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [y, m, d] = s.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
+  // DD/MM/YYYY
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+    const [d, m, y] = s.split("/").map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  // ISO / autres acceptés par Date
+  const dt = new Date(s);
+  return isNaN(dt.getTime()) ? null : dt;
+};
+
+const formatDate = React.useCallback((v) => {
+  const dt = parseDateFlexible(v);
+  return dt ? dt.toLocaleDateString() : "-";
+}, []);
+
+const toLocalMidnight = (v) => {
+  const dt = parseDateFlexible(v);
+  if (!dt) return null;
+  return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+};
+
+const dayDiffInclusive = (start, end) => {
+  const a = toLocalMidnight(start);
+  const b = toLocalMidnight(end);
+  if (!a || !b || b < a) return null;
+  const MS = 24 * 60 * 60 * 1000;
+  return Math.floor((b - a) / MS) + 1;
+};
+
+// Normalisation simple pour matcher les clés indifféremment
+const normalize = (s) => String(s).toLowerCase().replace(/[\s_]/g, "");
+
+// Recherche d'une valeur dans l'objet en essayant plusieurs clés potent.
+const getFieldByKeys = (obj, keys) => {
+  for (const k of keys) if (obj?.[k] !== undefined && obj?.[k] !== null) return obj[k];
+  // tentative par normalisation
+  const map = Object.fromEntries(Object.keys(obj || {}).map((k) => [normalize(k), k]));
+  for (const k of keys) {
+    const nk = normalize(k);
+    if (map[nk] !== undefined) return obj[map[nk]];
+  }
+  return null;
+};
+
+// Variantes courantes pour départ / arrivée / nb jours (FR/camel/snake)
+const START_KEYS = [
+  "dateDepart","date_depart","depart","dateDebut","date_debut","debut",
+  "start","startDate","dateStart","sortie","date_sortie","date_start","date"
+];
+const END_KEYS = [
+  "dateArrive","date_arrivee","arrivee","retour","dateFin","date_fin","fin",
+  "end","endDate","dateEnd","date_retour","date_end"
+];
+const DAYS_KEYS = ["nbJours","nbJour","nombreJours","nombre_jours","jours","duree","days","totalDays"];
+
+const getStartField = (c) => getFieldByKeys(c, START_KEYS);
+const getEndField   = (c) => getFieldByKeys(c, END_KEYS);
+const getNbJours    = (c) => getFieldByKeys(c, DAYS_KEYS);
+
+// --- CHARGEMENT quand le modal s’ouvre ---
+React.useEffect(() => {
+  const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
+  if (!noteModalOpen || !eleveId) return;
+
+  let cancelled = false;
+  async function run() {
+    setLoadingConsultationsEleve(true);
+    setErrorConsultationsEleve(null);
+    try {
+      const { data } = await consultationService.getByEleveId(eleveId);
+      const list = Array.isArray(data) ? data : (data ? [data] : []);
+      if (!cancelled) setConsultationsEleve(list);
+    } catch (e) {
+      if (!cancelled) {
+        setConsultationsEleve([]);
+        setErrorConsultationsEleve("Impossible de charger les consultations de l'élève.");
+      }
+    } finally {
+      if (!cancelled) setLoadingConsultationsEleve(false);
+    }
+  }
+  run();
+  return () => { cancelled = true; };
+}, [noteModalOpen, selectedEleve?.Id, selectedEleve?.id]);
+//
+//
+//sanctions
+// ===== SANCTIONS: mapping unique UI <-> backend =====
+// Si chez toi true = NÉGATIVE (et false = POSITIVE), inverse ces deux fonctions :
+const typeFromBool = (b) => (b ? "positive" : "negative"); // true -> positive
+const boolFromType = (t) => (t === "positive");            // "positive" -> true
+
+const getSanctionType = (s) => {
+  if (s?.type === "positive" || s?.type === "negative") return s.type;
+  if (typeof s?.sanction === "boolean") return typeFromBool(s.sanction);
+  return "negative"; // défaut
+};
+
+const getSanctionMotif = (s) => s?.motif ?? s?.raison ?? s?.reason ?? "-";
+
+// ===== Chargement à l'ouverture du modal =====
+React.useEffect(() => {
+  const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
+  if (!noteModalOpen || !eleveId) return;
+
+  let off = false;
+  (async () => {
+    setLoadingSanctions(true);
+    setErrorSanctions(null);
+    try {
+      const { data } = await sanctionService.getByEleveId(eleveId);
+      if (!off) setSanctions(Array.isArray(data) ? data : (data ? [data] : []));
+    } catch (e) {
+      if (!off) {
+        setSanctions([]);
+        setErrorSanctions("Impossible de charger les sanctions.");
+      }
+    } finally {
+      if (!off) setLoadingSanctions(false);
+    }
+  })();
+
+  return () => { off = true; };
+}, [noteModalOpen, selectedEleve?.Id, selectedEleve?.id]);
+
+// ===== Handlers CRUD =====
+async function handleSaveSanction() {
+  if (!canEditSanctions) return;
+  const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
+  if (!eleveId) return;
+
+  const motif = (sanctionForm.motif || "").trim();
+  if (!motif) return;
+
+  // On envoie TOUJOURS le booléen `sanction` pour matcher ton schéma actuel
+  const payload = {
+    eleveId,
+    motif,
+    type: sanctionForm.type,                  // pour compat future si tu ajoutes la colonne "type"
+    sanction: boolFromType(sanctionForm.type) // booléen attendu par le back actuel
+  };
+
+  try {
+    if (sanctionEditingId) {
+      await sanctionService.update(sanctionEditingId, payload);
+    } else {
+      await sanctionService.post(payload);
+    }
+    const { data } = await sanctionService.getByEleveId(eleveId);
+    setSanctions(Array.isArray(data) ? data : (data ? [data] : []));
+    setSanctionEditingId(null);
+    setSanctionForm({ type: "negative", motif: "" });
+  } catch (err) {
+    console.error(err);
+    alert("Erreur lors de l’enregistrement de la sanction.");
+  }
+}
+
+function handleEditSanction(s) {
+  if (!canEditSanctions) return;
+  setSanctionEditingId(s.id);
+  setSanctionForm({
+    type: getSanctionType(s),
+    motif: getSanctionMotif(s) || ""
+  });
+}
+
+async function handleDeleteSanction(id) {
+  if (!canEditSanctions || !id) return;
+  if (!confirm("Supprimer cette sanction ?")) return;
+
+  try {
+    await sanctionService.delete(id);
+    const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
+    const { data } = await sanctionService.getByEleveId(eleveId);
+    setSanctions(Array.isArray(data) ? data : (data ? [data] : []));
+  } catch (err) {
+    console.error(err);
+    alert("Erreur lors de la suppression.");
+  }
+}
 
   /******************************************************
    * 0) PERSISTENCE (localStorage)
@@ -2923,7 +3184,7 @@ const fetchAllData = async () => {
                 className="btn btn-info btn-sm me-2"
                 onClick={() => handleOpenNoteModal(row)}
               >
-                Note
+                Fiche
               </button>
 
               </>
@@ -3307,6 +3568,8 @@ function handleExportExcel2() {
     style={{ background: "linear-gradient(135deg,#f8f9fa,#eef2f7)" }}
   >
     <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+
+      
       {/* Titre + compteur */}
       <div className="d-flex align-items-center gap-2">
         <h5 className="fw-bold text-primary mb-0">
@@ -3479,102 +3742,349 @@ function handleExportExcel2() {
     <div
       className="modal-content"
       style={{
-        maxWidth: '600px',
-        width: '90%',
+        maxWidth: '1200px',
+        width: '95%',
         background: 'white',
-        borderRadius: '10px',
+        borderRadius: '12px',
         padding: '20px',
         position: 'relative',
         zIndex: 10000,
         color: 'black',
         maxHeight: '90vh',
-        overflowY: 'auto',
+        overflow: 'hidden',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.15)'
       }}
     >
-     <button
-  style={{ position: 'absolute', top: 10, right: 10, fontSize: '24px', background: 'transparent', border: 'none', cursor: 'pointer' }}
-  onClick={handleCloseNoteModal}
->
-  ×
-</button>
+      <button
+        style={{ position: 'absolute', top: 10, right: 10, fontSize: '24px', background: 'transparent', border: 'none', cursor: 'pointer' }}
+        onClick={handleCloseNoteModal}
+      >
+        ×
+      </button>
 
+      <h5 className="text-center mb-3">
+        Fiche – {selectedEleve.nom} {selectedEleve.prenom}
+      </h5>
 
-      <h5 className="text-center mb-3">Notes – {selectedEleve.nom} {selectedEleve.prenom}</h5>
+      {/* ======= 2 colonnes x 2 lignes ======= */}
+      <div className="row g-3" style={{height: 'calc(90vh - 90px)'}}>
 
-      <div className="row">
-        {/* Fin FETTA */}
-        <div className="col-md-6 mb-3">
-          <label>Fin FETTA</label>
-          <input
-            type="text"
-            className="form-control"
-            value={notes.finfetta || ''}
-            onChange={(e) => setNotes({ ...notes, finfetta: e.target.value })}
-          />
-        </div>
-        <div className="col-md-6 mb-3">
-          <label>Rang Fin FETTA</label>
-          <input
-            type="text"
-            className="form-control"
-            value={notes.rangfinfetta || ''}
-            onChange={(e) => setNotes({ ...notes, rangfinfetta: e.target.value })}
-          />
+        {/* ================= COL 1 (ligne 1) : NOTES ================= */}
+        <div className="col-12 col-lg-6 d-flex">
+          <div className="card shadow-sm border-0 w-100 d-flex flex-column h-100">
+            <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+              <span>Notes (aperçu)</span>
+              {(user?.type !== 'saisie' && user?.type !== 'user') && (
+                <button className="btn btn-success btn-sm rounded-pill" onClick={handleSaveNotes}>
+                  Enregistrer
+                </button>
+              )}
+            </div>
+            <div className="card-body p-2" style={{overflowY:'auto'}}>
+              <div className="table-responsive">
+                <table className="table table-sm table-bordered">
+                  <tbody>
+                    <tr>
+                      <th style={{whiteSpace:'nowrap'}}>Fin FETTA</th>
+                      <td>{notes.finfetta || '-'}</td>
+                      <th style={{whiteSpace:'nowrap'}}>Rang Fin FETTA</th>
+                      <td>{notes.rangfinfetta || '-'}</td>
+                    </tr>
+                    <tr>
+                      <th>Mi-Stage</th>
+                      <td>{notes.mistage || '-'}</td>
+                      <th>Rang Mi-Stage</th>
+                      <td>{notes.rangmistage || '-'}</td>
+                    </tr>
+                    <tr>
+                      <th>Fin Formation</th>
+                      <td>{notes.finstage || '-'}</td>
+                      <th>Rang Fin Formation</th>
+                      <td>{notes.rangfinstage || '-'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Mi-Stage */}
-        <div className="col-md-6 mb-3">
-          <label>Mi-Stage</label>
-          <input
-            type="text"
-            className="form-control"
-            value={notes.mistage || ''}
-            onChange={(e) => setNotes({ ...notes, mistage: e.target.value })}
-          />
-        </div>
-        <div className="col-md-6 mb-3">
-          <label>Rang Mi-Stage</label>
-          <input
-            type="text"
-            className="form-control"
-            value={notes.rangmistage || ''}
-            onChange={(e) => setNotes({ ...notes, rangmistage: e.target.value })}
-          />
+        {/* ============ COL 2 (ligne 1) : CONSULTATIONS EXTERNES ============ */}
+        <div className="col-12 col-lg-6 d-flex">
+          <div className="card shadow-sm border-0 w-100 d-flex flex-column h-100">
+            <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+              <span>Consultations externes</span>
+              <span className="badge bg-secondary">{consultationsEleve?.length || 0}</span>
+            </div>
+
+            <div className="card-body p-2" style={{overflowY:'auto'}}>
+              {loadingConsultationsEleve && (
+                <div className="alert alert-info py-2 mb-2">Chargement…</div>
+              )}
+              {errorConsultationsEleve && (
+                <div className="alert alert-danger py-2 mb-2">{errorConsultationsEleve}</div>
+              )}
+              {!loadingConsultationsEleve && !errorConsultationsEleve && consultationsEleve.length === 0 && (
+                <div className="text-muted">Aucune consultation.</div>
+              )}
+
+              {consultationsEleve.length > 0 && (() => {
+                const rows = consultationsEleve.map((c, idx) => {
+                  const start = getStartField(c);
+                  const end   = getEndField(c);
+                  const nb    = getNbJours(c);
+                  const computed = (end && start) ? dayDiffInclusive(start, end) : null;
+                  const days  = (nb != null && nb !== "") ? Number(nb) : computed;
+                  const endLabel = end ? formatDate(end) : (start ? "Pas encore arrivé" : "-");
+                  return {
+                    key: c.id || idx,
+                    id: c.id,
+                    startLabel: start ? formatDate(start) : "-",
+                    endLabel,
+                    days: end ? (days ?? "-") : "-",
+                    ok: Boolean(end && (days != null) && !Number.isNaN(days)),
+                  };
+                });
+                const totalGlobal = rows.reduce((s, r) => s + (r.ok ? Number(r.days) : 0), 0);
+                const enCours = rows.filter(r => r.endLabel === "Pas encore arrivé").length;
+
+                return (
+                  <div className="table-responsive">
+                    <table className="table table-sm table-bordered align-middle">
+                      <thead>
+                        <tr>
+                          <th style={{whiteSpace:'nowrap', position:'sticky', top:0, background:'#f8f9fa'}}>#</th>
+                          <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Date départ</th>
+                          <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Date arrivée</th>
+                          <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Total (j)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((r, i) => (
+                          <tr key={r.key}>
+                            <td>{r.id ?? (i + 1)}</td>
+                            <td>{r.startLabel}</td>
+                            <td>{r.endLabel}</td>
+                            <td>{r.days}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr>
+                          <th colSpan={3} style={{textAlign:'right'}}>Total global (terminés)</th>
+                          <th>
+                            <span className="badge bg-secondary">{totalGlobal}</span>
+                          </th>
+                        </tr>
+                        {enCours > 0 && (
+                          <tr>
+                            <td colSpan={4} className="text-muted">
+                              {enCours} consultation(s) en cours (non comptées).
+                            </td>
+                          </tr>
+                        )}
+                      </tfoot>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
         </div>
 
-        {/* Fin Formation */}
-        <div className="col-md-6 mb-3">
-          <label>Fin Formation</label>
-          <input
-            type="text"
-            className="form-control"
-            value={notes.finstage || ''}
-            onChange={(e) => setNotes({ ...notes, finstage: e.target.value })}
-          />
-        </div>
-        <div className="col-md-6 mb-3">
-          <label>Rang Fin Formation</label>
-          <input
-            type="text"
-            className="form-control"
-            value={notes.rangfinstage || ''}
-            onChange={(e) => setNotes({ ...notes, rangfinstage: e.target.value })}
-          />
-        </div>
-      </div>
+        {/* ================= COL 3 (ligne 2) : ABSENCES ================= */}
+        <div className="col-12 col-lg-6 d-flex">
+          <div className="card shadow-sm border-0 w-100 d-flex flex-column h-100">
+            <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+              <span>Absences</span>
+              <span className="badge bg-secondary">{absencesEleve?.length || 0}</span>
+            </div>
 
-      {/* Bouton Enregistrer */}
-      {(user?.type !== 'saisie' && user?.type !== 'user') && (
-        <div className="text-center mt-3">
-          <button
-            className="btn btn-success w-100 rounded-pill"
-            onClick={handleSaveNotes}
-          >
-            Enregistrer
-          </button>
+            <div className="card-body p-2" style={{overflowY:'auto'}}>
+              {loadingAbsencesEleve && (
+                <div className="alert alert-info py-2 mb-2">Chargement…</div>
+              )}
+              {errorAbsencesEleve && (
+                <div className="alert alert-danger py-2 mb-2">{errorAbsencesEleve}</div>
+              )}
+              {!loadingAbsencesEleve && !errorAbsencesEleve && absencesEleve.length === 0 && (
+                <div className="text-muted">Aucune absence.</div>
+              )}
+
+              {absencesEleve.length > 0 && (() => {
+                const groupsMap = {};
+                absencesEleve.forEach((a) => {
+                  const motifRaw = getMotifAbs(a);
+                  const key = normalizeKey(motifRaw || "Sans motif");
+                  const label = (motifRaw && String(motifRaw).trim()) || "Sans motif";
+                  const nbRaw = getNombreAbs(a);
+                  let val = parseNumberFlexible(nbRaw);
+                  if (!Number.isFinite(val)) val = 1;
+                  if (!groupsMap[key]) groupsMap[key] = { label, sum: 0, count: 0 };
+                  groupsMap[key].sum += val;
+                  groupsMap[key].count += 1;
+                });
+                const rows = Object.values(groupsMap).sort((a, b) =>
+                  a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
+                );
+                const totalGlobal = rows.reduce((acc, r) => acc + r.sum, 0);
+
+                return (
+                  <div className="table-responsive">
+                    <table className="table table-sm table-bordered align-middle">
+                      <thead>
+                        <tr>
+                          <th style={{whiteSpace:'nowrap', position:'sticky', top:0, background:'#f8f9fa'}}>#</th>
+                          <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Motif</th>
+                          <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Nombre</th>
+                          <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((r, idx) => (
+                          <tr key={r.label + idx}>
+                            <td>{idx + 1}</td>
+                            <td>{r.label}</td>
+                            <td>{r.count}</td>
+                            <td>{r.sum}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr>
+                          <th colSpan={3} style={{textAlign:'right'}}>Total global</th>
+                          <th><span className="badge bg-secondary">{totalGlobal}</span></th>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
         </div>
-      )}
-    </div>
+
+        {/* ================= COL 4 (ligne 2) : SANCTIONS ================= */}
+        <div className="col-12 col-lg-6 d-flex">
+          <div className="card shadow-sm border-0 w-100 d-flex flex-column h-100">
+            <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+              <span>Sanctions</span>
+              <div className="d-flex gap-2">
+                <span className="badge bg-success-subtle text-success border border-success-subtle">
+                  + {(sanctions || []).filter(s => getSanctionType(s) === "positive").length}
+                </span>
+                <span className="badge bg-danger-subtle text-danger border border-danger-subtle">
+                  − {(sanctions || []).filter(s => getSanctionType(s) === "negative").length}
+                </span>
+              </div>
+            </div>
+
+            <div className="card-body p-2" style={{overflowY:'auto'}}>
+              {loadingSanctions && <div className="alert alert-info py-2 mb-2">Chargement…</div>}
+              {errorSanctions && <div className="alert alert-danger py-2 mb-2">{errorSanctions}</div>}
+              {!loadingSanctions && !errorSanctions && (!sanctions || sanctions.length === 0) && (
+                <div className="text-muted">Aucune sanction.</div>
+              )}
+
+              {/* Formulaire d’ajout/édition — visible uniquement pour admin/superadmin */}
+              {canEditSanctions && (
+                <div className="mb-2 border rounded p-2">
+                  <div className="row g-2 align-items-end">
+                    <div className="col-5">
+                      <label className="form-label mb-1">Type</label>
+                      <select
+                        className="form-select form-select-sm"
+                        value={sanctionForm.type}
+                        onChange={(e) => setSanctionForm({ ...sanctionForm, type: e.target.value })}
+                      >
+                        <option value="positive">Positive</option>
+                        <option value="negative">Négative</option>
+                      </select>
+                    </div>
+                    <div className="col-7">
+                      <label className="form-label mb-1">Motif</label>
+                      <input
+                        className="form-control form-control-sm"
+                        placeholder="Motif…"
+                        value={sanctionForm.motif}
+                        onChange={(e) => setSanctionForm({ ...sanctionForm, motif: e.target.value })}
+                      />
+                    </div>
+                    <div className="col-12 d-flex gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-primary"
+                        onClick={handleSaveSanction}
+                        disabled={!sanctionForm.motif || sanctionForm.motif.trim().length === 0}
+                        title={!sanctionForm.motif?.trim() ? "Saisir un motif pour activer" : "Enregistrer la sanction"}
+                      >
+                        {sanctionEditingId ? "Mettre à jour" : "Ajouter"}
+                      </button>
+                      {sanctionEditingId && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={() => { setSanctionEditingId(null); setSanctionForm({ type: "negative", motif: "" }); }}
+                        >
+                          Annuler
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tableau sanctions */}
+              {sanctions && sanctions.length > 0 && (
+                <div className="table-responsive">
+                  <table className="table table-sm table-bordered align-middle">
+                    <thead>
+                      <tr>
+                        <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>#</th>
+                        <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Type</th>
+                        <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Motif</th>
+                        {canEditSanctions && (
+                          <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Actions</th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sanctions.map((s, idx) => {
+                        const type = getSanctionType(s);
+                        const motif = s?.motif ?? s?.raison ?? s?.reason ?? "-";
+                        const badge = type === "positive"
+                          ? <span className="badge bg-success-subtle text-success border border-success-subtle">Positive</span>
+                          : <span className="badge bg-danger-subtle text-danger border border-danger-subtle">Négative</span>;
+                        return (
+                          <tr key={s.id || idx}>
+                            <td>{s.id ?? (idx + 1)}</td>
+                            <td>{badge}</td>
+                            <td>{motif || "-"}</td>
+                            {canEditSanctions && (
+                              <td>
+                                <div className="d-flex gap-2">
+                                  <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => handleEditSanction(s)}>
+                                    Modifier
+                                  </button>
+                                  <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteSanction(s.id)}>
+                                    Supprimer
+                                  </button>
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+      </div>{/* /row */}
+    </div>{/* /modal-content */}
   </div>
 )}
 
