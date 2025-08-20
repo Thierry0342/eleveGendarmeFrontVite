@@ -6,6 +6,9 @@ import pointureService from '../../services/pointure-service';
 import dayjs from 'dayjs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+// imports
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 
 
 const DiverPage = () => {
@@ -375,40 +378,216 @@ const handlePrint = () => {
 };
 //print pointure 
 const exportPDF = () => {
-  const doc = new jsPDF();
+  const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "A4" });
+  const cours = filter?.cour ?? "N/A";
 
-  doc.setFontSize(16);
-  doc.text(`Fiche Pointure - Cours ${filter.cour}`, 14, 15);
+  // 1) Regrouper par Escadron → Peloton
+  const byEscadron = new Map();
+  (filteredPointures ?? []).forEach((r) => {
+    const esc = r?.Eleve?.escadron ?? "-";
+    const pel = r?.Eleve?.peloton ?? "-";
+    if (!byEscadron.has(esc)) byEscadron.set(esc, new Map());
+    const pelMap = byEscadron.get(esc);
+    if (!pelMap.has(pel)) pelMap.set(pel, []);
+    pelMap.get(pel).push(r);
+  });
 
-  const tableColumn = [
+  // 2) En-têtes de colonnes
+  const head = [
+    "INC",
     "Nom et prénoms",
-    "Escadron",
-    "Peloton",
+    "Esc",
+    "Pon",
+    "Inc",
     "Chemise",
     "Tête",
     "Pantalon",
     "Chaussure",
   ];
 
-  const tableRows = filteredPointures.map(row => [
-    row.Eleve ? `${row.Eleve.nom} ${row.Eleve.prenom}` : "-",
-    row.Eleve?.escadron || "-",
-    row.Eleve?.peloton || "-",
-    row.tailleChemise || "-",
-    row.tourTete || "-",
-    row.pointurePantalon || "-",
-    row.pointureChaussure || "-",
-  ]);
+  // 3) Parcourir Escadrons → Pelotons (1 peloton = 1 page)
+  let firstPage = true;
+  const sortedEscadrons = Array.from(byEscadron.keys())
+    .sort((a, b) => ("" + a).localeCompare("" + b, "fr", { numeric: true }));
 
-  autoTable(doc, {
-    startY: 20,
-    head: [tableColumn],
-    body: tableRows,
-    styles: { fontSize: 10 },
-    headStyles: { fillColor: [41, 128, 185] }, // bleu
+  sortedEscadrons.forEach((esc) => {
+    const pelMap = byEscadron.get(esc);
+    const sortedPelotons = Array.from(pelMap.keys())
+      .sort((a, b) => ("" + a).localeCompare("" + b, "fr", { numeric: true }));
+
+    sortedPelotons.forEach((pel) => {
+      // Nouvelle page pour chaque peloton
+      if (!firstPage) doc.addPage();
+      firstPage = false;
+
+      // Titre (Escadron + Peloton)
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      const title = `Fiche Pointure — Cours ${cours} — Escadron ${esc} — Peloton ${pel}`;
+      doc.text(title, 40, 40); // marge gauche 40pt, en haut 40pt
+
+      // 50 élèves par peloton (si plus: ils iront page suivante automatiquement)
+      // Tri par INC
+      const data = (pelMap.get(pel) || [])
+        .sort((r1, r2) => {
+          const i1 = String(r1?.Eleve?.numeroIncorporation ?? "").trim();
+          const i2 = String(r2?.Eleve?.numeroIncorporation ?? "").trim();
+          return i1.localeCompare(i2, "fr", { numeric: true, sensitivity: "base" });
+        })
+        .map((row) => [
+          row?.Eleve?.numeroIncorporation ?? "-",
+          row?.Eleve ? `${row.Eleve.nom} ${row.Eleve.prenom}` : "-",
+          row?.Eleve?.escadron ?? "-",
+          row?.Eleve?.peloton ?? "-",
+          row?.Eleve?.numeroIncorporation ?? "-",
+          row?.tailleChemise ?? "-",
+          row?.tourTete ?? "-",
+          row?.pointurePantalon ?? "-",
+          row?.pointureChaussure ?? "-",
+        ]);
+
+      autoTable(doc, {
+        startY: 60,
+        head: [head],
+        body: data,
+        styles: { fontSize: 9, cellPadding: 4 },
+        headStyles: { fillColor: [41, 128, 185], halign: "center", fontStyle: "bold", textColor: 255 },
+        bodyStyles: { valign: "middle" },
+        theme: "striped",
+        margin: { left: 40, right: 40, top: 60, bottom: 40 },
+        didDrawPage: (d) => {
+          // Pied de page simple (numéro de page)
+          const page = doc.internal.getNumberOfPages();
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "normal");
+          doc.text(`Page ${page}`, doc.internal.pageSize.getWidth() - 60, doc.internal.pageSize.getHeight() - 20);
+        },
+      });
+    });
   });
 
-  doc.save(`pointures-cours-${filter.cour}.pdf`);
+  doc.save(`pointures-cours-${cours}.pdf`);
+};
+//excel pointure
+// Utilitaire: nom d’onglet Excel sûr (max 31, sans []:*?/\\)
+const safeSheetName = (s) =>
+  (String(s ?? '-')
+    .replace(/[\\/*?:[\]]/g, '_')
+    .slice(0, 31)) || '-';
+
+const exportExcel = async () => {
+  try {
+    const cours = filter?.cour ?? 'N/A';
+
+    // 1) Préparer le classeur
+    const wb = new ExcelJS.Workbook();
+    wb.created = new Date();
+    wb.creator = 'App Pointures';
+    wb.properties.title = `Pointures - Cours ${cours}`;
+
+    // 2) Regrouper par Escadron puis par Peloton
+    const byEscadron = new Map();
+    (filteredPointures ?? []).forEach((r) => {
+      const esc = r?.Eleve?.escadron ?? '-';
+      const pel = r?.Eleve?.peloton ?? '-';
+      if (!byEscadron.has(esc)) byEscadron.set(esc, new Map());
+      const pelMap = byEscadron.get(esc);
+      if (!pelMap.has(pel)) pelMap.set(pel, []);
+      pelMap.get(pel).push(r);
+    });
+
+    // 3) Colonnes
+    const columns = [
+      { header: 'Nom et prénoms', key: 'nom', width: 30 },
+      { header: 'Esc',       key: 'Esc', width: 12 },
+      { header: 'Pon',        key: 'Pon', width: 12 },
+      { header: 'Inc',        key: 'Inc', width: 12 },
+      { header: 'Chemise',        key: 'chemise', width: 12 },
+      { header: 'Tête',           key: 'tete', width: 10 },
+      { header: 'Pantalon',       key: 'pantalon', width: 12 },
+      { header: 'Chaussure',      key: 'chaussure', width: 12 },
+    ];
+
+    const thin = { style: 'thin', color: { argb: 'FF999999' } };
+
+    // 4) Un onglet par Escadron
+    for (const [escadron, pelMap] of byEscadron) {
+      const ws = wb.addWorksheet(safeSheetName(`Escadron ${escadron}`), {
+        properties: { tabColor: { argb: 'FF2980B9' } },
+        pageSetup: { fitToPage: true, fitToWidth: 1, orientation: 'portrait' },
+      });
+
+      // Titre général
+      ws.mergeCells('A1:H1');
+      ws.getCell('A1').value = `Fiche Pointure — Cours ${cours} — Escadron ${escadron}`;
+      ws.getCell('A1').font = { size: 14, bold: true };
+      ws.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.addRow([]);
+
+      // En-tête de tableau
+      ws.columns = columns;
+      const headerRow = ws.addRow(columns.map((c) => c.header));
+      headerRow.eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.alignment = { horizontal: 'center' };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2980B9' } };
+        cell.border = { top: thin, left: thin, bottom: thin, right: thin };
+      });
+
+      // Figer l’en-tête & auto-filter
+      ws.views = [{ state: 'frozen', ySplit: headerRow.number }];
+      ws.autoFilter = `A${headerRow.number}:H${headerRow.number}`;
+
+      // 5) Blocs par Peloton (avec un titre avant chaque bloc)
+      const sortedPelotons = Array.from(pelMap.keys())
+        .sort((a, b) => ('' + a).localeCompare('' + b, 'fr', { numeric: true }));
+
+      for (const peloton of sortedPelotons) {
+        // Ligne titre de peloton (fusion A..G)
+        const titleRowIdx = ws.addRow([`Peloton ${peloton}`]).number;
+        ws.mergeCells(`A${titleRowIdx}:H${titleRowIdx}`);
+        const titleCell = ws.getCell(`A${titleRowIdx}`);
+        titleCell.font = { bold: true };
+        titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F3FC' } };
+        titleCell.alignment = { horizontal: 'left' };
+         // Lignes données — triées par INC (numeroIncorporation)
+       const data = (pelMap.get(peloton) || []).sort((r1, r2) => {
+          const i1 = String(r1?.Eleve?.numeroIncorporation ?? '').trim();
+           const i2 = String(r2?.Eleve?.numeroIncorporation ?? '').trim();
+           return i1.localeCompare(i2, 'fr', { numeric: true, sensitivity: 'base' });
+         });
+
+        data.forEach((r) => {
+          const row = ws.addRow({
+            nom: r?.Eleve ? `${r.Eleve.nom} ${r.Eleve.prenom}` : '-',
+            Esc: r?.Eleve?.escadron ?? '-',
+            Pon: r?.Eleve?.peloton ?? '-',
+            Inc: r?.Eleve?.numeroIncorporation ?? '-',
+            chemise: r?.tailleChemise ?? '-',
+            tete: r?.tourTete ?? '-',
+            pantalon: r?.pointurePantalon ?? '-',
+            chaussure: r?.pointureChaussure ?? '-',
+          });
+          row.eachCell((cell) => {
+            cell.border = { top: thin, left: thin, bottom: thin, right: thin };
+            cell.alignment = { vertical: 'middle' };
+          });
+        });
+
+        ws.addRow([]); // espacement après le bloc peloton
+      }
+    }
+
+    // 6) Télécharger le fichier
+    const buf = await wb.xlsx.writeBuffer();
+    const file = new Blob([buf], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    saveAs(file, `Pointures-cours-${cours}.xlsx`);
+  } catch (e) {
+    console.error(e);
+    alert("Erreur lors de l'export Excel.");
+  }
 };
 
   return (
@@ -838,9 +1017,12 @@ title={
         }}
       />
          <div className="d-flex justify-content-end mt-4">
-            <button onClick={exportPDF} className="btn btn-primary">
-              EXPORTPDF
-            </button>
+         <div className="d-flex justify-content-end mt-4 gap-2">
+  <button onClick={exportExcel} className="btn btn-success">EXPORT EXCEL</button>
+
+  
+  <button onClick={exportPDF} className="btn btn-primary">EXPORT PDF</button>
+</div>
           </div>
 
     </div>
