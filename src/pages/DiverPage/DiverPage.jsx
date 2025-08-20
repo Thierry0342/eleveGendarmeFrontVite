@@ -475,120 +475,112 @@ const safeSheetName = (s) =>
     .replace(/[\\/*?:[\]]/g, '_')
     .slice(0, 31)) || '-';
 
-const exportExcel = async () => {
-  try {
-    const cours = filter?.cour ?? 'N/A';
-
-    // 1) Préparer le classeur
-    const wb = new ExcelJS.Workbook();
-    wb.created = new Date();
-    wb.creator = 'App Pointures';
-    wb.properties.title = `Pointures - Cours ${cours}`;
-
-    // 2) Regrouper par Escadron puis par Peloton
-    const byEscadron = new Map();
-    (filteredPointures ?? []).forEach((r) => {
-      const esc = r?.Eleve?.escadron ?? '-';
-      const pel = r?.Eleve?.peloton ?? '-';
-      if (!byEscadron.has(esc)) byEscadron.set(esc, new Map());
-      const pelMap = byEscadron.get(esc);
-      if (!pelMap.has(pel)) pelMap.set(pel, []);
-      pelMap.get(pel).push(r);
-    });
-
-    // 3) Colonnes
-    const columns = [
-      { header: 'Nom et prénoms', key: 'nom', width: 30 },
-      { header: 'Esc',       key: 'Esc', width: 12 },
-      { header: 'Pon',        key: 'Pon', width: 12 },
-      { header: 'Inc',        key: 'Inc', width: 12 },
-      { header: 'Chemise',        key: 'chemise', width: 12 },
-      { header: 'Tête',           key: 'tete', width: 10 },
-      { header: 'Pantalon',       key: 'pantalon', width: 12 },
-      { header: 'Chaussure',      key: 'chaussure', width: 12 },
-    ];
-
-    const thin = { style: 'thin', color: { argb: 'FF999999' } };
-
-    // 4) Un onglet par Escadron
-    for (const [escadron, pelMap] of byEscadron) {
-      const ws = wb.addWorksheet(safeSheetName(`Escadron ${escadron}`), {
-        properties: { tabColor: { argb: 'FF2980B9' } },
-        pageSetup: { fitToPage: true, fitToWidth: 1, orientation: 'portrait' },
-      });
-
-      // Titre général
-      ws.mergeCells('A1:H1');
-      ws.getCell('A1').value = `Fiche Pointure — Cours ${cours} — Escadron ${escadron}`;
-      ws.getCell('A1').font = { size: 14, bold: true };
-      ws.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
-      ws.addRow([]);
-
-      // En-tête de tableau
-      ws.columns = columns;
-      const headerRow = ws.addRow(columns.map((c) => c.header));
-      headerRow.eachCell((cell) => {
-        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        cell.alignment = { horizontal: 'center' };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2980B9' } };
-        cell.border = { top: thin, left: thin, bottom: thin, right: thin };
-      });
-
-      // Figer l’en-tête & auto-filter
-      ws.views = [{ state: 'frozen', ySplit: headerRow.number }];
-      ws.autoFilter = `A${headerRow.number}:H${headerRow.number}`;
-
-      // 5) Blocs par Peloton (avec un titre avant chaque bloc)
-      const sortedPelotons = Array.from(pelMap.keys())
-        .sort((a, b) => ('' + a).localeCompare('' + b, 'fr', { numeric: true }));
-
-      for (const peloton of sortedPelotons) {
-        // Ligne titre de peloton (fusion A..G)
-        const titleRowIdx = ws.addRow([`Peloton ${peloton}`]).number;
-        ws.mergeCells(`A${titleRowIdx}:H${titleRowIdx}`);
-        const titleCell = ws.getCell(`A${titleRowIdx}`);
-        titleCell.font = { bold: true };
-        titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F3FC' } };
-        titleCell.alignment = { horizontal: 'left' };
-         // Lignes données — triées par INC (numeroIncorporation)
-       const data = (pelMap.get(peloton) || []).sort((r1, r2) => {
-          const i1 = String(r1?.Eleve?.numeroIncorporation ?? '').trim();
-           const i2 = String(r2?.Eleve?.numeroIncorporation ?? '').trim();
-           return i1.localeCompare(i2, 'fr', { numeric: true, sensitivity: 'base' });
-         });
-
-        data.forEach((r) => {
-          const row = ws.addRow({
-            nom: r?.Eleve ? `${r.Eleve.nom} ${r.Eleve.prenom}` : '-',
-            Esc: r?.Eleve?.escadron ?? '-',
-            Pon: r?.Eleve?.peloton ?? '-',
-            Inc: r?.Eleve?.numeroIncorporation ?? '-',
-            chemise: r?.tailleChemise ?? '-',
-            tete: r?.tourTete ?? '-',
-            pantalon: r?.pointurePantalon ?? '-',
-            chaussure: r?.pointureChaussure ?? '-',
-          });
-          row.eachCell((cell) => {
-            cell.border = { top: thin, left: thin, bottom: thin, right: thin };
-            cell.alignment = { vertical: 'middle' };
-          });
+    const exportExcel = async () => {
+      try {
+        const cours = filter?.cour ?? 'N/A';
+    
+        const wb = new ExcelJS.Workbook();
+        wb.created = new Date();
+        wb.creator = 'App Pointures';
+        wb.properties.title = `Pointures - Cours ${cours}`;
+    
+        // Regrouper par Escadron → Peloton
+        const byEscadron = new Map();
+        (filteredPointures ?? []).forEach((r) => {
+          const esc = r?.Eleve?.escadron ?? '-';
+          const pel = r?.Eleve?.peloton ?? '-';
+          if (!byEscadron.has(esc)) byEscadron.set(esc, new Map());
+          const pelMap = byEscadron.get(esc);
+          if (!pelMap.has(pel)) pelMap.set(pel, []);
+          pelMap.get(pel).push(r);
         });
-
-        ws.addRow([]); // espacement après le bloc peloton
+    
+        // Colonnes pour CHAQUE peloton (nom + prénom séparés)
+        const columns = [
+          { header: 'Nom',        key: 'nom',       width: 18 },
+          { header: 'Prénom',     key: 'prenom',    width: 22 },
+          { header: 'INC',        key: 'inc',       width: 14 },
+          { header: 'Esc',        key: 'esc',       width: 6  },
+          { header: 'Pon',        key: 'pon',       width: 6  },
+          { header: 'Chemise',    key: 'chemise',   width: 12 },
+          { header: 'Tête',       key: 'tete',      width: 10 },
+          { header: 'Pantalon',   key: 'pantalon',  width: 12 },
+          { header: 'Chaussure',  key: 'chaussure', width: 12 },
+        ];
+    
+        const edge = { style: 'thin', color: { argb: 'FF000000' } };
+    
+        // 1 onglet par Escadron (sans bandeau fixe)
+        for (const [escadron, pelMap] of byEscadron) {
+          const ws = wb.addWorksheet(safeSheetName(`Escadron ${escadron}`), {
+            properties: { tabColor: { argb: 'FF2980B9' } },
+            pageSetup: { fitToPage: true, fitToWidth: 1, orientation: 'portrait' },
+          });
+    
+          // On ne met PAS d’en-tête global de feuille. On va répéter un header par peloton.
+          const sortedPelotons = Array.from(pelMap.keys())
+            .sort((a, b) => ('' + a).localeCompare('' + b, 'fr', { numeric: true }));
+    
+          for (const peloton of sortedPelotons) {
+            // 1) Titre de bloc Peloton (facultatif, pas "fixe")
+            const titleRowIdx = ws.addRow([`Peloton ${peloton}`]).number;
+            ws.mergeCells(`A${titleRowIdx}:I${titleRowIdx}`);
+            const titleCell = ws.getCell(`A${titleRowIdx}`);
+            titleCell.font = { bold: true };
+            titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F3FC' } };
+            titleCell.alignment = { horizontal: 'left' };
+    
+            // 2) En-tête de tableau pour CE peloton
+            ws.columns = columns; // assure la largeur des colonnes
+            const headerRow = ws.addRow(columns.map(c => c.header));
+            headerRow.eachCell((cell) => {
+              cell.font = { bold: true, color: { argb: 'FF000000' } };
+              cell.alignment = { horizontal: 'center', vertical: 'middle' };
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F0F0' } };
+              cell.border = { top: edge, left: edge, bottom: edge, right: edge };
+            });
+    
+            // 3) Lignes de données — triées par INC
+            const data = (pelMap.get(peloton) || []).sort((r1, r2) => {
+              const i1 = String(r1?.Eleve?.numeroIncorporation ?? '').trim();
+              const i2 = String(r2?.Eleve?.numeroIncorporation ?? '').trim();
+              return i1.localeCompare(i2, 'fr', { numeric: true, sensitivity: 'base' });
+            });
+    
+            data.forEach((r) => {
+              const row = ws.addRow({
+                nom:       r?.Eleve?.nom ?? '-',
+                prenom:    r?.Eleve?.prenom ?? '-',
+                inc:       r?.Eleve?.numeroIncorporation ?? '-',
+                esc:       r?.Eleve?.escadron ?? '-',
+                pon:       r?.Eleve?.peloton ?? '-',
+                chemise:   r?.tailleChemise ?? '-',
+                tete:      r?.tourTete ?? '-',
+                pantalon:  r?.pointurePantalon ?? '-',
+                chaussure: r?.pointureChaussure ?? '-',
+              });
+              row.eachCell((cell) => {
+                cell.alignment = { vertical: 'middle' };
+                cell.border = { top: edge, left: edge, bottom: edge, right: edge }; // ← toutes les bordures
+              });
+            });
+    
+            ws.addRow([]); // espace entre pelotons
+          }
+        }
+    
+        // Export
+        const buf = await wb.xlsx.writeBuffer();
+        const file = new Blob([buf], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+        saveAs(file, `Pointures-cours-${cours}.xlsx`);
+      } catch (e) {
+        console.error(e);
+        alert("Erreur lors de l'export Excel.");
       }
-    }
-
-    // 6) Télécharger le fichier
-    const buf = await wb.xlsx.writeBuffer();
-    const file = new Blob([buf], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    });
-    saveAs(file, `Pointures-cours-${cours}.xlsx`);
-  } catch (e) {
-    console.error(e);
-    alert("Erreur lors de l'export Excel.");
-  }
-};
+    };
+    
 
   return (
     <div className="container mt-4">
