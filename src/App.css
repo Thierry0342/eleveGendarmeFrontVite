@@ -72,3 +72,24 @@
 
 /* Avatar initiales */
 .avatar{ --size:34px; width:var(--size); height:var(--size); border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-weight:700; background:#e9f2ff; color:#144aa0; }
+/* Pleine largeur même à l'intérieur d'un .container */
+/* Étire une section sur toute la largeur de l'écran, centrée */
+.full-bleed {
+  position: relative;
+  width: 100vw;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;   /* casse le bord gauche */
+  margin-right: -50vw;  /* casse le bord droit */
+}
+
+/* Évite le scroll horizontal dû au 100vw (barre de défilement) */
+.page-no-hscroll {
+  overflow-x: hidden;
+}
+
+/* Optionnel : si tu veux que la carte n'ait aucun padding latéral interne */
+.full-bleed .card-body {
+  padding-left: 0;
+  padding-right: 0;
+}

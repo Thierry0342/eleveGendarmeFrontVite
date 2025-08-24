@@ -47,6 +47,11 @@ const [errorConsultationsEleve, setErrorConsultationsEleve] = useState(null);
 const [absencesEleve, setAbsencesEleve] = useState([]);
 const [loadingAbsencesEleve, setLoadingAbsencesEleve] = useState(false);
 const [errorAbsencesEleve, setErrorAbsencesEleve] = useState(null);
+const [absDaysMap, setAbsDaysMap] = React.useState({});        // { [eleveId]: number }
+const [consDaysMap, setConsDaysMap] = React.useState({});      // { [eleveId]: number }
+const [hasSanctionMap, setHasSanctionMap] = React.useState({});// { [eleveId]: boolean }
+const [loadingTotals, setLoadingTotals] = React.useState(false);
+
 // --- Sanctions: états ---
 const [sanctions, setSanctions] = useState([]);
 const [loadingSanctions, setLoadingSanctions] = useState(false);
@@ -210,6 +215,82 @@ const canEditSanctions = ["admin", "superadmin"].includes(user?.type);
 
 // Helpers dates
 // === HELPERS DATES & KEYS ROBUSTES ===
+const safeSumAbsences = (absList = []) => {
+  return absList.reduce((acc, a) => {
+    let v = parseNumberFlexible(getNombreAbs(a));
+    return acc + (Number.isFinite(v) ? v : 1);
+  }, 0);
+};
+
+const safeSumConsultationsDays = (consList = []) => {
+  return consList.reduce((acc, c) => {
+    const start = getStartField(c);
+    const end   = getEndField(c);
+    const nb    = getNbJours(c);
+    const computed = (end && start) ? dayDiffInclusive(start, end) : null;
+    const days  = (nb != null && nb !== "") ? Number(nb) : computed;
+    return acc + (end && Number.isFinite(days) ? days : 0);
+  }, 0);
+};
+React.useEffect(() => {
+  if (!eleves || eleves.length === 0) return;
+
+  // On charge seulement ceux qui manquent encore
+  const missing = eleves
+    .map(e => e.Id ?? e.id)
+    .filter(id => id != null && (absDaysMap[id] === undefined || consDaysMap[id] === undefined || hasSanctionMap[id] === undefined));
+
+  if (missing.length === 0) return;
+
+  let cancelled = false;
+  setLoadingTotals(true);
+
+  // Concurrence simple (lot de 5)
+  const chunk = (arr, n) => arr.length ? [arr.slice(0,n), ...chunk(arr.slice(n), n)] : [];
+  const batches = chunk(missing, 5);
+
+  (async () => {
+    for (const batch of batches) {
+      const promises = batch.map(async (id) => {
+        try {
+          const [absRes, consRes, sancRes] = await Promise.allSettled([
+            absenceService.getByEleveId(id),
+            consultationService.getByEleveId(id),
+            sanctionService.getByEleveId(id),
+          ]);
+
+          const absList  = absRes.status === 'fulfilled' ? (Array.isArray(absRes.value.data) ? absRes.value.data : (absRes.value.data ? [absRes.value.data] : [])) : [];
+          const consList = consRes.status === 'fulfilled' ? (Array.isArray(consRes.value.data) ? consRes.value.data : (consRes.value.data ? [consRes.value.data] : [])) : [];
+          const sancList = sancRes.status === 'fulfilled' ? (Array.isArray(sancRes.value.data) ? sancRes.value.data : (sancRes.value.data ? [sancRes.value.data] : [])) : [];
+
+          const absDays  = safeSumAbsences(absList);
+          const consDays = safeSumConsultationsDays(consList);
+          const hasSanc  = sancList.length > 0;
+
+          if (!cancelled) {
+            setAbsDaysMap(prev => ({ ...prev, [id]: absDays }));
+            setConsDaysMap(prev => ({ ...prev, [id]: consDays }));
+            setHasSanctionMap(prev => ({ ...prev, [id]: hasSanc }));
+          }
+        } catch {
+          if (!cancelled) {
+            // On marque quand même 0/false pour éviter "undefined"
+            setAbsDaysMap(prev => ({ ...prev, [id]: 0 }));
+            setConsDaysMap(prev => ({ ...prev, [id]: 0 }));
+            setHasSanctionMap(prev => ({ ...prev, [id]: false }));
+          }
+        }
+      });
+
+      await Promise.all(promises);
+    }
+  })()
+  .finally(() => { if (!cancelled) setLoadingTotals(false); });
+
+  return () => { cancelled = true; };
+}, [eleves]); // 'eleves' = données source du tableau
+
+
 // Helpers mapping robustes
 const getMotifAbs = (a) =>
   a?.motif ?? a?.raison ?? a?.reason ?? a?.cause ?? "-";
@@ -3156,55 +3237,91 @@ const fetchAllData = async () => {
   
     return escadronMatch && pelotonMatch && courMatch  && sexeMatch && matchSearch; // <- Ajout ici
   });
-  
-  const columns = [
-    { name: 'Nom', selector: row => row.nom, sortable: true },
-    { name: 'Prénom', selector: row => row.prenom, sortable: true ,},
-    { name: 'Sexe', selector: row => row.sexe, sortable: true ,},
-    { name: 'Esc', selector: row => row.escadron, sortable: true ,width:"90px"},
-    { name: 'Pon', selector: row => row.peloton ,width:"90px"},
-    { name: 'Matricule', selector: row => row.matricule ,sortable: true},
-    { name: 'Incorporation', selector: row => Number(row.numeroIncorporation) ,sortable: true,sortFunction: (a, b) => Number(a.numeroIncorporation) - Number(b.numeroIncorporation)},
-   
-    {
-      name: 'Actions',
-      cell: row => (
-        <>
-          <button
-            className="btn btn-warning btn-sm me-2"
-            onClick={() => handleOpenModal(row)}
-          >
-            View
-          </button>
-           {(user?.type === 'superadmin' || user?.type === 'admin' || user?.type === 'user' )&&(
-             <>
-    
-         
-                  <button
-                className="btn btn-info btn-sm me-2"
-                onClick={() => handleOpenNoteModal(row)}
-              >
-                Fiche
-              </button>
+  // Helper robuste
+const sexToMF = (v) => {
+  if (v === null || v === undefined) return "-";
+  // nombres / booleans éventuels
+  if (v === 1 || v === true) return "M";
+  if (v === 0 || v === false) return "F";
 
-              </>
-          )}
-              {user?.type === 'superadmin' && (
-             <>
-    
-              <button
-                className="btn btn-danger btn-sm"
-                onClick={() => handleDelete(row.id)}
-              >
-                Delete
-              </button>
-            </>
-          )}
-        </>
-      )
-    }
-    
-  ];
+  const s = String(v).trim().toLowerCase();
+
+  // Masculin
+  if (["m", "masculin", "male", "homme", "lahy", "garçon", "garcon"].includes(s)) return "M";
+  // Féminin
+  if (["f", "féminin", "feminin", "female", "femme", "vavy", "fille"].includes(s)) return "F";
+
+  // Si déjà "M" / "F" ou autre valeur courte
+  if (s === "m") return "M";
+  if (s === "f") return "F";
+
+  return "-";
+};
+
+ const columns = [
+  { name: 'Nom', selector: row => row.nom, sortable: true },
+  { name: 'Prénom', selector: row => row.prenom, sortable: true },
+  { name: 'Sexe', selector: row => sexToMF(row.sexe), sortable: true, width: "80px", center: true },
+
+  { name: 'Esc / Pon', selector: row => row.escadron + " "+row.peloton , sortable: true , width:"101px" },
+  { name: 'Matricule', selector: row => row.matricule, sortable: true,width : "90px" },
+  {
+    name: 'Inc',
+    selector: row => Number(row.numeroIncorporation),
+    sortable: true,
+    sortFunction: (a, b) => Number(a.numeroIncorporation) - Number(b.numeroIncorporation),
+    width: "64px"
+  },
+
+  // === Nouvelles colonnes alimentées par les maps ===
+  {
+    name: 'Sanction',
+    selector: row => {
+      const id = row.Id ?? row.id;
+      const v = hasSanctionMap[id];
+      return v === undefined ? '…' : (v ? 'Oui' : 'Non');
+    },
+    sortable: true,
+    width: "110px"
+  },
+  {
+    name: 'Absences (jours)',
+    selector: row => {
+      const id = row.Id ?? row.id;
+      const v = absDaysMap[id];
+      return v === undefined ? '…' : v;
+
+    },
+    sortable: true,
+    width: "150px"
+  },
+  {
+    name: 'Consultations externes',
+    selector: row => {
+      const id = row.Id ?? row.id;
+      const v = consDaysMap[id];
+      return v === undefined ? '…' : v;
+    },
+    sortable: true,
+    width: "182px"
+  },
+
+  {
+    name: 'Actions',
+    cell: row => (
+      <>
+        <button className="btn btn-warning btn-sm me-2" onClick={() => handleOpenModal(row)}>View</button>
+        {(user?.type === 'superadmin' || user?.type === 'admin' || user?.type === 'user') && (
+          <button className="btn btn-info btn-sm me-2" onClick={() => handleOpenNoteModal(row)}>Fiche</button>
+        )}
+        {user?.type === 'superadmin' && (
+          <button className="btn btn-danger btn-sm" onClick={() => handleDelete(row.id)}>Delete</button>
+        )}
+      </>
+    )
+  }
+];
+
   
 //export en excel 
 const handleExportExcel = async () => {
@@ -3561,7 +3678,8 @@ function handleExportExcel2() {
 
                 
                
-   <div className="card border-0 shadow rounded-4 mb-4">
+<div className="container-fluid px-3" >
+  <div className="card border-0 shadow rounded-4 mb-4 w-100" style={{width: 'none'}}>
   {/* HEADER */}
   <div
     className="card-header border-0 rounded-top-4 py-3"
@@ -3705,24 +3823,34 @@ function handleExportExcel2() {
         </ul>
       </div>
 
-              {isLoading ? (
-                <div className="text-center my-4">
-                  <ProgressBar now={60} label="Chargement..." animated striped />
-                </div>
-              ) : (
-                <DataTable
-                  columns={columns}
-                  data={elevesAAfficher}
-                  pagination
-                  paginationPerPage={50}
-                  paginationRowsPerPageOptions={[50, 100]}
-                  highlightOnHover
-                  striped
-                  noDataComponent="Aucun élève à afficher"
-                  customStyles={customStyles}
-                />
-              )}
-                  </div>
+      <div className="card-body p-0">
+      {isLoading ? (
+        <div className="text-center my-4">
+          <ProgressBar now={60} label="Chargement..." animated striped />
+        </div>
+      ) : (
+        <div className="table-responsive" style={{ width: "100%", overflowX: "auto" }}>
+          <DataTable
+            columns={columns}
+            data={elevesAAfficher}
+            pagination
+            paginationPerPage={50}
+            paginationRowsPerPageOptions={[50, 100]}
+            highlightOnHover
+            striped
+            noDataComponent="Aucun élève à afficher"
+            customStyles={{
+              table: { style: { width: '100%' } },
+              headRow: { style: { backgroundColor: '#f8f9fa', fontWeight: 800 } ,
+             
+            },
+            }}
+          />
+        </div>
+      )}
+    </div>
+  </div>
+</div>
                   {noteModalOpen && selectedEleve && (
   <div
     className="modal-overla"

@@ -32,51 +32,7 @@ const HomePage = ({ user: propUser }) => {
     else setUser((u) => u ?? readUserFromLocalStorage());
   }, [propUser]);
 
-  const showChangelog = useCallback(() => {
-    const Toast = Swal.mixin({
-      toast: true,
-      position: 'top-end',     // haut-droite
-      showConfirmButton: false,
-      showCloseButton: true,   // petite croix pour fermer
-      timer: 5000,
-      timerProgressBar: true,
-      width: 420,
-      customClass: { popup: 'rounded-4 shadow-sm changelog-toast' },
-      didOpen: (toast) => {
-        // pause le timer au survol
-        toast.addEventListener('mouseenter', Swal.stopTimer);
-        toast.addEventListener('mouseleave', Swal.resumeTimer);
-      },
-    });
-  
-    Toast.fire({
-      icon: 'info',
-      title: 'Version 2.1.1 — Fiche élève (2×2)',
-      html: `
-        <div style="text-align:left; line-height:1.5; font-size:13px">
-          <span style="
-            display:inline-block; margin-bottom:6px;
-            background:#e8f0fe; color:#1e3a8a; border:1px solid #bfdbfe;
-            padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700;
-          ">MISE À JOUR</span>
-  
-          <div>
-            Nouvelle <b>fiche élève</b> en <b>2×2 colonnes</b> :
-            <b>Notes</b>, <b>Consultations externes</b>, <b>Absences</b> (groupées par motif),
-            <b>Sanctions</b> (positives / négatives).
-          </div>
-  
-          <ul style="margin:6px 0 0 18px; padding:0; color:#64748b; font-size:12px">
-            <li><b>Absences</b> : regroupement par motif + total global.</li>
-            <li><b>Consultations</b> : dates départ/arrivée, calcul des jours, statut <i>« Pas encore arrivé »</i>.</li>
-
-          </ul>
-        </div>
-      `,
-    });
-  }, []);
-  
-
+ 
   // Affiche le message à chaque ouverture (une fois par montage)
   useEffect(() => {
     if (shownRef.current) return;
@@ -207,13 +163,7 @@ const HomePage = ({ user: propUser }) => {
         <div className="footer-content">
           <p>© 2025 EGNA SIT INFO</p>
           <p>ÉCOLE DE LA GENDARMERIE NATIONALE AMBOSITRA</p>
-          <button
-            type="button"
-            className="btn btn-sm btn-link"
-            onClick={() => showChangelog()}
-          >
-            Réafficher le message
-          </button>
+         
         </div>
       </footer>
     </div>
