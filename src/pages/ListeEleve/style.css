@@ -1,0 +1,11 @@
+/* Force la carte principale à ne PAS être centrée ni limitée en largeur */
+.full-bleed {
+    max-width: none !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+  
+  /* Ceinture et bretelles pour le conteneur Bootstrap */
+  .container-fluid { padding-left: 0 !important; padding-right: 0 !important; }
+  

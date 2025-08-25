@@ -21,7 +21,7 @@ import sanctionService from "../../services/sanction-service";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import autoTable from 'jspdf-autotable';
-
+import './style.css'
 
 //table 
 
@@ -3261,16 +3261,16 @@ const sexToMF = (v) => {
  const columns = [
   { name: 'Nom', selector: row => row.nom, sortable: true },
   { name: 'Prénom', selector: row => row.prenom, sortable: true },
-  { name: 'Sexe', selector: row => sexToMF(row.sexe), sortable: true, width: "80px", center: true },
+  { name: 'Sexe', selector: row => sexToMF(row.sexe), sortable: true, width: "90px", center: true },
 
-  { name: 'Esc / Pon', selector: row => row.escadron + " "+row.peloton , sortable: true , width:"101px" },
-  { name: 'Matricule', selector: row => row.matricule, sortable: true,width : "90px" },
+  { name: 'Esc / Pon', selector: row => row.escadron + " "+row.peloton , sortable: true , width:"130px" },
+  { name: 'Matricule', selector: row => row.matricule, sortable: true,width : "110px" },
   {
     name: 'Inc',
     selector: row => Number(row.numeroIncorporation),
     sortable: true,
     sortFunction: (a, b) => Number(a.numeroIncorporation) - Number(b.numeroIncorporation),
-    width: "64px"
+    width: "70px"
   },
 
   // === Nouvelles colonnes alimentées par les maps ===
@@ -3282,7 +3282,7 @@ const sexToMF = (v) => {
       return v === undefined ? '…' : (v ? 'Oui' : 'Non');
     },
     sortable: true,
-    width: "110px"
+    width: "120px"
   },
   {
     name: 'Absences (jours)',
@@ -3293,7 +3293,7 @@ const sexToMF = (v) => {
 
     },
     sortable: true,
-    width: "150px"
+    width: "190px"
   },
   {
     name: 'Consultations externes',
@@ -3303,7 +3303,7 @@ const sexToMF = (v) => {
       return v === undefined ? '…' : v;
     },
     sortable: true,
-    width: "182px"
+    width: "250px"
   },
 
   {
@@ -3677,14 +3677,20 @@ function handleExportExcel2() {
 
 
                 
-               
-<div className="container-fluid px-3" >
-  <div className="card border-0 shadow rounded-4 mb-4 w-100" style={{width: 'none'}}>
+<div
+  style={{
+    /* fait sortir le bloc du padding/centrage parent */
+    width: '100vw',
+    marginLeft: 'calc(50% - 50vw)',
+    marginRight: 'calc(50% - 50vw)',
+    paddingLeft: 0,
+    paddingRight: 0,
+  }}
+>
+  <div className="card border-0 shadow rounded-4 mb-4 w-100" style={{margin:"1rem"}}>
+
   {/* HEADER */}
-  <div
-    className="card-header border-0 rounded-top-4 py-3"
-    style={{ background: "linear-gradient(135deg,#f8f9fa,#eef2f7)" }}
-  >
+  <div style={{ background: 'linear-gradient(135deg,#f8f9fa,#eef2f7)' }}>
     <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
 
       
@@ -3830,22 +3836,50 @@ function handleExportExcel2() {
         </div>
       ) : (
         <div className="table-responsive" style={{ width: "100%", overflowX: "auto" }}>
-          <DataTable
-            columns={columns}
-            data={elevesAAfficher}
-            pagination
-            paginationPerPage={50}
-            paginationRowsPerPageOptions={[50, 100]}
-            highlightOnHover
-            striped
-            noDataComponent="Aucun élève à afficher"
-            customStyles={{
-              table: { style: { width: '100%' } },
-              headRow: { style: { backgroundColor: '#f8f9fa', fontWeight: 800 } ,
-             
-            },
-            }}
-          />
+         <DataTable
+  columns={columns}
+  data={elevesAAfficher}
+  pagination
+  paginationPerPage={50}
+  paginationRowsPerPageOptions={[50, 100]}
+  highlightOnHover
+  striped
+  noDataComponent="Aucun élève à afficher"
+  customStyles={{
+    table: {
+      style: {
+        width: '100%',
+      },
+    },
+    headRow: {
+      style: {
+        backgroundColor: '#f8f9fa',
+        fontWeight: 700,
+      },
+    },
+    headCells: {
+      style: {
+        fontSize: '1.1rem',   // taille entêtes
+        paddingLeft: '12px',
+        paddingRight: '12px',
+      },
+    },
+    rows: {
+      style: {
+        fontSize: '1rem',     // taille du texte des lignes
+        minHeight: '48px',    // plus d’espace vertical
+      },
+    },
+    cells: {
+      style: {
+        fontSize: '1rem',     // taille texte des cellules
+        paddingLeft: '12px',
+        paddingRight: '12px',
+      },
+    },
+  }}
+/>
+
         </div>
       )}
     </div>
