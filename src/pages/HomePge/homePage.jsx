@@ -33,12 +33,6 @@ const HomePage = ({ user: propUser }) => {
   }, [propUser]);
 
  
-  // Affiche le message à chaque ouverture (une fois par montage)
-  useEffect(() => {
-    if (shownRef.current) return;
-    shownRef.current = true;
-    showChangelog();
-  }, [showChangelog]);
 
   return (
     <div style={{ marginLeft: '50px', marginTop: '100px' }}>
