@@ -51,7 +51,7 @@ const [absDaysMap, setAbsDaysMap] = React.useState({});        // { [eleveId]: n
 const [consDaysMap, setConsDaysMap] = React.useState({});      // { [eleveId]: number }
 const [hasSanctionMap, setHasSanctionMap] = React.useState({});// { [eleveId]: boolean }
 const [loadingTotals, setLoadingTotals] = React.useState(false);
-
+const tableRows = React.useMemo(() => (eleves ?? []), [eleves]);
 // --- Sanctions: états ---
 const [sanctions, setSanctions] = useState([]);
 const [loadingSanctions, setLoadingSanctions] = useState(false);
@@ -63,7 +63,7 @@ const [sanctionForm, setSanctionForm] = useState({ type: "negative", motif: "" }
 const [sanctionEditingId, setSanctionEditingId] = useState(null);
   // Droit d'édition
 const canEditSanctions = ["admin", "superadmin"].includes(user?.type);
-
+const [notesByEleve, setNotesByEleve] = React.useState({});
   const [filter, setFilter] = useState({ escadron: '', peloton: '' ,search:'' ,cour:''});
   const [notes, setNotes] = useState({
     finfetta: '',
@@ -74,8 +74,10 @@ const canEditSanctions = ["admin", "superadmin"].includes(user?.type);
     rangfinstage:'',
 
   });
+
+
   
-  const [isLoading, setIsLoading] = useState(true);
+ const [isLoading, setIsLoading] = useState(true);
  const [progress, setProgress] = useState(0);
  const isFirstLoad = useRef(true)
  const handleOpen = () => setShowNoteModal(true);
@@ -159,7 +161,70 @@ const canEditSanctions = ["admin", "superadmin"].includes(user?.type);
       cursor: 'pointer',
     },
   };
+  //note pour chaque eleve 
+  React.useEffect(() => {
+    const idsInTable = Array.from(
+      new Set(tableRows.map(r => r?.Id ?? r?.id).filter(Boolean))
+    );
   
+    // ne fetcher que ce qui manque dans le cache
+    const toFetch = idsInTable.filter((id) => !(id in notesByEleve));
+    if (toFetch.length === 0) return;
+  
+    let cancelled = false;
+    (async () => {
+      try {
+        const pairs = await Promise.all(
+          toFetch.map(async (id) => {
+            try {
+              const res = await NoteService.getbyEleveId(id);
+              const d = Array.isArray(res?.data) ? res.data[0] : res?.data;
+              const payload = d ? {
+                finfetta: d.finfetta ?? null,
+                mistage:  d.mistage  ?? null,
+                finstage: d.finstage ?? null,
+              } : null;
+              return [id, payload];
+            } catch {
+              return [id, null];
+            }
+          })
+        );
+        if (cancelled) return;
+        setNotesByEleve((prev) => {
+          const next = { ...prev };
+          pairs.forEach(([id, n]) => { next[id] = n; });
+          return next;
+        });
+      } catch {}
+    })();
+  
+    return () => { cancelled = true; };
+  }, [tableRows, notesByEleve]);
+  
+  
+  // ===== 3) HELPERS d'accès/formatage pour les colonnes =====
+  // Utilise ton parseNumberFlexible existant
+  const getRowNote = (row, field) => {
+    // priorité à row.notes.field si tu l’as déjà dans la ligne,
+    // sinon on prend depuis notesByEleve (fetché via getbyEleveId)
+    const direct = row?.notes?.[field] ?? row?.[field];
+    if (direct !== undefined && direct !== null && direct !== '') return direct;
+    const id = row?.Id ?? row?.id;
+    return notesByEleve[id]?.[field] ?? null;
+  };
+  
+  const selectorNoteNumeric = (row, field) => {
+    const v = getRowNote(row, field);
+    const n = parseNumberFlexible(v);
+    return Number.isFinite(n) ? n : -Infinity; // tri numérique même si valeur absente
+  };
+  
+  const renderNoteCell = (row, field) => {
+    const v = getRowNote(row, field);
+    const n = parseNumberFlexible(v);
+    return Number.isFinite(n) ? n.toFixed(2) : (v ?? '-');
+  };
   //table note 
   const columns2 = [
     { name: 'Nom', selector: row => row.Eleve?.nom || '-', sortable: true },
@@ -215,6 +280,10 @@ const canEditSanctions = ["admin", "superadmin"].includes(user?.type);
 
 // Helpers dates
 // === HELPERS DATES & KEYS ROBUSTES ===
+//helper note 
+// lit d’abord row.notes[field], puis row[field], puis notesByEleve
+
+//
 const safeSumAbsences = (absList = []) => {
   return absList.reduce((acc, a) => {
     let v = parseNumberFlexible(getNombreAbs(a));
@@ -3293,7 +3362,7 @@ const sexToMF = (v) => {
 
     },
     sortable: true,
-    width: "190px"
+    width: "140px"
   },
   {
     name: 'Consultations externes',
@@ -3303,8 +3372,35 @@ const sexToMF = (v) => {
       return v === undefined ? '…' : v;
     },
     sortable: true,
-    width: "250px"
+    width: "140px"
   },
+  // === NOUVELLES COLONNES MOYENNES ===
+  {
+    name: 'Fin FETTA (moy.)',
+    width: '130px',
+    right: true,
+    sortable: true,
+    selector: (row) => selectorNoteNumeric(row, 'finfetta'),
+    cell:     (row) => renderNoteCell(row, 'finfetta'),
+  },
+  {
+    name: 'Mi-Stage (moy.)',
+    width: '130px',
+    right: true,
+    sortable: true,
+    selector: (row) => selectorNoteNumeric(row, 'mistage'),
+    cell:     (row) => renderNoteCell(row, 'mistage'),
+  },
+  {
+    name: 'Fin Formation (moy.)',
+    width: '130px',
+    right: true,
+    sortable: true,
+    selector: (row) => selectorNoteNumeric(row, 'finstage'),
+    cell:     (row) => renderNoteCell(row, 'finstage'),
+  },
+  
+  
 
   {
     name: 'Actions',
