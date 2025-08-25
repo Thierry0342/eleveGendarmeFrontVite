@@ -1011,11 +1011,11 @@ useEffect(() => {
   const totalASpeciale = spaSpecialesDuJour.reduce((total, spa) => total + (spa.nombre || 0), 0);
 
   // totalA ajusté
-  const totalAwithSpecial = totalAvalue + totalASpeciale;
+  const totalAwithSpecial = totalAvalue ;
    
   
-    setTotalI(totalIvalue);
-    setTotalA(totalAwithSpecial);
+    setTotalI(totalIvalue+ totalASpeciale);
+    setTotalA(totalAwithSpecial );
   };
   //pagination tableau
    // Pagination pour tableau Absences par Motif
@@ -1141,10 +1141,7 @@ const handleMotifChange = (e) => {
       bodyDetails.push(['', { content: 'MOTIFS DES ABSENTS', styles: { fontStyle: 'bold' } }, '', '', '', '']);
       
   
-      // Ajout des spaSpeciale
-      spaSpecialesDuJour.forEach(spa => {
-        bodyDetails.push([`${spa.motif.toUpperCase()} : ${spa.nombre}`, '', '', '', '', '']);
-      });
+     
   
       // Ajout des autres motifs (hors spécifiques)
      // Ajout des motifs "absents" (non indisponibles)
@@ -1166,6 +1163,10 @@ const handleMotifChange = (e) => {
   
       
       bodyDetails.push(['', { content: 'MOTIFS DES INDISPONIBLES', styles: { fontStyle: 'bold' } }, '', '', '', '']);
+       // Ajout des spaSpeciale
+       spaSpecialesDuJour.forEach(spa => {
+        bodyDetails.push([`${spa.motif.toUpperCase()} : ${spa.nombre}`, '', '', '', '', '']);
+      });
   
      // Ajout des motifs "indisponibles"
     Object.entries(groupedMotifs).forEach(([motif, absences]) => {
@@ -1373,18 +1374,12 @@ const handleMotifChange = (e) => {
     let indexSectionIndispo = 0;
   
     // Absents
-    content += 'MOTIFS DES ABSENTS X ';
+    // ================= ABSENTS ===================
+content += 'MOTIFS DES ABSENTS X ';
 
-// 1. SPA spéciales
-spaSpecialesDuJour.forEach(spa => {
-  const section = sectionsAbsents[indexSectionAbsent % sectionsAbsents.length];
-  const motif = spa.motif?.toUpperCase() || 'SPA SPECIALE';
-  const nombre = spa.nombre || 0;
-  content += `${section} X ${nombre} ${motif} X `;
-  indexSectionAbsent++;
-});
 
-// 2. Absents classiques avec élèves
+
+// 2. Absents classiques
 for (const [motif, absences] of Object.entries(groupedMotifs)) {
   if (!isIndisponible(motif)) {
     const section = sectionsAbsents[indexSectionAbsent % sectionsAbsents.length];
@@ -1397,7 +1392,7 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
       const eleve = abs.Eleve;
       const nom = eleve?.nom?.toUpperCase() || 'INCONNU';
       const numero = eleve?.numeroIncorporation || 'N/A';
-      const prenom = eleve?.prenom.toUpperCase() || 'N/A';
+      const prenom = eleve?.prenom?.toUpperCase() || 'N/A';
       content += `${(i + 1).toString().padStart(2, '0')}/EG ${nom} ${prenom} NR ${numero} -  `;
     });
 
@@ -1405,24 +1400,32 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
   }
 }
 
-    
-  
-    // Indisponibles
-    content += 'MOTIFS DES INDISPONIBLES X ';
+// ================= INDISPONIBLES ===================
+content += 'MOTIFS DES INDISPONIBLES X ';
+
+// 1. SPA spéciales (ajoutées aussi ici comme indisponibles)
+spaSpecialesDuJour.forEach(spa => {
+  const section = sectionsIndispo[indexSectionIndispo % sectionsIndispo.length];
+  const motif = spa.motif?.toUpperCase() || 'SPA SPECIALE';
+  const nombre = spa.nombre || 0;
+  content += `${section} X ${nombre} ${motif} X `;
+  indexSectionIndispo++;
+});
+
+// 2. Indisponibles classiques
 for (const [motif, absences] of Object.entries(groupedMotifs)) {
   if (isIndisponible(motif)) {
     const section = sectionsIndispo[indexSectionIndispo % sectionsIndispo.length];
     const motifUpper = motif.toUpperCase();
     const nombre = absences.length;
 
-    // Ajouter section, nombre et motif
     content += `${section} X ${nombre} ${motifUpper} X `;
 
     absences.forEach((abs, i) => {
       const eleve = abs.Eleve;
       const nom = eleve?.nom?.toUpperCase() || 'INCONNU';
       const numero = eleve?.numeroIncorporation || 'N/A';
-      const prenom = eleve?.prenom.toUpperCase() || 'N/A';
+      const prenom = eleve?.prenom?.toUpperCase() || 'N/A';
       content += `${(i + 1).toString().padStart(2, '0')}/EG ${nom} ${prenom} NR ${numero} - `;
     });
 
@@ -1430,8 +1433,8 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
   }
 }
 
-  
-    content += 'FIN RABEMANANTSOA';
+content += 'FIN RABEMANANTSOA';
+
   
     // Nettoyage espaces et retours ligne
     content = content.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
