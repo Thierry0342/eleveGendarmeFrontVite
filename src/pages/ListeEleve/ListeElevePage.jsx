@@ -10,6 +10,7 @@ import courService from '../../services/courService';
 import NotefrancaisService from '../../services/notefrancais-service';
 import consultationService from "../../services/consultation-service"; // adapte le chemin
 import absenceService from "../../services/absence-service"; // adapte le chemin
+import eleveDetailsService from "../../services/eleveDetailsService"
 const user = JSON.parse(localStorage.getItem('user'));
 import ExcelJS from 'exceljs';
 import ProgressBar from 'react-bootstrap/ProgressBar';
@@ -175,6 +176,8 @@ const fadyList = [...new Set(eleves.map(e => e.fady).filter(Boolean))].sort((a, 
     },
   };
   //note pour chaque eleve 
+
+  /*
   React.useEffect(() => {
     const idsInTable = Array.from(
       new Set(tableRows.map(r => r?.Id ?? r?.id).filter(Boolean))
@@ -213,8 +216,8 @@ const fadyList = [...new Set(eleves.map(e => e.fady).filter(Boolean))].sort((a, 
     })();
   
     return () => { cancelled = true; };
-  }, [tableRows, notesByEleve]);
-  
+  }, [tableRows, notesByEleve]); 
+  */
   
   // ===== 3) HELPERS d'accès/formatage pour les colonnes =====
   // Utilise ton parseNumberFlexible existant
@@ -297,6 +300,10 @@ const fadyList = [...new Set(eleves.map(e => e.fady).filter(Boolean))].sort((a, 
 // lit d’abord row.notes[field], puis row[field], puis notesByEleve
 
 //
+
+
+
+//les bacth
 const safeSumAbsences = (absList = []) => {
   return absList.reduce((acc, a) => {
     let v = parseNumberFlexible(getNombreAbs(a));
@@ -317,74 +324,89 @@ const safeSumConsultationsDays = (consList = []) => {
 useEffect(() => {
   if (!eleves || eleves.length === 0) return;
 
-  // On charge seulement ceux qui manquent encore
-  const missing = eleves
-    .map(e => e.Id ?? e.id)
-    .filter(id => id != null && (
-      absDaysMap[id] === undefined ||
-      consDaysMap[id] === undefined ||
-      hasSanctionMap[id] === undefined
-    ));
+  const ids = eleves.map(e => e.Id ?? e.id).filter(Boolean);
+  const toFetch = ids.filter(id => 
+    !(id in absDaysMap) || 
+    !(id in consDaysMap) || 
+    !(id in hasSanctionMap) || 
+    !(id in notesByEleve)
+  );
 
-  if (missing.length === 0) return;
+  if (toFetch.length === 0) return;
 
   let cancelled = false;
   setLoadingTotals(true);
 
-  // Découpe en lots (non récursif)
-  const chunk = (arr, size) => {
-    const res = [];
-    for (let i = 0; i < arr.length; i += size) {
-      res.push(arr.slice(i, i + size));
-    }
-    return res;
-  };
-
-  // Factorisation normalisation
-  const normalize = (res) => 
-    res.status === 'fulfilled'
-      ? (Array.isArray(res.value.data) ? res.value.data : (res.value.data ? [res.value.data] : []))
-      : [];
-
   (async () => {
-    const batches = chunk(missing, 5);
+    try {
+      // API serveur: reçoit un tableau d'IDs et renvoie tout
+      const res = await eleveDetailsService.getBatchByIds(toFetch); 
+      if (cancelled) return;
 
-    await Promise.all(
-      batches.map(async (batch) => {
-        await Promise.all(batch.map(async (id) => {
-          try {
-            const [absRes, consRes, sancRes] = await Promise.allSettled([
-              absenceService.getByEleveId(id),
-              consultationService.getByEleveId(id),
-              sanctionService.getByEleveId(id),
-            ]);
+      const { absences, consultations, sanctions, notes } = res.data;
 
-            const absList  = normalize(absRes);
-            const consList = normalize(consRes);
-            const sancList = normalize(sancRes);
+      // -------------------------------
+      // Absences
+      const absMap = {};
+      absences.forEach(a => {
+        if (!absMap[a.eleveId]) absMap[a.eleveId] = [];
+        absMap[a.eleveId].push(a);
+      });
 
-            const absDays  = safeSumAbsences(absList);
-            const consDays = safeSumConsultationsDays(consList);
-            const hasSanc  = sancList.length > 0;
+      // Consultations
+      const consMap = {};
+      consultations.forEach(c => {
+        if (!consMap[c.eleveId]) consMap[c.eleveId] = [];
+        consMap[c.eleveId].push(c);
+      });
 
-            if (!cancelled) {
-              setAbsDaysMap(prev => ({ ...prev, [id]: absDays }));
-              setConsDaysMap(prev => ({ ...prev, [id]: consDays }));
-              setHasSanctionMap(prev => ({ ...prev, [id]: hasSanc }));
-            }
-          } catch (err) {
-            console.error("Erreur récupération élève", id, err);
-            if (!cancelled) {
-              setAbsDaysMap(prev => ({ ...prev, [id]: 0 }));
-              setConsDaysMap(prev => ({ ...prev, [id]: 0 }));
-              setHasSanctionMap(prev => ({ ...prev, [id]: false }));
-            }
-          }
-        }));
-      })
-    );
-  })()
-  .finally(() => { if (!cancelled) setLoadingTotals(false); });
+      // Sanctions
+      const sancMap = {};
+      sanctions.forEach(s => { sancMap[s.eleveId] = true; });
+
+      // Notes
+      const notesMap = {};
+      notes.forEach(n => {
+        const d = Array.isArray(n) ? n[0] : n;
+        notesMap[d?.eleveId] = d ? {
+          finfetta: d.finfetta ?? null,
+          mistage:  d.mistage  ?? null,
+          finstage: d.finstage ?? null,
+        } : null;
+      });
+
+      // -------------------------------
+      // Mise à jour state en une seule fois par type
+      setAbsDaysMap(prev => {
+        const next = { ...prev };
+        Object.entries(absMap).forEach(([id, list]) => { next[id] = safeSumAbsences(list); });
+        return next;
+      });
+
+      setConsDaysMap(prev => {
+        const next = { ...prev };
+        Object.entries(consMap).forEach(([id, list]) => { next[id] = safeSumConsultationsDays(list); });
+        return next;
+      });
+
+      setHasSanctionMap(prev => ({ ...prev, ...sancMap }));
+      setNotesByEleve(prev => ({ ...prev, ...notesMap }));
+
+    } catch (err) {
+      console.error("Erreur récupération batch:", err);
+      // en cas d'erreur, on met des valeurs par défaut
+      if (!cancelled) {
+        toFetch.forEach(id => {
+          setAbsDaysMap(prev => ({ ...prev, [id]: 0 }));
+          setConsDaysMap(prev => ({ ...prev, [id]: 0 }));
+          setHasSanctionMap(prev => ({ ...prev, [id]: false }));
+          setNotesByEleve(prev => ({ ...prev, [id]: null }));
+        });
+      }
+    } finally {
+      if (!cancelled) setLoadingTotals(false);
+    }
+  })();
 
   return () => { cancelled = true; };
 }, [eleves]);
