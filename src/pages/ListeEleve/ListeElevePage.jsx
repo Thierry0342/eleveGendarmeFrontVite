@@ -64,7 +64,20 @@ const [sanctionEditingId, setSanctionEditingId] = useState(null);
   // Droit d'édition
 const canEditSanctions = ["admin", "superadmin"].includes(user?.type);
 const [notesByEleve, setNotesByEleve] = React.useState({});
-  const [filter, setFilter] = useState({ escadron: '', peloton: '' ,search:'' ,cour:''});
+  const [filter, setFilter] = useState({ escadron: '', peloton: '' ,search:'' ,cour:'', centreConcours: "" , lieuNaissance: "",  fady: "" });
+  //maka centre de concours 
+  const centreConcoursList = [...new Set(eleves.map(e => e.centreConcours).filter(Boolean))].sort((a, b) =>
+  a.localeCompare(b, 'fr', { sensitivity: 'base' })
+);
+
+const lieuNaissanceList = [...new Set(eleves.map(e => e.lieuNaissance).filter(Boolean))].sort((a, b) =>
+  a.localeCompare(b, 'fr', { sensitivity: 'base' })
+);
+
+const fadyList = [...new Set(eleves.map(e => e.fady).filter(Boolean))].sort((a, b) =>
+  a.localeCompare(b, 'fr', { sensitivity: 'base' })
+);
+
   const [notes, setNotes] = useState({
     finfetta: '',
     mistage: '',
@@ -301,63 +314,81 @@ const safeSumConsultationsDays = (consList = []) => {
     return acc + (end && Number.isFinite(days) ? days : 0);
   }, 0);
 };
-React.useEffect(() => {
+useEffect(() => {
   if (!eleves || eleves.length === 0) return;
 
   // On charge seulement ceux qui manquent encore
   const missing = eleves
     .map(e => e.Id ?? e.id)
-    .filter(id => id != null && (absDaysMap[id] === undefined || consDaysMap[id] === undefined || hasSanctionMap[id] === undefined));
+    .filter(id => id != null && (
+      absDaysMap[id] === undefined ||
+      consDaysMap[id] === undefined ||
+      hasSanctionMap[id] === undefined
+    ));
 
   if (missing.length === 0) return;
 
   let cancelled = false;
   setLoadingTotals(true);
 
-  // Concurrence simple (lot de 5)
-  const chunk = (arr, n) => arr.length ? [arr.slice(0,n), ...chunk(arr.slice(n), n)] : [];
-  const batches = chunk(missing, 5);
+  // Découpe en lots (non récursif)
+  const chunk = (arr, size) => {
+    const res = [];
+    for (let i = 0; i < arr.length; i += size) {
+      res.push(arr.slice(i, i + size));
+    }
+    return res;
+  };
+
+  // Factorisation normalisation
+  const normalize = (res) => 
+    res.status === 'fulfilled'
+      ? (Array.isArray(res.value.data) ? res.value.data : (res.value.data ? [res.value.data] : []))
+      : [];
 
   (async () => {
-    for (const batch of batches) {
-      const promises = batch.map(async (id) => {
-        try {
-          const [absRes, consRes, sancRes] = await Promise.allSettled([
-            absenceService.getByEleveId(id),
-            consultationService.getByEleveId(id),
-            sanctionService.getByEleveId(id),
-          ]);
+    const batches = chunk(missing, 5);
 
-          const absList  = absRes.status === 'fulfilled' ? (Array.isArray(absRes.value.data) ? absRes.value.data : (absRes.value.data ? [absRes.value.data] : [])) : [];
-          const consList = consRes.status === 'fulfilled' ? (Array.isArray(consRes.value.data) ? consRes.value.data : (consRes.value.data ? [consRes.value.data] : [])) : [];
-          const sancList = sancRes.status === 'fulfilled' ? (Array.isArray(sancRes.value.data) ? sancRes.value.data : (sancRes.value.data ? [sancRes.value.data] : [])) : [];
+    await Promise.all(
+      batches.map(async (batch) => {
+        await Promise.all(batch.map(async (id) => {
+          try {
+            const [absRes, consRes, sancRes] = await Promise.allSettled([
+              absenceService.getByEleveId(id),
+              consultationService.getByEleveId(id),
+              sanctionService.getByEleveId(id),
+            ]);
 
-          const absDays  = safeSumAbsences(absList);
-          const consDays = safeSumConsultationsDays(consList);
-          const hasSanc  = sancList.length > 0;
+            const absList  = normalize(absRes);
+            const consList = normalize(consRes);
+            const sancList = normalize(sancRes);
 
-          if (!cancelled) {
-            setAbsDaysMap(prev => ({ ...prev, [id]: absDays }));
-            setConsDaysMap(prev => ({ ...prev, [id]: consDays }));
-            setHasSanctionMap(prev => ({ ...prev, [id]: hasSanc }));
+            const absDays  = safeSumAbsences(absList);
+            const consDays = safeSumConsultationsDays(consList);
+            const hasSanc  = sancList.length > 0;
+
+            if (!cancelled) {
+              setAbsDaysMap(prev => ({ ...prev, [id]: absDays }));
+              setConsDaysMap(prev => ({ ...prev, [id]: consDays }));
+              setHasSanctionMap(prev => ({ ...prev, [id]: hasSanc }));
+            }
+          } catch (err) {
+            console.error("Erreur récupération élève", id, err);
+            if (!cancelled) {
+              setAbsDaysMap(prev => ({ ...prev, [id]: 0 }));
+              setConsDaysMap(prev => ({ ...prev, [id]: 0 }));
+              setHasSanctionMap(prev => ({ ...prev, [id]: false }));
+            }
           }
-        } catch {
-          if (!cancelled) {
-            // On marque quand même 0/false pour éviter "undefined"
-            setAbsDaysMap(prev => ({ ...prev, [id]: 0 }));
-            setConsDaysMap(prev => ({ ...prev, [id]: 0 }));
-            setHasSanctionMap(prev => ({ ...prev, [id]: false }));
-          }
-        }
-      });
-
-      await Promise.all(promises);
-    }
+        }));
+      })
+    );
   })()
   .finally(() => { if (!cancelled) setLoadingTotals(false); });
 
   return () => { cancelled = true; };
-}, [eleves]); // 'eleves' = données source du tableau
+}, [eleves]);
+
 
 
 // Helpers mapping robustes
@@ -3226,6 +3257,7 @@ const fetchAllData = async () => {
 
       if (data.length < limit) break;
     }
+  
 
     setEleves(allEleves);
   } catch (error) {
@@ -3285,27 +3317,41 @@ const fetchAllData = async () => {
   const elevesAAfficher = eleves.filter(eleve => {
     const escadronMatch = filter.escadron === '' || eleve.escadron === Number(filter.escadron);
     const pelotonMatch = filter.peloton === '' || eleve.peloton === Number(filter.peloton);
-    const courMatch = filter.cour === '' || eleve.cour === Number(filter.cour); // <- Ajout ici
+    const courMatch = filter.cour === '' || eleve.cour === Number(filter.cour);
+  
     const sexeEleve = normSexe(eleve.sexe ?? eleve.gender ?? eleve.sex);
-     // ⚠️ On prend la meilleure clé dispo pour le matricule (mle/matricule/matriculeNumber)
-  const matricule = eleve.matricule ?? eleve.mle ?? eleve.matriculeNumber;
-  const sexeMatch = !filter.sexe || sexeEleve === filter.sexe;
-
+    const matricule = eleve.matricule ?? eleve.mle ?? eleve.matriculeNumber;
+    const sexeMatch = !filter.sexe || sexeEleve === filter.sexe;
+  
+    const centreConcoursMatch = filter.centreConcours === '' || eleve.centreConcours === filter.centreConcours;
+    const lieuNaissanceMatch = filter.lieuNaissance === '' || eleve.lieuNaissance === filter.lieuNaissance;
+    const fadyMatch = filter.fady === '' || eleve.fady === filter.fady;
+  
     const matchSearch = !filter.search || (
       eleve.nom?.toLowerCase().includes(filter.search.toLowerCase()) ||
       eleve.prenom?.toLowerCase().includes(filter.search.toLowerCase()) ||
       eleve.numeroIncorporation?.toString().includes(filter.search) ||
-      eleve.matricule?.toString().includes(filter.search) 
-      || (['m','f'].includes(filter.search) && sexeEleve.toLowerCase() === filter.search)
+      matricule?.toString().includes(filter.search) ||
+      (['m', 'f'].includes(filter.search) && sexeEleve.toLowerCase() === filter.search)
     );
   
-    // Si peloton sélectionné sans escadron mais une recherche est présente → OK
+    // Cas particulier : peloton sélectionné sans escadron mais une recherche est présente → OK
     if (filter.peloton !== '' && filter.escadron === '' && filter.search) {
       return true;
     }
   
-    return escadronMatch && pelotonMatch && courMatch  && sexeMatch && matchSearch; // <- Ajout ici
+    return (
+      escadronMatch &&
+      pelotonMatch &&
+      courMatch &&
+      sexeMatch &&
+      matchSearch &&
+      centreConcoursMatch &&
+      lieuNaissanceMatch &&
+      fadyMatch
+    );
   });
+  
   // Helper robuste
 const sexToMF = (v) => {
   if (v === null || v === undefined) return "-";
@@ -3678,6 +3724,8 @@ function handleExportExcel2() {
             </div>
            
           </div>
+        
+
 
           {/* Cours */}
           <div className="col-md-6">
@@ -3699,6 +3747,67 @@ function handleExportExcel2() {
               ))}
             </select>
           </div>
+            {/* Centre de concours */}
+            <div className="col-md-6">
+                <label className="form-label fw-semibold" htmlFor="centreConcours">
+                  Centre de concours
+                </label>
+                <select
+                  id="centreConcours"
+                  className="form-select"
+                  name="centreConcours"
+                  value={filter.centreConcours}
+                  onChange={handleFilterChange}
+                >
+                  <option value="">Tous les centres</option>
+                  {centreConcoursList.map((cc, i) => (
+                    <option key={i} value={cc}>
+                      {cc}
+                    </option>
+                  ))}
+                </select>
+              </div>
+                              {/* Lieu de naissance */}
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold" htmlFor="lieuNaissance">
+                    Lieu de naissance
+                  </label>
+                  <select
+                    id="lieuNaissance"
+                    className="form-select"
+                    name="lieuNaissance"
+                    value={filter.lieuNaissance}
+                    onChange={handleFilterChange}
+                  >
+                    <option value="">Tous les lieux</option>
+                    {lieuNaissanceList.map((ln, i) => (
+                      <option key={i} value={ln}>
+                        {ln}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Fady */}
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold" htmlFor="fady">
+                    FOKO
+                  </label>
+                  <select
+                    id="fady"
+                    className="form-select"
+                    name="fady"
+                    value={filter.fady}
+                    onChange={handleFilterChange}
+                  >
+                    <option value="">Tous les "FOKO"</option>
+                    {fadyList.map((f, i) => (
+                      <option key={i} value={f}>
+                        {f}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
           {/* Escadron */}
           <div className="col-md-6">
