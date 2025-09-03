@@ -3437,10 +3437,15 @@ const sexToMF = (v) => {
     selector: row => {
       const id = row.Id ?? row.id;
       const v = consDaysMap[id];
-      return v === undefined ? '…' : v;
+      return v === undefined ? -1 : v; // -1 pour ceux pas encore chargés
     },
     sortable: true,
-    width: "140px"
+    width: "140px",
+    cell: row => {
+      const id = row.Id ?? row.id;
+      const v = consDaysMap[id];
+      return v === undefined ? '…' : v;
+    }
   },
   // === NOUVELLES COLONNES MOYENNES ===
   {
