@@ -44,7 +44,7 @@ import Select from 'react-select';
   const [totalA,setTotalA] = useState(0);
   const [spaNumber, setSpaNumber] = useState(1499); // Valeur par défaut
   const [showSpaSpecialeModal, setShowSpaSpecialeModal] = useState(false);
-  const [newSpaSpeciale, setNewSpaSpeciale] = useState({ motif: '', nombre: '', date:'',cour:''});
+  const [newSpaSpeciale, setNewSpaSpeciale] = useState({ motif: '', nombre: '', date:'',cour:'',type: ''});
   //motif autre 
   const [incorporationSPA, setIncorporationSPA] = useState('');
   const [eleveSPAInfo, setEleveSPAInfo] = useState(null);
@@ -1008,14 +1008,22 @@ useEffect(() => {
 
     // Prendre en compte les SPA spéciales
   const spaSpecialesDuJour = spaSpeciale.filter(spa => spa.date?.slice(0, 10) === spaDateISO);
-  const totalASpeciale = spaSpecialesDuJour.reduce((total, spa) => total + (spa.nombre || 0), 0);
 
-  // totalA ajusté
-  const totalAwithSpecial = totalAvalue ;
+
+// Total SPA selon le type
+const totalISpeciale = spaSpecialesDuJour
+  .filter(spa => spa.type?.toUpperCase() === "INDISPONIBLE")
+  .reduce((total, spa) => total + (spa.nombre || 0), 0);
+
+const totalASpeciale = spaSpecialesDuJour
+  .filter(spa => spa.type?.toUpperCase() === "ABSENT")
+  .reduce((total, spa) => total + (spa.nombre || 0), 0);
    
-  
-    setTotalI(totalIvalue+ totalASpeciale);
-    setTotalA(totalAwithSpecial );
+    // Mise à jour des totaux
+setTotalI(totalIvalue + totalISpeciale);
+setTotalA(totalAvalue + totalASpeciale);
+
+
   };
   //pagination tableau
    // Pagination pour tableau Absences par Motif
@@ -1163,11 +1171,18 @@ const handleMotifChange = (e) => {
   
       
       bodyDetails.push(['', { content: 'MOTIFS DES INDISPONIBLES', styles: { fontStyle: 'bold' } }, '', '', '', '']);
-       // Ajout des spaSpeciale
-       spaSpecialesDuJour.forEach(spa => {
-        bodyDetails.push([`${spa.motif.toUpperCase()} : ${spa.nombre}`, '', '', '', '', '']);
-      });
-  
+    
+      // Ajout des spaSpeciale en respectant leur type
+spaSpecialesDuJour.forEach(spa => {
+  if (spa.type?.toUpperCase() === "ABSENT") {
+    // mettre avec les absents
+    bodyDetails.splice(1, 0, [`${spa.motif.toUpperCase()} : ${spa.nombre}`, '', '', '', '', '']);
+  } else if (spa.type?.toUpperCase() === "INDISPONIBLE") {
+    // mettre avec les indisponibles
+    bodyDetails.push([`${spa.motif.toUpperCase()} : ${spa.nombre}`, '', '', '', '', '']);
+  }
+});
+
      // Ajout des motifs "indisponibles"
     Object.entries(groupedMotifs).forEach(([motif, absences]) => {
       if (isIndisponible(motif)) {
@@ -1374,61 +1389,60 @@ const handleMotifChange = (e) => {
     let indexSectionIndispo = 0;
   
     // Absents
-    // ================= ABSENTS ===================
+ // =================== ABSENTS ===================
 content += 'MOTIFS DES ABSENTS X ';
 
-
-
-// 2. Absents classiques
+// Absences classiques (non indisponibles)
 for (const [motif, absences] of Object.entries(groupedMotifs)) {
   if (!isIndisponible(motif)) {
     const section = sectionsAbsents[indexSectionAbsent % sectionsAbsents.length];
-    const motifUpper = motif.toUpperCase();
-    const nombre = absences.length;
-
-    content += `${section} X ${nombre} ${motifUpper} X `;
-
+    content += `${section} X ${absences.length} ${motif} X `;
     absences.forEach((abs, i) => {
       const eleve = abs.Eleve;
       const nom = eleve?.nom?.toUpperCase() || 'INCONNU';
-      const numero = eleve?.numeroIncorporation || 'N/A';
       const prenom = eleve?.prenom?.toUpperCase() || 'N/A';
-      content += `${(i + 1).toString().padStart(2, '0')}/EG ${nom} ${prenom} NR ${numero} -  `;
+      const numero = eleve?.numeroIncorporation || 'N/A';
+      content += `${(i + 1).toString().padStart(2, '0')}/EG ${nom} ${prenom} NR ${numero} - `;
     });
-
     indexSectionAbsent++;
   }
 }
 
-// ================= INDISPONIBLES ===================
-content += 'MOTIFS DES INDISPONIBLES X ';
-
-// 1. SPA spéciales (ajoutées aussi ici comme indisponibles)
+// SPA spéciales de type ABSENT
 spaSpecialesDuJour.forEach(spa => {
-  const section = sectionsIndispo[indexSectionIndispo % sectionsIndispo.length];
-  const motif = spa.motif?.toUpperCase() || 'SPA SPECIALE';
-  const nombre = spa.nombre || 0;
-  content += `${section} X ${nombre} ${motif} X `;
-  indexSectionIndispo++;
+  if (spa.type?.toUpperCase() === 'ABSENT') {
+    const section = sectionsAbsents[indexSectionAbsent % sectionsAbsents.length];
+    const motif = spa.motif?.toUpperCase() || 'SPA SPECIALE';
+    content += `${section} X ${spa.nombre} ${motif} X `;
+    indexSectionAbsent++;
+  }
 });
 
-// 2. Indisponibles classiques
+// =================== INDISPONIBLES ===================
+content += 'MOTIFS DES INDISPONIBLES X ';
+
+// SPA spéciales de type INDISPONIBLE
+spaSpecialesDuJour.forEach(spa => {
+  if (spa.type?.toUpperCase() === 'INDISPONIBLE') {
+    const section = sectionsIndispo[indexSectionIndispo % sectionsIndispo.length];
+    const motif = spa.motif?.toUpperCase() || 'SPA SPECIALE';
+    content += `${section} X ${spa.nombre} ${motif} X `;
+    indexSectionIndispo++;
+  }
+});
+
+// Indisponibles classiques
 for (const [motif, absences] of Object.entries(groupedMotifs)) {
   if (isIndisponible(motif)) {
     const section = sectionsIndispo[indexSectionIndispo % sectionsIndispo.length];
-    const motifUpper = motif.toUpperCase();
-    const nombre = absences.length;
-
-    content += `${section} X ${nombre} ${motifUpper} X `;
-
+    content += `${section} X ${absences.length} ${motif} X `;
     absences.forEach((abs, i) => {
       const eleve = abs.Eleve;
       const nom = eleve?.nom?.toUpperCase() || 'INCONNU';
-      const numero = eleve?.numeroIncorporation || 'N/A';
       const prenom = eleve?.prenom?.toUpperCase() || 'N/A';
+      const numero = eleve?.numeroIncorporation || 'N/A';
       content += `${(i + 1).toString().padStart(2, '0')}/EG ${nom} ${prenom} NR ${numero} - `;
     });
-
     indexSectionIndispo++;
   }
 }
@@ -2046,7 +2060,12 @@ content += 'FIN RABEMANANTSOA';
 
                                             {showSpaSpecialeModal && (
                                       <div className="modal show d-block" tabIndex="-1" role="dialog" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-                                        <div className="modal-dialog modal-xl modal-dialog-centered" role="document">
+                                     <div
+                                      className="modal-dialog modal-dialog-centered"
+                                      role="document"
+                                      style={{ maxWidth: "95%" }}   // 🔹 modal prend 95% de la largeur de l’écran
+                                    >
+
                                           <div className="modal-content">
                                             <div className="modal-header">
                                               <h5 className="modal-title">Ajouter SPA Spéciale</h5>
@@ -2087,6 +2106,22 @@ content += 'FIN RABEMANANTSOA';
                                                     />
                                                   </div>
                                                   <div className="mb-3">
+                                                    <label className="form-label">Type</label>
+                                                    <select
+                                                      className="form-control"
+                                                      value={newSpaSpeciale.type}
+                                                      onChange={(e) =>
+                                                        setNewSpaSpeciale({ ...newSpaSpeciale, type: e.target.value })
+                                                      }
+                                                      required
+                                                    >
+                                                      <option value="">-- Choisir le type --</option>
+                                                      <option value="INDISPONIBLE">INDISPONIBLE</option>
+                                                      <option value="ABSENT">ABSENT</option>
+                                                      
+                                                    </select>
+                                                  </div>
+                                                  <div className="mb-3">
                                                     <label className="form-label">Cours</label>
                                                     <select
                                                       className="form-control"
@@ -2109,7 +2144,7 @@ content += 'FIN RABEMANANTSOA';
                                                 className="btn btn-success"
                                                 onClick={() => {
                                                   const courValue = newSpaSpeciale.cour || filter.cour || cour2;
-                                                  if (!newSpaSpeciale.motif || !newSpaSpeciale.nombre || !newSpaSpeciale.date || !courValue) {
+                                                  if (!newSpaSpeciale.motif || !newSpaSpeciale.nombre || !newSpaSpeciale.date || !courValue || !newSpaSpeciale.type ) {
                                                     Swal.fire({
                                                       icon: 'warning',
                                                       title: 'Champs manquants',
@@ -2122,6 +2157,7 @@ content += 'FIN RABEMANANTSOA';
                                                     motif: newSpaSpeciale.motif.trim(),
                                                     nombre: Number(newSpaSpeciale.nombre),
                                                     date: newSpaSpeciale.date,
+                                                    type: newSpaSpeciale.type,
                                                     cour: Number(courValue),                 // 🔸 cours ajouté
                                                   };
 
@@ -2139,6 +2175,7 @@ content += 'FIN RABEMANANTSOA';
                                                     ...prev,
                                                     motif: '',
                                                     nombre: '',
+                                                    type: '', 
                                                     date: date,          // tu sembles utiliser la date serveur
                                                     // cour: prev.cour,  // <— garde le cours sélectionné (décommente si souhaité)
                                                   }));
@@ -2156,9 +2193,10 @@ content += 'FIN RABEMANANTSOA';
                                                     <thead>
                                                       <tr>
                                                         <th>Motif</th>
+                                                        <th>Type</th> {/* 🔸 nouvelle colonne */}
                                                         <th>Nombre</th>
-                                                        <th>Cour</th>
-                                                        <th>date</th>
+                                                        <th>Cours</th>
+                                                        <th>Date</th>
                                                         <th>Action</th>
                                                       </tr>
                                                     </thead>
@@ -2166,6 +2204,11 @@ content += 'FIN RABEMANANTSOA';
                                                       {spaSpecialeTempList.map((item, index) => (
                                                         <tr key={index}>
                                                           <td>{item.motif}</td>
+                                                          <td>
+                                                            <span className={`badge ${item.type === 'Absent' ? 'bg-danger' : 'bg-warning text-dark'}`}>
+                                                              {item.type}
+                                                            </span>
+                                                          </td>
                                                           <td>{item.nombre}</td>
                                                           <td>
                                                             <span className="badge bg-secondary">{item.cour}</span> {/* 🔸 affichage cours */}
@@ -2185,6 +2228,7 @@ content += 'FIN RABEMANANTSOA';
                                                       ))}
                                                     </tbody>
                                                   </table>
+
                                                   <button
                                                     className="btn btn-primary mt-3"
                                                     onClick={() => {
@@ -2238,69 +2282,113 @@ content += 'FIN RABEMANANTSOA';
                                                 </form>
                                               </div>
 
-                                              {/* Liste des SPA spéciales avec pagination */}
-                                              <div className="flex-fill border-start ps-3">
-                                                <h6 className="mb-2">📋 Motifs spéciaux existants</h6>
-                                                <ul className="list-group">
-                                                  {paginatedSpaSpeciale.length > 0 ? (
-                                                    paginatedSpaSpeciale.map((spa) => (
-                                                      <li key={spa._id} className="list-group-item d-flex justify-content-between align-items-center">
-                                                        <div>
-                                                          <strong>{spa.motif}</strong> <small className="text-muted">({spa.date?.slice(0, 10)})</small>
-                                                        </div>
-                                                        <div className="d-flex align-items-center gap-2">
-                                                          <span className="badge bg-primary">{spa.nombre}</span>
-                                                          {user?.type !== 'saisie' && (
-                                                            <button
-                                                              className="btn btn-sm btn-danger"
-                                                              onClick={() => {
-                                                                if (window.confirm("Supprimer ce motif ?")) {
-                                                                  spaspecialeService.delete(spa.id)
-                                                                    .then(() => {
-                                                                      setSpaSpeciale(spaSpeciale.filter(item => item.id !== spa.id));
-                                                                    })
-                                                                    .catch(err => {
-                                                                     //console.error(err);
-                                                                      alert("Erreur lors de la suppression.");
-                                                                    });
-                                                                }
-                                                              }}
+                                            {/* Liste des SPA spéciales avec pagination */}
+                                                <div className="flex-fill border-start ps-3">
+                                                  <h6 className="mb-2">📋 Motifs spéciaux existants</h6>
+                                                  <ul className="list-group">
+                                                    {paginatedSpaSpeciale.length > 0 ? (
+                                                      paginatedSpaSpeciale.map((spa) => (
+                                                        <li
+                                                          key={spa._id}
+                                                          className="list-group-item d-flex justify-content-between align-items-center"
+                                                        >
+                                                          <div>
+                                                            <strong>{spa.motif}</strong>{" "}
+                                                            <small className="text-muted">
+                                                              ({spa.date?.slice(0, 10)})
+                                                            </small>
+                                                            <br />
+                                                            {/* 🔸 Affichage du type */}
+                                                            <span
+                                                              className={`badge ${
+                                                                spa.type === "Absent"
+                                                                  ? "bg-danger"
+                                                                  : "bg-warning text-dark"
+                                                              } mt-1`}
                                                             >
-                                                              Supprimer
-                                                            </button>
-                                                          )}
-                                                         
+                                                              {spa.type}
+                                                            </span>
+                                                          </div>
 
-                                                        </div>
+                                                          <div className="d-flex align-items-center gap-2">
+                                                            <span className="badge bg-primary">{spa.nombre}</span>
+                                                            {user?.type !== "saisie" && (
+                                                              <button
+                                                                className="btn btn-sm btn-danger"
+                                                                onClick={() => {
+                                                                  if (window.confirm("Supprimer ce motif ?")) {
+                                                                    spaspecialeService
+                                                                      .delete(spa.id)
+                                                                      .then(() => {
+                                                                        setSpaSpeciale(
+                                                                          spaSpeciale.filter((item) => item.id !== spa.id)
+                                                                        );
+                                                                      })
+                                                                      .catch(() => {
+                                                                        alert("Erreur lors de la suppression.");
+                                                                      });
+                                                                  }
+                                                                }}
+                                                              >
+                                                                Supprimer
+                                                              </button>
+                                                            )}
+                                                          </div>
+                                                        </li>
+                                                      ))
+                                                    ) : (
+                                                      <li className="list-group-item text-muted text-center">
+                                                        Aucun motif
                                                       </li>
-                                                    ))
-                                                  ) : (
-                                                    <li className="list-group-item text-muted text-center">Aucun motif</li>
-                                                  )}
-                                                </ul>
-
-                                                {/* Pagination */}
-                                                <nav className="mt-3">
-                                                  <ul className="pagination justify-content-center">
-                                                    <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-                                                      <button className="page-link" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}>Précédent</button>
-                                                    </li>
-                                                    {Array.from({ length: totalPages }, (_, i) => (
-                                                      <li key={i} className={`page-item ${currentPage === i + 1 ? 'active' : ''}`}>
-                                                        <button className="page-link" onClick={() => setCurrentPage(i + 1)}>{i + 1}</button>
-                                                      </li>
-                                                    ))}
-                                                    <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
-                                                      <button className="page-link" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}>Suivant</button>
-                                                    </li>
+                                                    )}
                                                   </ul>
-                                                  
 
-                                                </nav>
-                                              </div>
-                                             
-                                             
-    
+                                                  {/* Pagination */}
+                                                  <nav className="mt-3">
+                                                    <ul className="pagination justify-content-center">
+                                                      <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                                                        <button
+                                                          className="page-link"
+                                                          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                                                        >
+                                                          Précédent
+                                                        </button>
+                                                      </li>
+                                                      {Array.from({ length: totalPages }, (_, i) => (
+                                                        <li
+                                                          key={i}
+                                                          className={`page-item ${
+                                                            currentPage === i + 1 ? "active" : ""
+                                                          }`}
+                                                        >
+                                                          <button
+                                                            className="page-link"
+                                                            onClick={() => setCurrentPage(i + 1)}
+                                                          >
+                                                            {i + 1}
+                                                          </button>
+                                                        </li>
+                                                      ))}
+                                                      <li
+                                                        className={`page-item ${
+                                                          currentPage === totalPages ? "disabled" : ""
+                                                        }`}
+                                                      >
+                                                        <button
+                                                          className="page-link"
+                                                          onClick={() =>
+                                                            setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                                                          }
+                                                        >
+                                                          Suivant
+                                                        </button>
+                                                      </li>
+                                                    </ul>
+                                                  </nav>
+                                                </div>
+
+                                                                                            
+                                                    
 
 
 

@@ -6,6 +6,30 @@
     margin-right: 0 !important;
   }
   
-  /* Ceinture et bretelles pour le conteneur Bootstrap */
-  .container-fluid { padding-left: 0 !important; padding-right: 0 !important; }
-  
+/* Si tu as une navbar fixed, règle la marge ici */
+:root { --stickyTop: 0px; } /* ex: 56px si navbar Bootstrap fixed */
+
+/* Laisse le header “s’échapper” par-dessus les lignes */
+.datatable-fixed-header .rdt_Table { overflow: visible; }
+
+/* Colle le conteneur d’entête */
+.datatable-fixed-header .rdt_TableHead {
+  position: sticky;
+  top: var(--stickyTop);
+  z-index: 100;
+  background-color: #f8f9fa;
+}
+
+/* Ceinture & bretelles : colle aussi la “row” de l’entête */
+/* cible directement la ligne d'en-tête */
+.datatable-fixed-header .rdt_TableHeadRow {
+  position: sticky;
+  top: 0;          /* si tu as une navbar fixe, mets 56px par ex. */
+  z-index: 100;
+  background: #f8f9fa;
+}
+
+/* éviter que le tableau "remonte" derrière le header fixé */
+.datatable-fixed-header {
+  overflow: visible !important;
+}

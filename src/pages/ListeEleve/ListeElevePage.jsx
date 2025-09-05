@@ -3449,7 +3449,7 @@ const sexToMF = (v) => {
   },
   // === NOUVELLES COLONNES MOYENNES ===
   {
-    name: 'Fin FETTA (moy.)',
+    name: 'FETTA',
     width: '130px',
     right: true,
     sortable: true,
@@ -3457,7 +3457,7 @@ const sexToMF = (v) => {
     cell:     (row) => renderNoteCell(row, 'finfetta'),
   },
   {
-    name: 'Mi-Stage (moy.)',
+    name: 'Mi-Stage',
     width: '130px',
     right: true,
     sortable: true,
@@ -3465,7 +3465,7 @@ const sexToMF = (v) => {
     cell:     (row) => renderNoteCell(row, 'mistage'),
   },
   {
-    name: 'Fin Formation (moy.)',
+    name: 'Fin Formation',
     width: '130px',
     right: true,
     sortable: true,
@@ -4069,54 +4069,58 @@ function handleExportExcel2() {
       ) : (
         <div className="table-responsive" style={{ width: "100%", overflowX: "auto" }}>
          <DataTable
-  columns={columns}
-  data={elevesAAfficher}
-  pagination
-  paginationPerPage={50}
-  paginationRowsPerPageOptions={[50, 100]}
-  highlightOnHover
-  striped
-  noDataComponent="Aucun élève à afficher"
-  customStyles={{
-    table: {
-      style: {
-        width: '100%',
-      },
-    },
-    headRow: {
-      style: {
-        backgroundColor: '#f8f9fa',
-        fontWeight: 700,
-      },
-    },
-    headCells: {
-      style: {
-        fontSize: '1.1rem',   // taille entêtes
-        paddingLeft: '12px',
-        paddingRight: '12px',
-      },
-    },
-    rows: {
-      style: {
-        fontSize: '1rem',     // taille du texte des lignes
-        minHeight: '48px',    // plus d’espace vertical
-      },
-    },
-    cells: {
-      style: {
-        fontSize: '1rem',     // taille texte des cellules
-        paddingLeft: '12px',
-        paddingRight: '12px',
-      },
-    },
-  }}
-/>
+          //  className="datatable-fixed-header"
+            columns={columns}
+            data={elevesAAfficher}
+            pagination
+            paginationPerPage={50}
+            paginationRowsPerPageOptions={[50, 100]}
+            highlightOnHover
+            striped
+            fixedHeader
+           
+            noDataComponent="Aucun élève à afficher"
+            customStyles={{
+              table: {
+                style: {
+                  width: '100%',
+                },
+              },
+              headRow: {
+                style: {
+                  backgroundColor: '#f8f9fa',
+                  fontWeight: 700,
+                },
+              },
+              headCells: {
+                style: {
+                  fontSize: '1.1rem',
+                  paddingLeft: '12px',
+                  paddingRight: '12px',
+                },
+              },
+              rows: {
+                style: {
+                  fontSize: '1rem',
+                  minHeight: '48px',
+                },
+              },
+              cells: {
+                style: {
+                  fontSize: '1rem',
+                  paddingLeft: '12px',
+                  paddingRight: '12px',
+                },
+              },
+            }}
+          />
 
-        </div>
-      )}
-    </div>
-  </div>
-</div>
+
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
                   {noteModalOpen && selectedEleve && (
   <div
     className="modal-overla"
