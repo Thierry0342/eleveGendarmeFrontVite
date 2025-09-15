@@ -1863,7 +1863,7 @@ content += 'FIN RABEMANANTSOA';
                               value={lieuPermission}
                               onChange={(e) => setLieuPermission(e.target.value)}
                               placeholder="Lieu de la permission"
-                              required
+                              
                             />
                           </div>
 
@@ -1878,7 +1878,7 @@ content += 'FIN RABEMANANTSOA';
                               value={motifPermission}
                               onChange={(e) => setMotifPermission(e.target.value)}
                               placeholder="Motif de la permission"
-                              required
+                             
                             />
                           </div>
                         </>
