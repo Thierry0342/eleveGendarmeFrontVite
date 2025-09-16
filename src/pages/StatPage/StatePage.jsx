@@ -10,6 +10,7 @@ import { API_URL } from '../../config/root/modules';
 import { Modal, Button } from 'react-bootstrap';
 import { BsPeopleFill, BsCalendarCheck } from "react-icons/bs";
 import dateService from'../../services/dateservice';
+import patcService from '../../services/patc-service';
 import Swal from 'sweetalert2';
 const StatePage = () => {
   const [consultations, setConsultations] = useState([]);
@@ -41,11 +42,16 @@ const StatePage = () => {
    const [showModal4, setShowModal4] = useState(false);
    const [showModal5, setShowModal5] = useState(false);
    const [dateServeur, setDateServeur] = useState(null);
-const [recentEleves, setRecentEleves] = useState([]);
-const [totalEscadron, setTotalEscadron] = useState(0);
-const [recentDepartEleves, setRecentDepartEleves] = useState([]);
-const [recentPartis, setRecentPartis] = useState([]);
-const [totalEvasan, setTotalEvasan] = useState(0);
+    const [recentEleves, setRecentEleves] = useState([]);
+    const [totalEscadron, setTotalEscadron] = useState(0);
+    const [recentDepartEleves, setRecentDepartEleves] = useState([]);
+    const [recentPartis, setRecentPartis] = useState([]);
+    const [totalEvasan, setTotalEvasan] = useState(0);
+    //recherche 
+    const [search, setSearch] = useState("");
+    const [filteredData, setFilteredData] = useState([]);
+    //patc
+    const [patcsByEleve, setPatcsByEleve] = useState({});
 
   //paggination
   
@@ -181,7 +187,7 @@ useEffect(() => {
     consultationService.getByCour(selectedCour)
       .then(res => {
         setConsultations(res.data);
-        calculerJoursEscadron(res.data);
+        calculerJoursEscadron(res.data, dateServeur); 
       })
       .catch(err => {
         
@@ -199,7 +205,7 @@ useEffect(() => {
         const consultationsEvasan = res.data.filter(c => c.status === "EVASAN");
       //  console.log(consultationsEvasan);
         setConsultations2(consultationsEvasan); // n'affiche que les EVASAN
-       
+        setFilteredData(consultationsEvasan);
       })
       .catch(err => {
         // Gestion silencieuse de l'erreur, sans affichage console
@@ -232,6 +238,27 @@ useEffect(() => {
       ),
     }
   ];
+  //recherche 
+  useEffect(() => {
+    const result = consultations2.filter(c => {
+      const nom = c.Eleve?.nom ? String(c.Eleve.nom).toLowerCase() : "";
+      const prenom = c.Eleve?.prenom ? String(c.Eleve.prenom).toLowerCase() : "";
+      const escadron = c.Eleve?.escadron ? String(c.Eleve.escadron).toLowerCase() : "";
+      const peloton = c.Eleve?.peloton ? String(c.Eleve.peloton).toLowerCase() : "";
+  
+      return (
+        nom.includes(search.toLowerCase()) ||
+        prenom.includes(search.toLowerCase()) ||
+        escadron.includes(search.toLowerCase()) ||
+        peloton.includes(search.toLowerCase())
+      );
+    });
+  
+    setFilteredData(result);
+  }, [search, consultations2]);
+  
+
+
   //export nombre jour par motif 
   const exportToExcel = (motifData) => {
     if (!motifData || !Array.isArray(motifData.eleves)) return;
@@ -255,19 +282,27 @@ useEffect(() => {
   };
   
 
-
-  const calculerJoursEscadron = (data) => {
+  const calculerJoursEscadron = (data, dateServeur) => {
     const jours = data
-      .filter(c => c.status === "Escadron" && c.dateDepart && c.dateArrive)
+      .filter(c => (c.status === "Escadron" || c.status === "EVASAN") && c.dateDepart)
       .map(c => {
         const date1 = new Date(c.dateDepart);
-        const date2 = new Date(c.dateArrive);
+        const date2 = c.dateArrive ? new Date(c.dateArrive) : new Date(dateServeur);
         const diffTime = Math.abs(date2 - date1);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return { id: c.id, jours: diffDays };
+        return { 
+          id: c.id, 
+          jours: diffDays, 
+          enCours: !c.dateArrive,
+          Eleve: c.Eleve, 
+          consultation: c,
+        };
       });
     setJoursEscadron(jours);
   };
+  
+  
+  
     //ajout cour automatique
         const fetchCours = async () => {
           try {
@@ -294,21 +329,27 @@ const eleveJourMap = new Map();
 
 consultations.forEach(item => {
   if (
-    item.status === "Escadron" &&
+    (item.status === "Escadron" || item.status === "EVASAN") &&
     item.dateDepart &&
-    item.dateArrive &&
     item.Eleve?.id
   ) {
     const depart = new Date(item.dateDepart);
-    const arrive = new Date(item.dateArrive);
+
+    // Vérifier si la date du serveur existe et la convertir en Date
+    const today = dateServeur ? new Date(dateServeur) : new Date();
+
+    // Si pas encore arrivé → on prend la date du serveur (au lieu de null = 1970)
+    const arrive = item.dateArrive ? new Date(item.dateArrive) : today;
+
     const jours = Math.ceil((arrive - depart) / (1000 * 60 * 60 * 24));
 
+
     const eleveId = item.Eleve.id;
-    const nomPrenom = ` ${item.Eleve.prenom}`;
-    const numeroIncorporation = ` ${item.Eleve.numeroIncorporation}`;
-    const escadron = ` ${item.Eleve.escadron}`;
-    const peloton = ` ${item.Eleve.peloton}`;
-    const image =  ` ${item.Eleve.image}`
+    const nomPrenom = `${item.Eleve.nom} ${item.Eleve.prenom}`.trim();
+    const numeroIncorporation = String(item.Eleve.numeroIncorporation || "");
+    const escadron = item.Eleve.escadron || "";
+    const peloton = item.Eleve.peloton || "";
+    const image = item.Eleve.image || null;
 
     if (eleveJourMap.has(eleveId)) {
       const eleve = eleveJourMap.get(eleveId);
@@ -319,16 +360,17 @@ consultations.forEach(item => {
         jours,
         dateDepart: item.dateDepart,
         dateArrive: item.dateArrive,
+        enCours: !item.dateArrive, // consultation en cours
       });
     } else {
       eleveJourMap.set(eleveId, {
         eleveId,
         nom: nomPrenom,
-        numeroIncorporation: numeroIncorporation,
-        escadron: escadron,
-        peloton: peloton,
+        numeroIncorporation,
+        escadron,
+        peloton,
         jours,
-        image:image,
+        image,
         consultations: [
           {
             id: item.id,
@@ -336,6 +378,7 @@ consultations.forEach(item => {
             jours,
             dateDepart: item.dateDepart,
             dateArrive: item.dateArrive,
+            enCours: !item.dateArrive,
           }
         ],
       });
@@ -376,13 +419,13 @@ const BAR_WIDTH = 25;
    
   }, []);
 // console.log("abnsence rehetrea  aa",listeAbsence);
-  useEffect(() => {
-    if (cour){
-        fetchConsultations(cour);
-        fetchConsultations2(cour)
+useEffect(() => {
+  if (dateServeur && cour) {
+    fetchConsultations(cour, dateServeur);
+    fetchConsultations2(cour);
+  }
+}, [cour, dateServeur]);
 
-    }
-  }, [cour]);
   //get all absence 
   const fetchAbsence =()=> {
    
@@ -591,10 +634,26 @@ if (regroupement) {
   
   
   
+//patc 
+useEffect(() => {
+  const fetchPatcs = async () => {
+    const promises = currentItems.map(async (item) => {
+      try {
+        const res = await patcService.getByEleveId(item.eleveId);
+        return [item.id, res.data];
+      } catch (err) {
+        console.error("Erreur PATC pour l'élève", item.id, err);
+        return [item.id, []];
+      }
+    });
 
-  
-    
+    const results = await Promise.all(promises);
+    const patcMap = Object.fromEntries(results);
+    setPatcsByEleve(patcMap);
+  };
 
+  if (currentItems.length > 0) fetchPatcs();
+}, [currentItems]);
   
  
 
@@ -720,23 +779,28 @@ if (regroupement) {
                     </strong>
                   </td>
                   <td style={{ color: item.jours > 45 ? 'red' : 'black' }}>
-            <div className="d-flex align-items-center">
-              <span><strong>{item.jours}</strong> jour(s)</span>
-              <span
-                className="badge rounded-pill px-3 py-1 fw-medium badge-pulse"
-                style={{
-                  backgroundColor: item.consultations?.length > 1 ? '#ff9800' : '#17a2b8',
-                  color: 'white',
-                  fontSize: '0.75rem',
-                  letterSpacing: '0.5px',
-                  marginLeft: '12px'
-                }}
-                title={`Consultations : ${item.consultations?.length || 0}`}
-              >
-                {item.consultations?.length > 1 ? 'Discontinue' : 'Continue'}
-              </span>
-            </div>
-          </td>
+  <div className="d-flex align-items-center">
+    <span><strong>{item.jours}</strong> jour(s)</span>
+
+    {patcsByEleve[item.id]?.length > 0 && (
+      <span
+        className="badge rounded-pill px-3 py-1 fw-medium"
+        style={{
+          backgroundColor: '#007bff',
+          color: 'white',
+          fontSize: '0.75rem',
+          letterSpacing: '0.5px',
+          marginLeft: '8px'
+        }}
+        title={`PATC(s) : ${patcsByEleve[item.id].length}`}
+      >
+        PATC
+      </span>
+    )}
+  </div>
+</td>
+
+
 
                 </tr>
               ))
@@ -805,16 +869,18 @@ if (regroupement) {
                 {(() => {
                     // Filtrage et tri
                     const filtered = joursEscadron.filter(item => {
-                        const consultation = consultations.find(c => c.id === item.id);
-                        const nom = consultation?.Eleve?.nom?.toLowerCase() || "";
-                        const prenom = consultation?.Eleve?.prenom?.toLowerCase() || "";
-                        const incorporation = consultation?.Eleve?.numeroIncorporation?.toLowerCase() || "";
-                        return (
-                            nom.includes(searchTerm.toLowerCase()) ||
-                            prenom.includes(searchTerm.toLowerCase()) ||
-                            incorporation.includes(searchTerm.toLowerCase())
-                        );
-                    });
+                      const consultation = consultations.find(c => c.id === item.id); // <-- obligatoire !
+                      const nom = (consultation?.Eleve?.nom || "").toLowerCase();
+                      const prenom = (consultation?.Eleve?.prenom || "").toLowerCase();
+                      const incorporation = (consultation?.Eleve?.numeroIncorporation || "").toLowerCase();
+                  
+                      return (
+                          nom.includes(searchTerm.toLowerCase()) ||
+                          prenom.includes(searchTerm.toLowerCase()) ||
+                          incorporation.includes(searchTerm.toLowerCase())
+                      );
+                  });
+                  
 
                     const sorted = filtered.sort((a, b) => b.jours - a.jours);
 
@@ -828,30 +894,41 @@ if (regroupement) {
                     return (
                         <>
                             <ul className="list-group">
-                                {currentItems.map(item => {
-                                    const consultation = consultations.find(c => c.id === item.id);
-                                    const nom = consultation?.Eleve?.nom || "";
-                                    const prenom = consultation?.Eleve?.prenom || "";
+                            {currentItems.map(item => {
+                                    const c = item.consultation;
+                                    const nom = c?.Eleve?.nom || "";
+                                    const prenom = c?.Eleve?.prenom || "";
+                                    const numeroIncorporation=c?.Eleve?.numeroIncorporation || "";
+                                    const escadron=c?.Eleve?.escadron || "";
+                                    const peloton=c?.Eleve?.peloton || "";
                                     
 
                                     return (
-                                        <li key={item.id} className="list-group-item d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <strong>{nom} {prenom}</strong><br />
-                                                <small className="text-muted">ID: {item.id}</small>
-                                            </div>
-                                            <span
-                                            className={`badge rounded-pill ${item.jours > 45 ? 'bg-danger' : 'bg-primary'}`}
-                                            style={{ cursor: 'pointer' }}
-                                            onClick={() => handleBadgeClick(item)}
-                                          >
-                                            {item.jours} jour(s)
-                                          </span>
-
-                                        </li>
+                                      <li key={item.id} className="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                          <strong>{nom} {prenom}</strong><br />
+                                          <small className="text-muted">
+                                            NR{numeroIncorporation} ({escadron}/{peloton}) | ID: {item.id}
+                                          </small>
+                                        </div>
+                  
+                                        <span
+                                          className={`badge rounded-pill ${
+                                            item.enCours
+                                              ? 'bg-warning text-dark' // en cours = jaune
+                                              : item.jours > 45
+                                                ? 'bg-danger'
+                                                : 'bg-primary'
+                                          }`}
+                                          style={{ cursor: 'pointer' }}
+                                          onClick={() => handleBadgeClick(c)}
+                                        >
+                                          {item.jours} jour(s) {item.enCours && "(En cours)"}
+                                        </span>
+                                      </li>
                                     );
-                                })}
-                            </ul>
+                                  })}
+                                </ul>
                              {/* Modal */}
                              {showModal2 && selectedItem && (
                 <div
@@ -1223,117 +1300,167 @@ if (regroupement) {
                       </div>
                     </div>
                    {/* Modal Bootstrap */}
-                   <Modal show={showModal3} onHide={handleClose} centered  dialogClassName="custom-modal-border">
-                  <Modal.Header closeButton>
-                    <Modal.Title>Informations de l'élève</Modal.Title>
-                  </Modal.Header>
-                  <Modal.Body>
-                    {selectedEleve && (
-                      <>
-                      {selectedEleve.image ? (
-                  (() => {
-                    const imageUrl = `${API_URL.replace(/\/$/, "")}/${selectedEleve.image.replace(/^\s*\//, "")}`;
+                {/* Modal Bootstrap */}
+<Modal show={showModal3} onHide={handleClose} centered dialogClassName="custom-modal-border">
+  <Modal.Header closeButton>
+    <Modal.Title>Informations de l'élève</Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    {selectedEleve && (
+      <>
+        {/* Image */}
+        {selectedEleve.image ? (
+          (() => {
+            const imageUrl = `${API_URL.replace(/\/$/, "")}/${selectedEleve.image.replace(/^\s*\//, "")}`;
+            return (
+              <div className="text-center mb-3">
+                <img
+                  src={imageUrl}
+                  alt={`Photo de ${selectedEleve.nom}`}
+                  style={{
+                    width: "120px",
+                    height: "120px",
+                    objectFit: "cover",
+                    borderRadius: "50%",
+                    border: "3px solid #007bff",
+                  }}
+                />
+              </div>
+            );
+          })()
+        ) : (
+          <div
+            className="text-center mb-3"
+            style={{
+              width: "120px",
+              height: "120px",
+              borderRadius: "50%",
+              backgroundColor: "#ccc",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              color: "#555",
+              fontStyle: "italic",
+              margin: "0 auto 1rem",
+            }}
+          >
+            Pas d'image disponible
+          </div>
+        )}
 
+        {/* Total jours */}
+        <p style={{ color: selectedEleve.jours > 45 ? "red" : "black" }}>
+          <strong>Total des jours :</strong> {selectedEleve.jours}
+        </p>
 
-                    return (
-                      <div className="text-center mb-3">
-                        <img
-                          src={imageUrl}
-                          alt={`Photo de ${selectedEleve.nom}`}
-                          style={{
-                            width: "120px",
-                            height: "120px",
-                            objectFit: "cover",
-                            borderRadius: "50%",
-                            border: "3px solid #007bff",
-                          }}
-                        />
-                      </div>
-                    );
-                  })()
-                ) : (
-                  <div
-                    className="text-center mb-3"
-                    style={{
-                      width: "120px",
-                      height: "120px",
-                      borderRadius: "50%",
-                      backgroundColor: "#ccc",
-                      display: "flex",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      color: "#555",
-                      fontStyle: "italic",
-                      margin: "0 auto 1rem",
-                    }}
-                  >
-                    Pas d'image disponible
-                  </div>
-                )}
+        <hr />
 
+        {/* Consultations */}
+        <h6 className="mb-3">Jours par consultation :</h6>
+        {selectedEleve.consultations?.length === 0 ? (
+          <p className="text-muted fst-italic">Aucune consultation enregistrée.</p>
+        ) : (
+          <div>
+            {selectedEleve.consultations.map((c, i) => {
+              const debut = new Date(c.dateDepart);
+              const fin = c.dateArrive ? new Date(c.dateArrive) : new Date();
+              const diffJours = Math.ceil((fin - debut) / (1000 * 60 * 60 * 24));
+              const isLong = diffJours > 45;
 
-                  <p style={{ color: selectedEleve.jours > 45 ? 'red' : 'black' }}>
-                    <strong>Total des jours :</strong> {selectedEleve.jours}
-                  </p>
-
-                       
-
-                        <hr />
-
-                        <h6 className="mb-3">Jours par consultation :</h6>
-
-            {selectedEleve.consultations.length === 0 ? (
-              <p className="text-muted fst-italic">Aucune consultation enregistrée.</p>
-            ) : (
-              <div>
-                {selectedEleve.consultations.map((c, i) => {
-                  const isLong = c.jours > 45;
-                  return (
-                    <div
-                      key={i}
+              return (
+                <div
+                  key={i}
+                  style={{
+                    marginBottom: "12px",
+                    paddingBottom: "8px",
+                    borderBottom: "1px dashed #ccc",
+                  }}
+                >
+                  <div className="d-flex justify-content-between align-items-center">
+                    <span className="text-muted" style={{ fontSize: "0.85rem" }}>
+                      Consultation ID : {c.id}
+                    </span>
+                    <span
+                      className="badge"
                       style={{
-                        marginBottom: "12px",
-                        paddingBottom: "8px",
-                        borderBottom: "1px dashed #ccc",
+                        backgroundColor: isLong ? "#dc3545" : "#17a2b8",
+                        color: "white",
+                        fontSize: "0.75rem",
+                        padding: "6px 10px",
                       }}
                     >
-                      <div className="d-flex justify-content-between align-items-center">
-                        <span className="text-muted" style={{ fontSize: "0.85rem" }}>
-                          ID : {c.id}
-                        </span>
-                        <span
-                          className="badge"
-                          style={{
-                            backgroundColor: isLong ? "#dc3545" : "#17a2b8",
-                            color: "white",
-                            fontSize: "0.75rem",
-                            padding: "6px 10px",
-                          }}
-                        >
-                          {c.jours} jour(s)
-                        </span>
-                      </div>
-                      <small className="text-muted">
-                        Du <strong>{new Date(c.dateDepart).toLocaleDateString()}</strong> au{" "}
-                        <strong>{new Date(c.dateArrive).toLocaleDateString()}</strong>
-                      </small>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                      {diffJours} jour(s)
+                    </span>
+                  </div>
+                  <small className="text-muted">
+                    Du <strong>{debut.toLocaleDateString("fr-FR")}</strong> au{" "}
+                    <strong>
+                      {c.dateArrive ? fin.toLocaleDateString("fr-FR") : "Aujourd'hui"}
+                    </strong>
+                  </small>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
+        <hr />
 
-                      </>
-                    )}
-                  </Modal.Body>
-                  <Modal.Footer>
-                    <Button variant="secondary" onClick={handleClose}>
-                      Fermer
-                    </Button>
-                  </Modal.Footer>
-                </Modal>
+        {/* PATC */}
+        <h6 className="mb-3">PATC :</h6>
+        {!patcsByEleve[selectedEleve.id] || patcsByEleve[selectedEleve.id].length === 0 ? (
+          <p className="text-muted fst-italic">Aucun PATC enregistré.</p>
+        ) : (
+          <div>
+            {patcsByEleve[selectedEleve.id].map((p, i) => {
+              const debut = new Date(p.dateDebut);
+              const fin = p.dateFin ? new Date(p.dateFin) : new Date();
+              const diffJours = Math.ceil((fin - debut) / (1000 * 60 * 60 * 24));
+              const isLong = diffJours > 45;
 
+              return (
+                <div
+                  key={i}
+                  style={{
+                    marginBottom: "12px",
+                    paddingBottom: "8px",
+                    borderBottom: "1px dashed #ccc",
+                  }}
+                >
+                  <div className="d-flex justify-content-between align-items-center">
+                    <span className="text-muted" style={{ fontSize: "0.85rem" }}>
+                      PATC ID : {p.id}
+                    </span>
+                    <span
+                      className="badge"
+                      style={{
+                        backgroundColor: isLong ? "#dc3545" : "#007bff",
+                        color: "white",
+                        fontSize: "0.75rem",
+                        padding: "6px 10px",
+                      }}
+                    >
+                      {diffJours} jour(s)
+                    </span>
+                  </div>
+                  <small className="text-muted">
+                    Du <strong>{debut.toLocaleDateString("fr-FR")}</strong> au{" "}
+                    <strong>{p.dateFin ? fin.toLocaleDateString("fr-FR") : "Aujourd'hui"}</strong>
+                  </small>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </>
+    )}
+  </Modal.Body>
+  <Modal.Footer>
+    <Button variant="secondary" onClick={handleClose}>
+      Fermer
+    </Button>
+  </Modal.Footer>
+</Modal>
 
             {/* Modal affichant les élèves récents */}
             <Modal show={showModal4} onHide={() => setShowModal4(false)} >
@@ -1417,19 +1544,37 @@ if (regroupement) {
                     </div>
                    
                  
-                  <DataTable
-                    title=" EVACUATION SANITAIRE"
-                    columns={columns}
-                    data={consultations2} // ce sera déjà filtré sur EVASAN
-                    pagination
-                    highlightOnHover
-                    striped
-                    responsive
-                    noDataComponent="Aucune donneé"
-                    paginationPerPage={5} // Affiche au minimum 5 éléments par page
-                    paginationRowsPerPageOptions={[5, 10, 15, 20, 50]} // Options de pagination
-                    customStyles={customStyles}
-                  />
+                  <div>
+                    <h4>EVACUATION SANITAIRE</h4>
+      {/* Barre de recherche */}
+      <input
+        type="text"
+        placeholder="Rechercher..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        style={{
+          marginBottom: "10px",
+          padding: "8px",
+          borderRadius: "5px",
+          border: "1px solid #ccc",
+          width: "250px"
+        }}
+      />
+
+      <DataTable
+        
+        columns={columns}
+        data={filteredData} // 🔹 données filtrées
+        pagination
+        highlightOnHover
+        striped
+        responsive
+        noDataComponent="Aucune donnée"
+        paginationPerPage={5}
+        paginationRowsPerPageOptions={[5, 10, 15, 20, 50]}
+        customStyles={customStyles}
+      />
+    </div>
                   
 
                   <div className="container mt-4">

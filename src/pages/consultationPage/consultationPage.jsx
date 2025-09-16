@@ -4,6 +4,7 @@ import consultationService from "../../services/consultation-service";
 import eleveService from "../../services/eleveService";
 import cadreService from "../../services/cadre-service";
 import courService from "../../services/courService";
+import patcService from "../../services/patc-service";
 import Swal from 'sweetalert2';
 import './index.css'
 import * as XLSX from "xlsx";
@@ -24,6 +25,12 @@ import { saveAs } from "file-saver";
  const [searchIncorporation, setSearchIncorporation] = useState("");
  const user = JSON.parse(localStorage.getItem('user'));
   const [selectedRow, setSelectedRow] = useState(null);
+  const [showPatcModal, setShowPatcModal] = useState(false);
+  const [numeroIncorporation, setNumeroIncorporation] = useState("");
+  //date debut et fin patc 
+  const [dateDebut, setDateDebut] = useState(""); // ou new Date().toISOString().slice(0,10) pour pré-remplir
+const [dateFin, setDateFin] = useState("");     // idem
+
   // ajout  eleve et cadre
   const [eleveData, setEleveData] = useState({});
   const [cadres, setCadres] = useState([]);
@@ -199,6 +206,62 @@ import { saveAs } from "file-saver";
       
     }
   };
+  //save patc 
+  //
+  //
+  const handleSavePatc = async () => {
+    const result = await Swal.fire({
+      title: "Confirmer l'enregistrement",
+      text: "Voulez-vous vraiment enregistrer ce PATC ?",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Oui, enregistrer",
+      cancelButtonText: "Annuler",
+    });
+  
+    if (result.isConfirmed) {
+      try {
+        // Préparer les données à envoyer
+        const patcData = {
+          eleveId: eleveData.eleve.id,  // ID de l'élève
+          dateDebut,
+          dateFin,
+          cour: cour2,
+        };
+  
+        // Appel au service pour créer le PATC
+        await patcService.post(patcData);
+  
+        // Message succès
+        Swal.fire({
+          icon: "success",
+          title: "Succès",
+          text: "PATC enregistré avec succès",
+          timer: 1000,
+          showConfirmButton: false,
+        }).then(() => {
+          setShowPatcModal(false); // fermer le modal
+          // Optionnel : rafraîchir la liste des PATC
+        });
+  
+      } catch (error) {
+        console.error("Erreur :", error);
+        Swal.fire({
+          toast: true,
+          icon: "error",
+          title: "Erreur lors de l'enregistrement",
+          position: "top-end",
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true,
+          customClass: {
+            popup: "bg-danger text-white shadow-lg",
+          },
+        });
+      }
+    }
+  };
+  
   const handleModif = () => {
     consultationService.update(selectedConsultation.id, {
       dateArrive: selectedConsultation.dateArrive,
@@ -356,6 +419,17 @@ import { saveAs } from "file-saver";
   
     saveAs(fileData, "consultations.xlsx");
   };
+  //fonction pour PATC
+  // 2️⃣ Fonction pour récupérer les infos élève
+const handleFetchEleve = () => {
+  if (!numeroIncorporation) return;
+  const eleve = consultations.find(c => c.Eleve?.numeroIncorporation === numeroIncorporation);
+  if (eleve) {
+    setEleveData({ eleve: eleve.Eleve });
+  } else {
+    setEleveData(null);
+  }
+};
 
   return (
 <div className="container py-4">
@@ -588,6 +662,7 @@ import { saveAs } from "file-saver";
 
         <div className="mt-4 d-flex justify-content-center">
         {user?.type !== 'user' && (
+        <div className="d-flex gap-2">
           <button
             className="btn btn-success d-flex align-items-center justify-content-center gap-2 px-4 py-2 rounded-3 shadow"
             onClick={handleSave}
@@ -595,7 +670,17 @@ import { saveAs } from "file-saver";
             <i className="fas fa-save"></i>
             Enregistrer
           </button>
-        )}
+
+          <button
+            className="btn btn-primary d-flex align-items-center justify-content-center gap-2 px-4 py-2 rounded-3 shadow"
+            onClick={() => setShowPatcModal(true)} // ouvre le modal
+          >
+            <i className="fas fa-user-check"></i>
+            PATC
+          </button>
+        </div>
+      )}
+
 
           </div>
 
@@ -865,8 +950,136 @@ import { saveAs } from "file-saver";
                       </div>
                     </div>
                   )}
+{showPatcModal && (
+  <div
+    className="modal fade show d-flex align-items-center justify-content-center"
+    style={{
+      display: "block",
+      position: "fixed",
+      top: 0,
+      left: 0,
+      width: "100vw",
+      height: "100vh",
+      backgroundColor: "rgba(0,0,0,0.4)",
+      backdropFilter: "blur(2px)",
+      zIndex: 1050,
+    }}
+  >
+    <div className="modal-dialog modal-dialog-centered modal-lg">
+      <div className="modal-content shadow-lg border-0">
+        <div className="modal-header bg-primary text-white">
+          <h5 className="modal-title">Ajouter PATC</h5>
+          <button
+            type="button"
+            className="btn-close btn-close-white"
+            onClick={() => setShowPatcModal(false)}
+          ></button>
+        </div>
 
-                        
+        <div className="modal-body">
+          {/* Numéro d'incorporation */}
+          <div className="mb-3">
+            <label>Numéro d'incorporation</label>
+            <input
+              type="text"
+              className="form-control"
+              value={incorporation}
+              onChange={(e) => setIncorporation(e.target.value)}
+              onBlur={handleFetchEleve} // récupère les infos de l'élève
+            />
+          </div>
+
+          {/* Infos élève, seulement si eleveData existe */}
+          {eleveData?.eleve && (
+            <div className="border rounded p-4 bg-light">
+              <h5 className="mb-3">Informations de l'élève</h5>
+
+              <div className="mb-3">
+                <label>Cours</label>
+                <input
+                  className="form-control"
+                  value={eleveData.eleve.cour || ""}
+                  readOnly
+                />
+              </div>
+
+              <div className="mb-3">
+                <label>Nom et Prénom</label>
+                <input
+                  className="form-control"
+                  value={`${eleveData.eleve.nom || ""} ${eleveData.eleve.prenom || ""}`}
+                  readOnly
+                />
+              </div>
+
+              <div className="mb-3">
+                <label>Escadron et peloton</label>
+                <input
+                  className="form-control"
+                  value={`${eleveData.eleve.escadron || ""}/${eleveData.eleve.peloton || ""}`}
+                  readOnly
+                />
+              </div>
+
+              <div className="mb-3">
+                <label>Matricule</label>
+                <input
+                  className="form-control"
+                  value={eleveData.eleve.matricule || ""}
+                  readOnly
+                />
+              </div>
+
+              {/* Dates début et fin */}
+              <div className="mb-3">
+                <label>Date début <span className="text-danger">*</span></label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={dateDebut}
+                  onChange={(e) => setDateDebut(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="mb-3">
+                <label>Date fin <span className="text-danger">*</span></label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={dateFin}
+                  onChange={(e) => setDateFin(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="modal-footer">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setShowPatcModal(false)}
+          >
+            Annuler
+          </button>
+          {user?.type !== "user" && (
+            <button
+              type="button"
+              className="btn btn-success"
+              onClick={handleSavePatc}
+            >
+              Enregistrer
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+
                           
 
                       </div>
