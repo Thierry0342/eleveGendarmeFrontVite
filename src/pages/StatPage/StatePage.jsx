@@ -12,6 +12,9 @@ import { BsPeopleFill, BsCalendarCheck } from "react-icons/bs";
 import dateService from'../../services/dateservice';
 import patcService from '../../services/patc-service';
 import Swal from 'sweetalert2';
+import jsPDF from "jspdf";
+
+import autoTable from 'jspdf-autotable';
 const StatePage = () => {
   const [consultations, setConsultations] = useState([]);
   const [consultations2, setConsultations2] = useState([]);
@@ -187,6 +190,7 @@ useEffect(() => {
     consultationService.getByCour(selectedCour)
       .then(res => {
         setConsultations(res.data);
+       //console.log(res.data);
         calculerJoursEscadron(res.data, dateServeur); 
       })
       .catch(err => {
@@ -655,7 +659,100 @@ useEffect(() => {
   if (currentItems.length > 0) fetchPatcs();
 }, [currentItems]);
   
- 
+ ////
+ ///
+ //
+ ///export consultation externe 
+ // Fonction pour formater la date
+ const formatDateFr = (dateStr) => {
+  if (!dateStr) return "-";
+  const date = new Date(dateStr);
+  if (isNaN(date)) return "-";
+  return date.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+};
+
+// Calcul des jours entre deux dates
+const calculerJours = (dateDepart, dateArrive) => {
+  const depart = new Date(dateDepart);
+  const arrive = new Date(dateArrive);
+  const diffTime = arrive - depart;
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 0;
+};
+
+const handleExportConsultationsPDF = (joursParEleve, dateServeur, joursSup = 0) => {
+  // Crée un objet Date à partir de la date serveur
+  const todayDate = new Date(dateServeur);
+
+  // Trier les élèves par total jours décroissant
+  joursParEleve.sort((a, b) => b.jours - a.jours);
+
+  const doc = new jsPDF();
+  doc.setFontSize(18);
+  doc.text("Résumé des consultations par élève du "+" "+dateServeur, 14, 20);
+
+  const tableData = [];
+
+  joursParEleve.forEach((eleve) => {
+    let type = "";
+    let details = "";
+    let totalJoursDyn = 0;
+
+    const consultations = eleve.consultations;
+
+    // Déterminer le type
+    type = consultations.length === 1 
+      ? consultations[0].enCours ? "En cours" : "Continue"
+      : "Discontinue";
+
+    // Construire les détails et calculer le total jours dynamiquement
+    details = consultations
+      .map((c, idx) => {
+        // Pour EN COURS, utilise la date serveur + joursSup
+        const arrive = c.enCours 
+          ? new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate() + joursSup)
+          : new Date(c.dateArrive);
+
+        const jours = calculerJours(c.dateDepart, arrive);
+        totalJoursDyn += jours;
+
+        return `${idx + 1}) Départ: ${formatDateFr(c.dateDepart)} | Arrivée: ${
+          c.enCours ? "EN COURS" : formatDateFr(c.dateArrive)
+        } | Total jours: ${jours}`;
+      })
+      .join("\n");
+
+    details += `\nTotal jours recalculé: ${totalJoursDyn}`;
+
+    tableData.push([
+      eleve.nom,
+      eleve.numeroIncorporation,
+      `${eleve.escadron}/${eleve.peloton}`,
+      totalJoursDyn,
+      type,
+      details,
+    ]);
+  });
+
+  autoTable(doc, {
+    head: [["Nom & Prénom", "Inc", "Esc / Pon", "Total Jours", "Type", "Détails"]],
+    body: tableData,
+    startY: 30,
+    styles: { fontSize: 9, cellWidth: "wrap", valign: "middle" },
+    columnStyles: {
+      0: { cellWidth: 60 },
+      1: { cellWidth: 15 },
+      2: { cellWidth: 15 },
+      3: { cellWidth: 20, halign: "center" },
+      4: { cellWidth: 25 },
+      5: { cellWidth: 70 },
+    },
+    margin: { left: 2, right: 2 },
+    tableWidth: 'auto',
+  });
+
+  doc.save("resume_consultations.pdf");
+};
+
 
   return (
     <div className="container mt-4">
@@ -926,9 +1023,16 @@ useEffect(() => {
                                           {item.jours} jour(s) {item.enCours && "(En cours)"}
                                         </span>
                                       </li>
+                                      
                                     );
+                                    
                                   })}
+                                  <Button onClick={() => handleExportConsultationsPDF(joursParEleve, dateServeur)}>
+  Exporter Résumé PDF
+</Button>
+
                                 </ul>
+                                
                              {/* Modal */}
                              {showModal2 && selectedItem && (
                 <div
@@ -1298,7 +1402,9 @@ useEffect(() => {
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
+                      
                     </div>
+                    
                    {/* Modal Bootstrap */}
                 {/* Modal Bootstrap */}
 <Modal show={showModal3} onHide={handleClose} centered dialogClassName="custom-modal-border">
