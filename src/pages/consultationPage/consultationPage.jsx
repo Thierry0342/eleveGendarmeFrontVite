@@ -20,7 +20,9 @@ import { saveAs } from "file-saver";
   const [coursList,setCoursList] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [searchNom, setSearchNom] = useState("");
-  const [searchDate, setSearchDate] = useState("");4
+  const [searchDate, setSearchDate] = useState("");
+  const [searchDateStart, setSearchDateStart] = useState("");
+const [searchDateEnd, setSearchDateEnd] = useState("");
   const [searchMotif, setSearchMotif] = useState("");
  const [searchIncorporation, setSearchIncorporation] = useState("");
  const user = JSON.parse(localStorage.getItem('user'));
@@ -378,14 +380,33 @@ const [dateFin, setDateFin] = useState("");     // idem
     
   ];
   //filtre donne avant affichage dans le tableau 
-  const filteredConsultations = consultations.filter((item) => {
-    const nomComplet = `${item.Eleve?.nom || ""} ${item.Eleve?.prenom || ""}`.toLowerCase();
-    const dateMatch = searchDate === "" || item.dateDepart?.startsWith(searchDate);
-    const nomMatch = nomComplet.includes(searchNom.toLowerCase());
-    const motifMatch = item.status?.toLowerCase().includes(searchMotif.toLowerCase());
-    const incorporationMatch = item.Eleve?.numeroIncorporation?.toString().includes(searchIncorporation);
-    return nomMatch && dateMatch && motifMatch && incorporationMatch;
-  });
+  // filtre avant affichage
+const filteredConsultations = consultations.filter((item) => {
+  const nomComplet = `${item.Eleve?.nom || ""} ${item.Eleve?.prenom || ""}`.toLowerCase();
+
+  // 🔹 logique de filtrage des dates
+  let dateMatch = true;
+  if (searchDateStart && searchDateEnd) {
+    // entre deux dates incluses
+    dateMatch =
+      new Date(item.dateDepart) >= new Date(searchDateStart) &&
+      new Date(item.dateDepart) <= new Date(searchDateEnd);
+  } else if (searchDateStart) {
+    // seulement date début → égalité stricte
+    dateMatch = item.dateDepart?.startsWith(searchDateStart);
+  } else if (searchDateEnd) {
+    // seulement date fin → égalité stricte
+    dateMatch = item.dateDepart?.startsWith(searchDateEnd);
+  }
+
+  const nomMatch = nomComplet.includes(searchNom.toLowerCase());
+  const motifMatch = item.status?.toLowerCase().includes(searchMotif.toLowerCase());
+  const incorporationMatch = item.Eleve?.numeroIncorporation
+    ?.toString()
+    .includes(searchIncorporation);
+
+  return nomMatch && dateMatch && motifMatch && incorporationMatch;
+});
   
   //export en excel 
   const handleExportExcel = () => {
@@ -721,17 +742,29 @@ const handleFetchEleve = () => {
                   <i className="bi bi-person position-absolute top-50 start-0 translate-middle-y ms-2 text-primary"></i>
                 </div>
 
-                {/* Filtrer par date de départ */}
+               {/* Filtrer par période de départ */}
                 <div className="col-md-6 position-relative">
-                  <label className="form-label fw-bold">📅 Filtrer par date de départ</label>
+                  <label className="form-label fw-bold">📅 Date de départ (début)</label>
                   <input
                     type="date"
                     className="form-control border-primary rounded-3 shadow-sm ps-4"
-                    value={searchDate}
-                    onChange={(e) => setSearchDate(e.target.value)}
+                    value={searchDateStart}
+                    onChange={(e) => setSearchDateStart(e.target.value)}
                   />
                   <i className="bi bi-calendar-event position-absolute top-50 start-0 translate-middle-y ms-2 text-primary"></i>
                 </div>
+
+                <div className="col-md-6 position-relative">
+                  <label className="form-label fw-bold">📅 Date de départ (fin)</label>
+                  <input
+                    type="date"
+                    className="form-control border-primary rounded-3 shadow-sm ps-4"
+                    value={searchDateEnd}
+                    onChange={(e) => setSearchDateEnd(e.target.value)}
+                  />
+                  <i className="bi bi-calendar-event position-absolute top-50 start-0 translate-middle-y ms-2 text-primary"></i>
+                </div>
+
 
                 {/* Filtrer par motif */}
                 <div className="col-md-6 position-relative">

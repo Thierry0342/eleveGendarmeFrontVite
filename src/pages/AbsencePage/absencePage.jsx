@@ -1363,7 +1363,7 @@ spaSpecialesDuJour.forEach(spa => {
     // Sections pour absents et indisponibles (à ajuster selon ta structure réelle)
     const sectionsAbsents = [
       'ALPHA',   'BRAVO',   'CHARLIE', 'DELTA',  'ECHO', 
-      'FOXTROT', 'GOLF',    'HOTEL',   'INDIA',  'JULIETTE', 
+      'FOXTROT', 'GOLF',    'HOTEL',   'INDIA',  'JULIETE', 
       'KILO',    'LIMA',    'MIKE',    'NOVEMBER','OSCAR',
       'PAPA',    'QUEBEC',  'ROMEO',   'SIERRA', 'TANGO',
       'UNIFORM', 'VICTOR',  'WHISKY', 'XRAY',   'YANKEE', 
