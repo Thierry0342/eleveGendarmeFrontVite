@@ -572,6 +572,9 @@ const getSanctionType = (s) => {
 
 const getSanctionMotif = (s) => s?.motif ?? s?.raison ?? s?.reason ?? "-";
 
+const getSanctionTaux = (s) =>
+  s?.taux ?? s?.rate ?? s?.valeur ?? null;
+
 // ===== Chargement à l'ouverture du modal =====
 React.useEffect(() => {
   const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
@@ -611,6 +614,7 @@ async function handleSaveSanction() {
     eleveId,
     motif,
     type: sanctionForm.type,                  // pour compat future si tu ajoutes la colonne "type"
+    taux: sanctionForm.taux ?? null,  
     sanction: boolFromType(sanctionForm.type) // booléen attendu par le back actuel
   };
 
@@ -635,6 +639,7 @@ function handleEditSanction(s) {
   setSanctionEditingId(s.id);
   setSanctionForm({
     type: getSanctionType(s),
+    taux: getSanctionTaux(s) || "",
     motif: getSanctionMotif(s) || ""
   });
 }
@@ -4362,153 +4367,180 @@ function handleExportExcel2() {
           </div>
         </div>
 
-        {/* ================= COL 4 (ligne 2) : SANCTIONS ================= */}
-        <div className="col-12 col-lg-6 d-flex">
-          <div className="card shadow-sm border-0 w-100 d-flex flex-column h-100">
-            <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
-              <span>Sanctions</span>
-              <div className="d-flex gap-2">
-                <span className="badge bg-success-subtle text-success border border-success-subtle">
-                  + {(sanctions || []).filter(s => getSanctionType(s) === "positive").length}
-                </span>
-                <span className="badge bg-danger-subtle text-danger border border-danger-subtle">
-                  − {(sanctions || []).filter(s => getSanctionType(s) === "negative").length}
-                </span>
-              </div>
+{/* ================= COL 4 (ligne 2) : SANCTIONS ================= */}
+<div className="col-12 col-lg-6 d-flex">
+  <div className="card shadow-sm border-0 w-100 d-flex flex-column h-100">
+    <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+      <span>Sanctions</span>
+      <div className="d-flex gap-2">
+        <span className="badge bg-success-subtle text-success border border-success-subtle">
+          + {(sanctions || []).filter(s => getSanctionType(s) === "positive").length}
+        </span>
+        <span className="badge bg-danger-subtle text-danger border border-danger-subtle">
+          − {(sanctions || []).filter(s => getSanctionType(s) === "negative").length}
+        </span>
+      </div>
+    </div>
+
+    <div className="card-body p-2" style={{ overflowY: "auto" }}>
+      {loadingSanctions && <div className="alert alert-info py-2 mb-2">Chargement…</div>}
+      {errorSanctions && <div className="alert alert-danger py-2 mb-2">{errorSanctions}</div>}
+      {!loadingSanctions && !errorSanctions && (!sanctions || sanctions.length === 0) && (
+        <div className="text-muted">Aucune sanction.</div>
+      )}
+
+      {/* Formulaire d’ajout/édition — visible uniquement pour admin/superadmin */}
+      {canEditSanctions && (
+        <div className="mb-2 border rounded p-2">
+          <div className="row g-2 align-items-end">
+            {/* Champ Type */}
+            <div className="col-4">
+              <label className="form-label mb-1">Type</label>
+              <select
+                className="form-select form-select-sm"
+                value={sanctionForm.type}
+                onChange={(e) => setSanctionForm({ ...sanctionForm, type: e.target.value })}
+              >
+                <option value="positive">Positive</option>
+                <option value="negative">Négative</option>
+              </select>
             </div>
 
-            <div className="card-body p-2" style={{overflowY:'auto'}}>
-              {loadingSanctions && <div className="alert alert-info py-2 mb-2">Chargement…</div>}
-              {errorSanctions && <div className="alert alert-danger py-2 mb-2">{errorSanctions}</div>}
-              {!loadingSanctions && !errorSanctions && (!sanctions || sanctions.length === 0) && (
-                <div className="text-muted">Aucune sanction.</div>
-              )}
+            {/* Champ Taux */}
+            <div className="col-3">
+              <label className="form-label mb-1">Taux</label>
+              <input
+                type="text"
+                className="form-control form-control-sm"
+                placeholder="0"
+                min="0"
+                value={sanctionForm.taux || ""}
+                onChange={(e) => setSanctionForm({ ...sanctionForm, taux: e.target.value })}
+              />
+            </div>
 
-              {/* Formulaire d’ajout/édition — visible uniquement pour admin/superadmin */}
-              {canEditSanctions && (
-                <div className="mb-2 border rounded p-2">
-                  <div className="row g-2 align-items-end">
-                    <div className="col-5">
-                      <label className="form-label mb-1">Type</label>
-                      <select
-                        className="form-select form-select-sm"
-                        value={sanctionForm.type}
-                        onChange={(e) => setSanctionForm({ ...sanctionForm, type: e.target.value })}
-                      >
-                        <option value="positive">Positive</option>
-                        <option value="negative">Négative</option>
-                      </select>
-                    </div>
-                    <div className="col-7">
-                      <label className="form-label mb-1">Motif</label>
-                      <input
-                        className="form-control form-control-sm"
-                        placeholder="Motif…"
-                        rows={4}
-                        value={sanctionForm.motif}
-                        onChange={(e) => setSanctionForm({ ...sanctionForm, motif: e.target.value })}
-                      />
-                    </div>
-                    <div className="col-12 d-flex gap-2">
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-primary"
-                        onClick={handleSaveSanction}
-                        disabled={!sanctionForm.motif || sanctionForm.motif.trim().length === 0}
-                        title={!sanctionForm.motif?.trim() ? "Saisir un motif pour activer" : "Enregistrer la sanction"}
-                      >
-                        {sanctionEditingId ? "Mettre à jour" : "Ajouter"}
-                      </button>
-                      {sanctionEditingId && (
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-secondary"
-                          onClick={() => { setSanctionEditingId(null); setSanctionForm({ type: "negative", motif: "" }); }}
-                        >
-                          Annuler
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
+            {/* Champ Motif */}
+            <div className="col-5">
+              <label className="form-label mb-1">Motif</label>
+              <input
+                className="form-control form-control-sm"
+                placeholder="Motif…"
+                value={sanctionForm.motif}
+                onChange={(e) => setSanctionForm({ ...sanctionForm, motif: e.target.value })}
+              />
+            </div>
 
-             {/* Tableau sanctions */}
-{sanctions && sanctions.length > 0 && (
-  <div 
-    className="table-responsive" 
-    style={{ maxHeight: "300px", overflowY: "auto" }} // ✅ scroll vertical dans le tableau
-  >
-    <table className="table table-sm table-bordered align-middle mb-0">
-      <thead>
-        <tr>
-          <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>#</th>
-          <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>Type</th>
-          <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>Motif</th>
-          {canEditSanctions && (
-            <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>Actions</th>
-          )}
-        </tr>
-      </thead>
-      <tbody>
-        {sanctions.map((s, idx) => {
-          const type = getSanctionType(s);
-          const motif = s?.motif ?? s?.raison ?? s?.reason ?? "-";
-          const badge =
-            type === "positive" ? (
-              <span className="badge bg-success-subtle text-success border border-success-subtle">
-                Positive
-              </span>
-            ) : (
-              <span className="badge bg-danger-subtle text-danger border border-danger-subtle">
-                Négative
-              </span>
-            );
-
-          return (
-            <tr key={s.id || idx}>
-              <td>{s.id ?? idx + 1}</td>
-              <td>{badge}</td>
-              <td
-                style={{
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  minWidth: "200px",
-                }}
+            {/* Boutons */}
+            <div className="col-12 d-flex gap-2">
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={handleSaveSanction}
+                disabled={!sanctionForm.motif || sanctionForm.motif.trim().length === 0}
+                title={
+                  !sanctionForm.motif?.trim()
+                    ? "Saisir un motif pour activer"
+                    : "Enregistrer la sanction"
+                }
               >
-                {motif || "-"}
-              </td>
-              {canEditSanctions && (
-                <td>
-                  <div className="d-flex gap-2">
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-primary"
-                      onClick={() => handleEditSanction(s)}
-                    >
-                      Modifier
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-danger"
-                      onClick={() => handleDeleteSanction(s.id)}
-                    >
-                      Supprimer
-                    </button>
-                  </div>
-                </td>
+                {sanctionEditingId ? "Mettre à jour" : "Ajouter"}
+              </button>
+              {sanctionEditingId && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={() => {
+                    setSanctionEditingId(null);
+                    setSanctionForm({ type: "negative", motif: "", taux: "" });
+                  }}
+                >
+                  Annuler
+                </button>
               )}
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  </div>
-)}
-
             </div>
           </div>
         </div>
+      )}
+
+      {/* Tableau sanctions */}
+      {sanctions && sanctions.length > 0 && (
+        <div
+          className="table-responsive"
+          style={{ maxHeight: "300px", overflowY: "auto" }} // ✅ scroll vertical dans le tableau
+        >
+          <table className="table table-sm table-bordered align-middle mb-0">
+            <thead>
+              <tr>
+                <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>#</th>
+                <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>Type</th>
+                <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>Taux</th>
+                <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>Motif</th>
+                {canEditSanctions && (
+                  <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>Actions</th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {sanctions.map((s, idx) => {
+                const type = getSanctionType(s);
+                const motif = s?.motif ?? s?.raison ?? s?.reason ?? "-";
+                const taux = s?.taux ?? "-";
+                const badge =
+                  type === "positive" ? (
+                    <span className="badge bg-success-subtle text-success border border-success-subtle">
+                      Positive
+                    </span>
+                  ) : (
+                    <span className="badge bg-danger-subtle text-danger border border-danger-subtle">
+                      Négative
+                    </span>
+                  );
+
+                return (
+                  <tr key={s.id || idx}>
+                    <td>{s.id ?? idx + 1}</td>
+                    <td>{badge}</td>
+                    <td>{taux}</td>
+                    <td
+                      style={{
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                        minWidth: "200px",
+                      }}
+                    >
+                      {motif || "-"}
+                    </td>
+                    {canEditSanctions && (
+                      <td>
+                        <div className="d-flex gap-2">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-primary"
+                            onClick={() => handleEditSanction(s)}
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => handleDeleteSanction(s.id)}
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  </div>
+</div>
+
 
       </div>{/* /row */}
     </div>{/* /modal-content */}
