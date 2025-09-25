@@ -4404,6 +4404,7 @@ function handleExportExcel2() {
                       <input
                         className="form-control form-control-sm"
                         placeholder="Motif…"
+                        rows={4}
                         value={sanctionForm.motif}
                         onChange={(e) => setSanctionForm({ ...sanctionForm, motif: e.target.value })}
                       />
@@ -4432,51 +4433,79 @@ function handleExportExcel2() {
                 </div>
               )}
 
-              {/* Tableau sanctions */}
-              {sanctions && sanctions.length > 0 && (
-                <div className="table-responsive">
-                  <table className="table table-sm table-bordered align-middle">
-                    <thead>
-                      <tr>
-                        <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>#</th>
-                        <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Type</th>
-                        <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Motif</th>
-                        {canEditSanctions && (
-                          <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Actions</th>
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sanctions.map((s, idx) => {
-                        const type = getSanctionType(s);
-                        const motif = s?.motif ?? s?.raison ?? s?.reason ?? "-";
-                        const badge = type === "positive"
-                          ? <span className="badge bg-success-subtle text-success border border-success-subtle">Positive</span>
-                          : <span className="badge bg-danger-subtle text-danger border border-danger-subtle">Négative</span>;
-                        return (
-                          <tr key={s.id || idx}>
-                            <td>{s.id ?? (idx + 1)}</td>
-                            <td>{badge}</td>
-                            <td>{motif || "-"}</td>
-                            {canEditSanctions && (
-                              <td>
-                                <div className="d-flex gap-2">
-                                  <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => handleEditSanction(s)}>
-                                    Modifier
-                                  </button>
-                                  <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteSanction(s.id)}>
-                                    Supprimer
-                                  </button>
-                                </div>
-                              </td>
-                            )}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+             {/* Tableau sanctions */}
+{sanctions && sanctions.length > 0 && (
+  <div 
+    className="table-responsive" 
+    style={{ maxHeight: "300px", overflowY: "auto" }} // ✅ scroll vertical dans le tableau
+  >
+    <table className="table table-sm table-bordered align-middle mb-0">
+      <thead>
+        <tr>
+          <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>#</th>
+          <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>Type</th>
+          <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>Motif</th>
+          {canEditSanctions && (
+            <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>Actions</th>
+          )}
+        </tr>
+      </thead>
+      <tbody>
+        {sanctions.map((s, idx) => {
+          const type = getSanctionType(s);
+          const motif = s?.motif ?? s?.raison ?? s?.reason ?? "-";
+          const badge =
+            type === "positive" ? (
+              <span className="badge bg-success-subtle text-success border border-success-subtle">
+                Positive
+              </span>
+            ) : (
+              <span className="badge bg-danger-subtle text-danger border border-danger-subtle">
+                Négative
+              </span>
+            );
+
+          return (
+            <tr key={s.id || idx}>
+              <td>{s.id ?? idx + 1}</td>
+              <td>{badge}</td>
+              <td
+                style={{
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                  minWidth: "200px",
+                }}
+              >
+                {motif || "-"}
+              </td>
+              {canEditSanctions && (
+                <td>
+                  <div className="d-flex gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary"
+                      onClick={() => handleEditSanction(s)}
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-danger"
+                      onClick={() => handleDeleteSanction(s.id)}
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </td>
               )}
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
+)}
+
             </div>
           </div>
         </div>
