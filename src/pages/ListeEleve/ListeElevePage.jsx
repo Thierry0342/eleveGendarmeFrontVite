@@ -1274,7 +1274,7 @@ async function importerPersonnelDepuisColler() {
 }
 
 
-// === UNIQUE === Remplace toutes les définitions par celle-ci
+
 async function importerPersonnelDepuisExcel() {
   // Sauvegarder l'état actuel AVANT l'import si le modal salles est ouvert
   if (document.querySelector('.room-card')) {
@@ -2431,103 +2431,112 @@ popup.addEventListener('change', (e) => {
     const alerts=[]; if(missingSV>0) alerts.push(`Salles sans 2 surveillants: ${missingSV}.`);
     return { salles, estafettesParBatiment, alerts, estafettesData };
   }
-  /******************************************************
-   * 7) RÉPARTITION ÉLÈVES
-   ******************************************************/
-  async function genererRepartitionDepuisCartes(eleves, cartes, exclusionsDict = {}) {
-    // 1) Sécuriser l'entrée élèves
-    const rawEleves = Array.isArray(eleves) ? eleves : [];
-    const cleanEleves = rawEleves.filter(e => e && typeof e === "object"); // supprime null/undefined/autres
-    const exclusionSet = new Set(Object.keys(exclusionsDict || {}));
-  
-    // 2) Exclure + garder une liste propre
-    const elevesExclus = [];
-    const elevesFiltres = cleanEleves.filter(e => {
-      const inc = (e.numeroIncorporation ?? "").toString().trim();
-      if (inc && exclusionSet.has(inc)) {
-        e.salle = exclusionsDict[inc] || "Non affecté";
-        elevesExclus.push(e);
-        return false;
-      }
-      return true;
-    });
-  
-    // 3) Mélanger
-    const shuffle = (arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } };
-    shuffle(elevesFiltres);
-  
-    // 4) Créer les pools par escadron (clé par défaut si manquant)
-    const pools = {};
-    for (const e of elevesFiltres) {
-      const key = (e.escadron ?? "—").toString();   // ← évite undefined
-      if (!pools[key]) pools[key] = [];
-      pools[key].push(e);
+/******************************************************
+ * 7) RÉPARTITION ÉLÈVES (version 50 par salle, max 6/escadron)
+ ******************************************************/
+async function genererRepartitionDepuisCartes(eleves, cartes, exclusionsDict = {}) {
+  // 1) Sécuriser l'entrée élèves
+  const rawEleves = Array.isArray(eleves) ? eleves : [];
+  const cleanEleves = rawEleves.filter(e => e && typeof e === "object");
+  const exclusionSet = new Set(Object.keys(exclusionsDict || {}));
+
+  // 2) Exclure les élèves spécifiés
+  const elevesExclus = [];
+  const elevesFiltres = cleanEleves.filter(e => {
+    const inc = (e.numeroIncorporation ?? "").toString().trim();
+    if (inc && exclusionSet.has(inc)) {
+      e.salle = exclusionsDict[inc] || "Non affecté";
+      elevesExclus.push(e);
+      return false;
     }
-    // Mélanger chaque pool
-    Object.keys(pools).forEach(k => shuffle(pools[k]));
-  
-    // 5) Remplissage des salles
-    const salles = [];
-    const restants = [];
-    (cartes || []).forEach(({ numero, capacite, description, batiment, surveillants }) => {
-      const salle = [];
-      const quotas = {};
-  
-      const round = (maxParEsc) => {
-        let added = 0;
-        const keys = Object.keys(pools).filter(k => pools[k].length > 0);
-        shuffle(keys);
-        for (const esc of keys) {
-          if (salle.length >= (capacite || 0)) break;
-          const q = quotas[esc] || 0;
-          if (q < maxParEsc && pools[esc].length > 0) {
-            const e = pools[esc].shift();
-            if (e) {
-              e.salle = numero;
-              e.salleDesc = description || "";
-              e.batiment = batiment || "";
-              salle.push(e);
-              quotas[esc] = q + 1;
-              added++;
-            }
+    return true;
+  });
+
+  // 3) Mélanger les élèves
+  const shuffle = (arr) => {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+  };
+  shuffle(elevesFiltres);
+
+  // 4) Créer des pools par escadron
+  const pools = {};
+  for (const e of elevesFiltres) {
+    const key = (e.escadron ?? "—").toString();
+    if (!pools[key]) pools[key] = [];
+    pools[key].push(e);
+  }
+  Object.keys(pools).forEach(k => shuffle(pools[k]));
+
+  // 5) Remplissage des salles
+  const salles = [];
+  const restants = [];
+
+  (cartes || []).forEach(({ numero, capacite, description, batiment, surveillants }) => {
+    const salle = [];
+    const quotas = {};
+
+    // Fonction de remplissage avec limite de 6 max / escadron
+    const round = (maxParEsc) => {
+      let added = 0;
+      const keys = Object.keys(pools).filter(k => pools[k].length > 0);
+      shuffle(keys);
+      for (const esc of keys) {
+        if (salle.length >= (capacite || 0)) break;
+        const q = quotas[esc] || 0;
+        if (q < maxParEsc && pools[esc].length > 0) {
+          const e = pools[esc].shift();
+          if (e) {
+            e.salle = numero;
+            e.salleDesc = description || "";
+            e.batiment = batiment || "";
+            salle.push(e);
+            quotas[esc] = q + 1;
+            added++;
           }
         }
-        return added;
-      };
-  
-      // 2/3/4 par escadron (selon places restantes)
-      if (salle.length < capacite) round(1);
-      if (salle.length < capacite) round(2);
-      while (salle.length < capacite && round(3) > 0) {}
-      while (salle.length < capacite && round(4) > 0) {}
-  
-      salles.push({
-        numero,
-        effectif: salle.length,
-        eleves: salle,
-        description: description || "",
-        batiment: batiment || "",
-        surveillants: surveillants || []
-      });
+      }
+      return added;
+    };
+
+    // ⚙️ Répartition progressive : jusqu’à 6 élèves max / escadron
+    if (salle.length < capacite) round(1);
+    if (salle.length < capacite) round(2);
+    while (salle.length < capacite && round(3) > 0) {}
+    while (salle.length < capacite && round(4) > 0) {}
+    while (salle.length < capacite && round(5) > 0) {}
+    while (salle.length < capacite && round(6) > 0) {}
+
+    salles.push({
+      numero,
+      effectif: salle.length,
+      eleves: salle,
+      description: description || "",
+      batiment: batiment || "",
+      surveillants: surveillants || []
     });
-  
-    // 6) Restants
-    Object.values(pools).forEach(l => restants.push(...l));
-    shuffle(restants);
-    if (restants.length > 0) {
-      restants.forEach(e => { e.salle = "Reste"; e.batiment = ""; });
-      salles.push({ numero: "Reste", effectif: restants.length, eleves: restants, description: "" });
-    }
-  
-    // 7) Estafettes + export
-    const staff = loadStaff();
-    const { estafettesParBatiment, alerts } = affecterPersonnel(salles, staff);
-    if (alerts.length) console.warn(alerts.join(" | "));
-    checkNoDoublonSurvEstaf(salles, estafettesParBatiment);
-  
-    const tousEleves = [...salles.flatMap(s => s.eleves), ...elevesExclus];
-    await exporterVersExcel(tousEleves, salles, elevesExclus, estafettesParBatiment);
+  });
+
+  // 6) Gérer les restants
+  Object.values(pools).forEach(l => restants.push(...l));
+  shuffle(restants);
+  if (restants.length > 0) {
+    restants.forEach(e => { e.salle = "Reste"; e.batiment = ""; });
+    salles.push({ numero: "Reste", effectif: restants.length, eleves: restants, description: "" });
   }
+
+  // 7) Estafettes + export
+  const staff = loadStaff();
+  const { estafettesParBatiment, alerts } = affecterPersonnel(salles, staff);
+  if (alerts.length) console.warn(alerts.join(" | "));
+  checkNoDoublonSurvEstaf(salles, estafettesParBatiment);
+
+  const tousEleves = [...salles.flatMap(s => s.eleves), ...elevesExclus];
+  await exporterVersExcel(tousEleves, salles, elevesExclus, estafettesParBatiment);
+}
+
   
   function checkNoDoublonSurvEstaf(salles, estafettesParBatiment) {
     const allSV = new Set((salles || [])
@@ -2625,7 +2634,7 @@ popup.addEventListener('change', (e) => {
   };
 
   // Ajout de "Sexe" dans l'en-tête
-  const header = ["NR", "Nom", "Prénom", "Sexe", "Escadron", "Peloton", "Incorporation", "Salle", "Bâtiment"];
+  const header = ["NR", "Nom", "Prénom", "Sexe", "Esc", "Pon", "Inc", "Salle", "Bâtiment"];
   const titre  = (salle.numero === "Reste" ? "SALLE RESTE" : `SALLE ${salle.numero}`).toUpperCase();
   const aoa    = [];
   const merges = [];
@@ -2693,10 +2702,9 @@ popup.addEventListener('change', (e) => {
 });
 
   
-    /* ------------------------ Feuilles par ESCADRON (tri: Incorporation puis Peloton) ------------------------ */
-  /* ------------------------ Feuilles par ESCADRON (tri: Peloton puis Incorporation) ------------------------ */
+/* ------------------------ Feuilles par ESCADRON + PELON (style complet) ------------------------ */
+
 {
-  // Aplatit tous les élèves affectés (avec leur salle/bâtiment)
   const assignes = [];
   (salles || []).forEach(salle => {
     (salle.eleves || []).forEach(e => {
@@ -2712,36 +2720,48 @@ popup.addEventListener('change', (e) => {
     });
   });
 
-  // Liste unique des escadrons présents (1,2,3,...) triés croissant
-  const escSet = [...new Set(
-    assignes.map(e => String(e.escadron)).filter(s => s.trim() !== "")
-  )].sort((a, b) => (+a || 0) - (+b || 0));
-
-  // Helper nombre (gère valeurs vides)
   const num = v => {
     const s = String(v ?? "").replace(/\D/g, "");
     return s ? parseInt(s, 10) : Number.POSITIVE_INFINITY;
   };
 
-  // Une feuille par escadron
-  escSet.forEach(esc => {
-    // Tri: Peloton -> Incorporation -> Nom -> Prénom
+  const combos = [
+    ...new Set(assignes.map(e => `${e.escadron}|||${e.peloton}`))
+  ]
+    .filter(s => s.trim() !== "|||")
+    .map(s => {
+      const [esc, pel] = s.split("|||");
+      return { esc, pel };
+    })
+    .sort((a, b) =>
+      num(a.esc) - num(b.esc) || num(a.pel) - num(b.pel)
+    );
+
+  const borderStyle = {
+    top: { style: "thin", color: { auto: 1 } },
+    bottom: { style: "thin", color: { auto: 1 } },
+    left: { style: "thin", color: { auto: 1 } },
+    right: { style: "thin", color: { auto: 1 } }
+  };
+
+  combos.forEach(({ esc, pel }) => {
     const list = assignes
-      .filter(e => String(e.escadron) === String(esc))
+      .filter(e => String(e.escadron) === String(esc) && String(e.peloton) === String(pel))
       .sort((a, b) =>
-        num(a.peloton) - num(b.peloton) ||
         num(a.numeroIncorporation) - num(b.numeroIncorporation) ||
-        (a.nom || "").localeCompare(b.nom || "", 'fr', { sensitivity: 'base' }) ||
-        (a.prenom || "").localeCompare(b.prenom || "", 'fr', { sensitivity: 'base' })
+        (a.nom || "").localeCompare(b.nom || "", "fr", { sensitivity: "base" }) ||
+        (a.prenom || "").localeCompare(b.prenom || "", "fr", { sensitivity: "base" })
       );
 
-    // Feuille Escadron X
-    const aoa = [["NR", "Nom", "Prénom", "Peloton", "Incorporation", "Salle", "Bâtiment"]];
+    if (list.length === 0) return;
+
+    const aoa = [["NR", "Nom", "Prénom", "Esc", "Pon", "Inc", "Salle", "Bâtiment"]];
     list.forEach((e, i) => {
       aoa.push([
         i + 1,
         e.nom,
         e.prenom,
+        e.escadron,
         e.peloton,
         e.numeroIncorporation,
         e._salle,
@@ -2750,18 +2770,50 @@ popup.addEventListener('change', (e) => {
     });
 
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws["!cols"] = [
-      { wpx: 38 },  // NR
-      { wpx: 200 }, // Nom
-      { wpx: 180 }, // Prénom
-      { wpx: 80 },  // Peloton
-      { wpx: 120 }, // Incorporation
-      { wpx: 65 },  // Salle
-      { wpx: 90 }   // Bâtiment
-    ];
-    XLSX.utils.book_append_sheet(wb, ws, uniqueSheetName(wb, `Escadron ${esc}`));
+
+    const range = XLSX.utils.decode_range(ws["!ref"]);
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!ws[cellRef]) continue;
+        if (!ws[cellRef].s) ws[cellRef].s = {};
+
+        // === Bordures partout ===
+        ws[cellRef].s.border = borderStyle;
+
+        // === Style de l’en-tête ===
+        if (R === 0) {
+          ws[cellRef].s.font = { bold: true };
+          ws[cellRef].s.fill = { patternType: "solid", fgColor: { rgb: "D9D9D9" } }; // gris clair
+          ws[cellRef].s.alignment = { horizontal: "center", vertical: "center" };
+        } else {
+          ws[cellRef].s.alignment = { vertical: "center" };
+        }
+      }
+    }
+
+    // === Ajuster automatiquement les colonnes ===
+    const colWidths = [];
+    const colCount = aoa[0].length;
+    for (let c = 0; c < colCount; c++) {
+      let maxLen = 10;
+      for (let r = 0; r < aoa.length; r++) {
+        const cell = aoa[r][c];
+        if (cell) {
+          const len = String(cell).length;
+          if (len > maxLen) maxLen = len;
+        }
+      }
+      colWidths.push({ wch: maxLen + 2 });
+    }
+    ws["!cols"] = colWidths;
+
+    const sheetName = `Esc${esc}-Pel${pel}`;
+    XLSX.utils.book_append_sheet(wb, ws, uniqueSheetName(wb, sheetName));
   });
 }
+
+
 
     /* ------------------------ Surveillants (feuille historique conservée) ------------------------ */
     {
