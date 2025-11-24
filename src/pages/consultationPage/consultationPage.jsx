@@ -268,32 +268,38 @@ const [dateFin, setDateFin] = useState("");     // idem
     consultationService.update(selectedConsultation.id, {
       dateArrive: selectedConsultation.dateArrive,
       status: selectedConsultation.status,
-      phone : selectedConsultation.phone,
-      service : selectedConsultation.service,
-      // Ajoute ici d'autres champs à envoyer si nécessaire
+      phone: selectedConsultation.phone,
+      service: selectedConsultation.service,
+  
+      // ---- Nouveaux champs à envoyer ----
+      hospitalise: selectedConsultation.hospitalise,  // true / false
+      hospitalisation: Number(selectedConsultation.hospitalisation), // nombre
+      Nonhospitalisation: selectedConsultation.Nonhospitalisation, // nombre
+      observation: selectedConsultation.observation, // texte
+  
     })
-    .then(() => {
-      Swal.fire({
-        toast:true,
-        icon: 'success',
-        title: 'Succès',
-        position: 'top-end',
-        text: 'Consultation mise à jour',
-        showConfirmButton: false,
-        timerProgressBar: true,
+      .then(() => {
+        Swal.fire({
+          toast: true,
+          icon: 'success',
+          title: 'Succès',
+          position: 'top-end',
+          text: 'Consultation mise à jour',
+          showConfirmButton: false,
+          timerProgressBar: true,
+        });
+  
+        fetchConsultations(cour2);
+        setShowModal(false);
       })
-      //window.location.reload();
-      fetchConsultations(cour2);
-      setShowModal(false);  // Ferme le modal
-    })
-    .catch((err) => {
-      Swal.fire({
-        icon: 'error',
-        title: 'Erreur',
-        text: 'Échec de la mise à jour',
+      .catch((err) => {
+        Swal.fire({
+          icon: 'error',
+          title: 'Erreur',
+          text: 'Échec de la mise à jour',
+        });
+        console.error(err);
       });
-      console.error(err);
-    });
   };
   
 
@@ -955,6 +961,130 @@ const handleFetchEleve = () => {
                                 
                               </select>
                             </div>
+                            {/* --- TYPE DE PRISE EN CHARGE --- */}
+<div className="mb-3">
+  <label className="fw-bold">Type de prise en charge</label>
+
+  <div className="d-flex gap-3 mt-2">
+
+    <label>
+      <input
+        type="radio"
+        name="priseCharge"
+        value="hospitalisation"
+        checked={selectedConsultation.type === "hospitalisation"}
+        onChange={(e) =>
+          setSelectedConsultation({
+            ...selectedConsultation,
+            type: e.target.value,
+          })
+        }
+      />{" "}
+      Hospitalisation
+    </label>
+
+    <label>
+      <input
+        type="radio"
+        name="priseCharge"
+        value="nonhospitalisation"
+        checked={selectedConsultation.type === "nonhospitalisation"}
+        onChange={(e) =>
+          setSelectedConsultation({
+            ...selectedConsultation,
+            type: e.target.value,
+          })
+        }
+      />{" "}
+      Non Hospitalisation
+    </label>
+
+    <label>
+      <input
+        type="radio"
+        name="priseCharge"
+        value="observation"
+        checked={selectedConsultation.type === "observation"}
+        onChange={(e) =>
+          setSelectedConsultation({
+            ...selectedConsultation,
+            type: e.target.value,
+          })
+        }
+      />{" "}
+      Observation
+    </label>
+
+  </div>
+</div>
+
+{/* --- FORMULAIRE HOSPITALISATION (nombre) --- */}
+{selectedConsultation.type === "hospitalisation" && (
+  <div className="p-3 border rounded bg-light mt-3">
+    <h6 className="fw-bold">Hospitalisation</h6>
+
+    <div className="mb-3">
+      <label>Nombre d’hospitalisation</label>
+      <input
+        type="number"
+        className="form-control"
+        value={selectedConsultation.hospitalisation || ""}
+        onChange={(e) =>
+          setSelectedConsultation({
+            ...selectedConsultation,
+            hospitalisation: Number(e.target.value),
+          })
+        }
+      />
+    </div>
+  </div>
+)}
+
+{/* --- FORMULAIRE NON HOSPITALISATION (nombre) --- */}
+{selectedConsultation.type === "nonhospitalisation" && (
+  <div className="p-3 border rounded bg-light mt-3">
+    <h6 className="fw-bold">Non Hospitalisation</h6>
+
+    <div className="mb-3">
+      <label>Nombre non hospitalisé</label>
+      <input
+  type="number"
+  className="form-control"
+  value={selectedConsultation.Nonhospitalisation || ""}
+  onChange={(e) =>
+    setSelectedConsultation({
+      ...selectedConsultation,
+      Nonhospitalisation: Number(e.target.value),
+    })
+  }
+/>
+
+    </div>
+  </div>
+)}
+
+{/* --- FORMULAIRE OBSERVATION (texte) --- */}
+{selectedConsultation.type === "observation" && (
+  <div className="p-3 border rounded bg-light mt-3">
+    <h6 className="fw-bold">Observation</h6>
+
+    <div className="mb-3">
+      <label>Texte d'observation</label>
+      <textarea
+        className="form-control"
+        rows="3"
+        value={selectedConsultation.observation || ""}
+        onChange={(e) =>
+          setSelectedConsultation({
+            ...selectedConsultation,
+            observation: e.target.value,
+          })
+        }
+      ></textarea>
+    </div>
+  </div>
+)}
+
 
                         
                           </div>
