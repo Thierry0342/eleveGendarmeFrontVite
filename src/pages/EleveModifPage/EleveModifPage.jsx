@@ -9,13 +9,19 @@ import { toast } from 'react-toastify';
 
 const user = JSON.parse(localStorage.getItem('user'));
 
-// ─── Helper : bordure rouge si champ vide ─────────────────────────────────────
-const redIfEmpty = (val) => {
+// ─── Helper : bordure orange si champ vide ────────────────────────────────────
+const orangeIfEmpty = (val) => {
   const isEmpty = val === null || val === undefined || String(val).trim() === '';
   return isEmpty
-    ? { borderColor: '#ef4444', boxShadow: '0 0 0 0.2rem rgba(239,68,68,0.15)' }
+    ? { borderColor: '#f97316', boxShadow: '0 0 0 0.2rem rgba(249,115,22,0.15)' }
     : {};
 };
+
+// ─── Helper : bordure orange TOUJOURS (ex : CIN) ──────────────────────────────
+const alwaysOrange = () => ({
+  borderColor: '#f97316',
+  boxShadow: '0 0 0 0.2rem rgba(249,115,22,0.15)',
+});
 
 // ─── Composants UI ────────────────────────────────────────────────────────────
 
@@ -48,7 +54,7 @@ const FieldGroup = ({ label, required, children, hint, inline }) => (
         display: 'block', fontSize: '10px', fontWeight: '700',
         color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px'
       }}>
-        {label}{required && <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>}
+        {label}{required && <span style={{ color: '#f97316', marginLeft: '3px' }}>*</span>}
       </label>
     )}
     {children}
@@ -103,18 +109,22 @@ const MembreFamilleCard = ({ label, membreKey, icon, accent, formData, setFormDa
   return (
     <SectionCard title={label} icon={icon} accent={accent}>
       <FieldGroup label="Nom et Prénoms">
-        <input className="form-control form-control-sm" value={membre.nom || ''} onChange={e => update('nom', e.target.value)} placeholder="Nom complet" />
+        <input className="form-control form-control-sm" value={membre.nom || ''} onChange={e => update('nom', e.target.value)} placeholder="Nom complet"
+          style={orangeIfEmpty(membre.nom)} />
       </FieldGroup>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
         <FieldGroup label="Téléphone">
-          <input className="form-control form-control-sm" value={membre.phone || ''} onChange={e => update('phone', e.target.value)} placeholder="Tél" />
+          <input className="form-control form-control-sm" value={membre.phone || ''} onChange={e => update('phone', e.target.value)} placeholder="Tél"
+            style={orangeIfEmpty(membre.phone)} />
         </FieldGroup>
         <FieldGroup label="Adresse">
-          <input className="form-control form-control-sm" value={membre.adresse || ''} onChange={e => update('adresse', e.target.value)} placeholder="Adresse" />
+          <input className="form-control form-control-sm" value={membre.adresse || ''} onChange={e => update('adresse', e.target.value)} placeholder="Adresse"
+            style={orangeIfEmpty(membre.adresse)} />
         </FieldGroup>
       </div>
       <FieldGroup label="Profession" hint="Ex: ministre, commerçant(e), enseignant(e)...">
-        <input className="form-control form-control-sm" value={membre.profession || ''} onChange={e => update('profession', e.target.value)} placeholder="Profession" />
+        <input className="form-control form-control-sm" value={membre.profession || ''} onChange={e => update('profession', e.target.value)} placeholder="Profession"
+          style={orangeIfEmpty(membre.profession)} />
       </FieldGroup>
       <div style={{ marginBottom: '8px' }}>
         <label style={{
@@ -136,10 +146,12 @@ const MembreFamilleCard = ({ label, membreKey, icon, accent, formData, setFormDa
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <FieldGroup label="Grade">
-              <input className="form-control form-control-sm" value={membre.gradeFDS || ''} onChange={e => update('gradeFDS', e.target.value)} placeholder="Ex: Adjudant..." />
+              <input className="form-control form-control-sm" value={membre.gradeFDS || ''} onChange={e => update('gradeFDS', e.target.value)} placeholder="Ex: Adjudant..."
+                style={orangeIfEmpty(membre.gradeFDS)} />
             </FieldGroup>
             <FieldGroup label="Poste / Affectation">
-              <input className="form-control form-control-sm" value={membre.posteFDS || ''} onChange={e => update('posteFDS', e.target.value)} placeholder="Ex: Gendarmerie Tana" />
+              <input className="form-control form-control-sm" value={membre.posteFDS || ''} onChange={e => update('posteFDS', e.target.value)} placeholder="Ex: Gendarmerie Tana"
+                style={orangeIfEmpty(membre.posteFDS)} />
             </FieldGroup>
           </div>
         </div>
@@ -393,7 +405,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                         name="numeroIncorporation"
                         value={formData.numeroIncorporation || ''}
                         onChange={handleChange}
-                        style={redIfEmpty(formData.numeroIncorporation)}
+                        style={orangeIfEmpty(formData.numeroIncorporation)}
                       />
                     </FieldGroup>
                     <FieldGroup label="Escadron">
@@ -402,7 +414,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                         name="escadron"
                         value={formData.escadron || ''}
                         onChange={handleChange}
-                        style={redIfEmpty(formData.escadron)}
+                        style={orangeIfEmpty(formData.escadron)}
                       >
                         <option value="">—</option>
                         {Array.from({ length: 10 }, (_, i) => i + 1).map(i => <option key={i} value={i}>{i}</option>)}
@@ -414,7 +426,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                         name="peloton"
                         value={formData.peloton || ''}
                         onChange={handleChange}
-                        style={redIfEmpty(formData.peloton)}
+                        style={orangeIfEmpty(formData.peloton)}
                       >
                         <option value="">—</option>
                         {[1, 2, 3].map(i => <option key={i} value={String(i)}>{i}</option>)}
@@ -426,7 +438,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                         name="numCandidature"
                         value={formData.numCandidature || ''}
                         onChange={handleChange}
-                        style={redIfEmpty(formData.numCandidature)}
+                        style={orangeIfEmpty(formData.numCandidature)}
                       />
                     </FieldGroup>
                     <FieldGroup label="Matricule">
@@ -435,7 +447,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                         name="matricule"
                         value={formData.matricule || ''}
                         onChange={handleChange}
-                        style={redIfEmpty(formData.matricule)}
+                        style={orangeIfEmpty(formData.matricule)}
                       />
                     </FieldGroup>
                   </div>
@@ -445,7 +457,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                       name="centreConcours"
                       value={formData.centreConcours || ''}
                       onChange={handleChange}
-                      style={redIfEmpty(formData.centreConcours)}
+                      style={orangeIfEmpty(formData.centreConcours)}
                     />
                   </FieldGroup>
                 </SectionCard>
@@ -460,7 +472,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                         value={formData.nom || ''}
                         onChange={handleChange}
                         placeholder="NOM"
-                        style={{ textTransform: 'uppercase', fontWeight: '600', ...redIfEmpty(formData.nom) }}
+                        style={{ textTransform: 'uppercase', fontWeight: '600', ...orangeIfEmpty(formData.nom) }}
                       />
                     </FieldGroup>
                     <FieldGroup label="Prénoms (Fanampiny)" required>
@@ -470,7 +482,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                         value={formData.prenom || ''}
                         onChange={handleChange}
                         placeholder="Prénoms"
-                        style={redIfEmpty(formData.prenom)}
+                        style={orangeIfEmpty(formData.prenom)}
                       />
                     </FieldGroup>
                   </div>
@@ -482,7 +494,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                         name="dateNaissance"
                         value={formData.dateNaissance || ''}
                         onChange={handleChange}
-                        style={redIfEmpty(formData.dateNaissance)}
+                        style={orangeIfEmpty(formData.dateNaissance)}
                       />
                     </FieldGroup>
                     <FieldGroup label="Lieu de naissance">
@@ -492,7 +504,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                         value={formData.lieuNaissance || ''}
                         onChange={handleChange}
                         placeholder="Ville"
-                        style={redIfEmpty(formData.lieuNaissance)}
+                        style={orangeIfEmpty(formData.lieuNaissance)}
                       />
                     </FieldGroup>
                     <FieldGroup label="Adresse exacte">
@@ -502,7 +514,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                         value={formData.adresseExacte || ''}
                         onChange={handleChange}
                         placeholder="Adresse"
-                        style={redIfEmpty(formData.adresseExacte)}
+                        style={orangeIfEmpty(formData.adresseExacte)}
                       />
                     </FieldGroup>
                   </div>
@@ -523,7 +535,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                   </FieldGroup>
                 </SectionCard>
 
-                {/* 1.3 CIN */}
+                {/* 1.3 CIN — toujours orange */}
                 <SectionCard title="N° CIN — Pièce d'identité" icon="🪪" accent="#8b5cf6">
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
                     <FieldGroup label="Numéro CIN">
@@ -533,7 +545,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                         value={formData.CIN || ''}
                         onChange={handleChange}
                         placeholder="N° CIN"
-                        style={redIfEmpty(formData.CIN)}
+                        style={alwaysOrange()}
                       />
                     </FieldGroup>
                     <FieldGroup label="Délivrée le">
@@ -543,7 +555,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                         name="dateDelivrance"
                         value={formData.dateDelivrance || ''}
                         onChange={handleChange}
-                        style={redIfEmpty(formData.dateDelivrance)}
+                        style={orangeIfEmpty(formData.dateDelivrance)}
                       />
                     </FieldGroup>
                     <FieldGroup label="Lieu de délivrance">
@@ -553,7 +565,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                         value={formData.lieuDelivrance || ''}
                         onChange={handleChange}
                         placeholder="Lieu"
-                        style={redIfEmpty(formData.lieuDelivrance)}
+                        style={orangeIfEmpty(formData.lieuDelivrance)}
                       />
                     </FieldGroup>
                     <FieldGroup label="Duplicata du">
@@ -563,6 +575,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                         name="duplicata"
                         value={formData.duplicata || ''}
                         onChange={handleChange}
+                        style={orangeIfEmpty(formData.duplicata)}
                       />
                     </FieldGroup>
                     <FieldGroup label="Lieu duplicata">
@@ -572,6 +585,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                         value={formData.lieuDuplicata || ''}
                         onChange={handleChange}
                         placeholder="Lieu"
+                        style={orangeIfEmpty(formData.lieuDuplicata)}
                       />
                     </FieldGroup>
                   </div>
@@ -588,17 +602,19 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                           maxLength="11"
                           value={formData[k] || ''}
                           onChange={e => handlePhoneChange(e, k)}
-                          style={i === 0 ? redIfEmpty(formData[k]) : {}}
+                          style={orangeIfEmpty(formData[k])}
                         />
                       </FieldGroup>
                     ))}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                     <FieldGroup label="Loisirs / Centres d'intérêt">
-                      <input className="form-control" name="facebook" value={formData.facebook || ''} onChange={handleChange} placeholder="Ex: Lecture, Musique..." />
+                      <input className="form-control" name="facebook" value={formData.facebook || ''} onChange={handleChange} placeholder="Ex: Lecture, Musique..."
+                        style={orangeIfEmpty(formData.facebook)} />
                     </FieldGroup>
                     <FieldGroup label="Mobile Money (Mvola, Orange Money…)">
-                      <input className="form-control" name="mobileMoney" value={formData.mobileMoney || ''} onChange={handleChange} placeholder="N° Mobile Money" />
+                      <input className="form-control" name="mobileMoney" value={formData.mobileMoney || ''} onChange={handleChange} placeholder="N° Mobile Money"
+                        style={orangeIfEmpty(formData.mobileMoney)} />
                     </FieldGroup>
                   </div>
                 </SectionCard>
@@ -620,7 +636,8 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                   {formData.famille?.enfants?.map((enfant, i) => (
                     <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
                       <span style={{ fontSize: '12px', color: '#9ca3af', minWidth: '20px', fontWeight: '600' }}>{i + 1}.</span>
-                      <input className="form-control form-control-sm" name="famille.enfants.nom" value={enfant.nom} onChange={e => handleChange(e, i)} placeholder="Nom et prénoms de l'enfant" style={{ flex: 1 }} />
+                      <input className="form-control form-control-sm" name="famille.enfants.nom" value={enfant.nom} onChange={e => handleChange(e, i)} placeholder="Nom et prénoms de l'enfant"
+                        style={{ flex: 1, ...orangeIfEmpty(enfant.nom) }} />
                       <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => supprimerEnfant(i)} style={{ padding: '2px 8px' }}>🗑️</button>
                     </div>
                   ))}
@@ -654,8 +671,10 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                             <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => supprimerFrere(i)} style={{ padding: '1px 7px', fontSize: '11px' }}>🗑️</button>
                           </div>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                            <input className="form-control form-control-sm" name="famille.frere.nom" value={f.nom || ''} onChange={e => handleChange(e, i)} placeholder="Nom et prénoms" />
-                            <input className="form-control form-control-sm" name="famille.frere.profession" value={f.profession || ''} onChange={e => handleChange(e, i)} placeholder="Profession" />
+                            <input className="form-control form-control-sm" name="famille.frere.nom" value={f.nom || ''} onChange={e => handleChange(e, i)} placeholder="Nom et prénoms"
+                              style={orangeIfEmpty(f.nom)} />
+                            <input className="form-control form-control-sm" name="famille.frere.profession" value={f.profession || ''} onChange={e => handleChange(e, i)} placeholder="Profession"
+                              style={orangeIfEmpty(f.profession)} />
                           </div>
                         </div>
                       ))}
@@ -674,8 +693,10 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                             <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => supprimerSoeur(i)} style={{ padding: '1px 7px', fontSize: '11px' }}>🗑️</button>
                           </div>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                            <input className="form-control form-control-sm" name="famille.soeur.nom" value={s.nom || ''} onChange={e => handleChange(e, i)} placeholder="Nom et prénoms" />
-                            <input className="form-control form-control-sm" name="famille.soeur.profession" value={s.profession || ''} onChange={e => handleChange(e, i)} placeholder="Profession" />
+                            <input className="form-control form-control-sm" name="famille.soeur.nom" value={s.nom || ''} onChange={e => handleChange(e, i)} placeholder="Nom et prénoms"
+                              style={orangeIfEmpty(s.nom)} />
+                            <input className="form-control form-control-sm" name="famille.soeur.profession" value={s.profession || ''} onChange={e => handleChange(e, i)} placeholder="Profession"
+                              style={orangeIfEmpty(s.profession)} />
                           </div>
                         </div>
                       ))}
@@ -750,13 +771,19 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                     {specialites.map((sp, index) => (
                       <div key={index} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 3fr auto', borderBottom: index < specialites.length - 1 ? '1px solid #f1f5f9' : 'none', alignItems: 'center' }}>
                         <div style={{ padding: '8px 10px' }}>
-                          <input className="form-control form-control-sm" placeholder="Ex: Informatique, BTP…" value={sp.categorie} onChange={e => handleSpecialiteChange(index, 'categorie', e.target.value)} />
+                          <input className="form-control form-control-sm" placeholder="Ex: Informatique, BTP…" value={sp.categorie}
+                            onChange={e => handleSpecialiteChange(index, 'categorie', e.target.value)}
+                            style={orangeIfEmpty(sp.categorie)} />
                         </div>
                         <div style={{ padding: '8px 10px' }}>
-                          <input className="form-control form-control-sm" placeholder="Ex: Génie logiciel, Électricien…" value={sp.detail} onChange={e => handleSpecialiteChange(index, 'detail', e.target.value)} />
+                          <input className="form-control form-control-sm" placeholder="Ex: Génie logiciel, Électricien…" value={sp.detail}
+                            onChange={e => handleSpecialiteChange(index, 'detail', e.target.value)}
+                            style={orangeIfEmpty(sp.detail)} />
                         </div>
                         <div style={{ padding: '8px 10px' }}>
-                          <select className="form-select form-select-sm" value={sp.niveauQualification} onChange={e => handleSpecialiteChange(index, 'niveauQualification', e.target.value)}>
+                          <select className="form-select form-select-sm" value={sp.niveauQualification}
+                            onChange={e => handleSpecialiteChange(index, 'niveauQualification', e.target.value)}
+                            style={orangeIfEmpty(sp.niveauQualification)}>
                             <option value="">— Niveau —</option>
                             <option value="Licencié">Licencié (diplôme / certificat / licence sportive)</option>
                             <option value="En cours de licence">En cours de licence</option>
@@ -777,7 +804,8 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                 {/* 3.3 Loisirs & Sports */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <SectionCard title="Loisirs (Fialam-boly)" icon="🎭" accent="#06b6d4">
-                    <textarea className="form-control" name="facebook" rows="3" value={formData.facebook || ''} onChange={handleChange} placeholder="Ex: Lecture, Musique, Cinéma, Jardinage…" />
+                    <textarea className="form-control" name="facebook" rows="3" value={formData.facebook || ''} onChange={handleChange} placeholder="Ex: Lecture, Musique, Cinéma, Jardinage…"
+                      style={orangeIfEmpty(formData.facebook)} />
                   </SectionCard>
 
                   <SectionCard title="Sports pratiqués (Fanatanjahantena atao)" icon="🏅" accent="#10b981">
@@ -811,14 +839,14 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                   </SectionCard>
                 </div>
 
-                {/* 3.4b Ethnie / Fady — FIX: onChange={handleChange} au lieu de onChange={onChange} */}
+                {/* 3.4b Ethnie / Fady */}
                 <SectionCard title="Ethnie / Foko (Fady)" icon="🌍" accent="#10b981">
                   <select
                     className="form-select"
                     name="fady"
                     value={formData.fady || ''}
                     onChange={handleChange}
-                    style={redIfEmpty(formData.fady)}
+                    style={orangeIfEmpty(formData.fady)}
                   >
                     <option value="">— Sélectionner —</option>
                     {['ANTAIFASY','ANTAIMORO','ANTAMBAHOAKA','ANTANDROY','ANTANOSY','ANTAKARANA','ANTESAKA','BARA','BEZANOZANO','BETSILEO','BETSIMISARAKA','MAHAFALY','MERINA','MIKEA','SAKALAVA','SIHANAKA','TANALA','TSIMIHETY','VEZO'].map(f => (
@@ -868,7 +896,10 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                             onChange={handleChange}
                             placeholder={formData.Diplome?.[key] ? 'Préciser la filière…' : '—'}
                             disabled={!formData.Diplome?.[key]}
-                            style={{ background: formData.Diplome?.[key] ? '#fff' : '#f8fafc' }}
+                            style={{
+                              background: formData.Diplome?.[key] ? '#fff' : '#f8fafc',
+                              ...(formData.Diplome?.[key] ? orangeIfEmpty(formData.Filiere?.[`filiere${key}`]) : {})
+                            }}
                           />
                         </div>
                       </div>
@@ -876,7 +907,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                   </div>
                 </SectionCard>
 
-                {/* 3.6 Niveau d'études — BACC par défaut */}
+                {/* 3.6 Niveau d'études */}
                 <SectionCard title="Niveau d'études — Dernière classe suivie avec année" icon="📚" accent="#3b82f6">
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <FieldGroup label="Dernière classe suivie (Kilasy farany nijanonana)">
@@ -898,6 +929,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                         value={formData.niveaufiliere || ''}
                         onChange={handleChange}
                         placeholder="Ex: Informatique, Droit, Médecine…"
+                        style={orangeIfEmpty(formData.niveaufiliere)}
                       />
                     </FieldGroup>
                   </div>
@@ -905,7 +937,8 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
 
                 {/* 3.7 Relations gênantes */}
                 <SectionCard title="Relations gênantes (Toerana tsy tokony hiasàna)" icon="⚠️" accent="#ef4444">
-                  <textarea className="form-control" name="relationGenante" rows="3" value={formData.relationGenante || ''} onChange={handleChange} placeholder="Préciser les lieux ou personnes…" />
+                  <textarea className="form-control" name="relationGenante" rows="3" value={formData.relationGenante || ''} onChange={handleChange} placeholder="Préciser les lieux ou personnes…"
+                    style={orangeIfEmpty(formData.relationGenante)} />
                 </SectionCard>
               </div>
             )}
@@ -948,7 +981,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                         onChange={handleChange}
                         min="28" max="65"
                         placeholder="Ex: 54"
-                        style={{ maxWidth: '120px', ...redIfEmpty(formData.Pointure?.tourTete) }}
+                        style={{ maxWidth: '120px', ...orangeIfEmpty(formData.Pointure?.tourTete) }}
                       />
                       <span style={{ fontSize: '13px', color: '#9ca3af' }}>cm</span>
                     </div>
