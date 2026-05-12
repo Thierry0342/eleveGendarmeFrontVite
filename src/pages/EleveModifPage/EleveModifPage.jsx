@@ -9,6 +9,14 @@ import { toast } from 'react-toastify';
 
 const user = JSON.parse(localStorage.getItem('user'));
 
+// ─── Helper : bordure rouge si champ vide ─────────────────────────────────────
+const redIfEmpty = (val) => {
+  const isEmpty = val === null || val === undefined || String(val).trim() === '';
+  return isEmpty
+    ? { borderColor: '#ef4444', boxShadow: '0 0 0 0.2rem rgba(239,68,68,0.15)' }
+    : {};
+};
+
 // ─── Composants UI ────────────────────────────────────────────────────────────
 
 const SectionCard = ({ title, icon, children, accent = '#3b82f6' }) => (
@@ -311,12 +319,6 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
     }
   };
 
-  // ─── Tabs — ordre fiche mère ───────────────────────────────────────────────
-  // Partie 1 : Identification & Affectation (numéros, état civil, CIN, contacts)
-  // Partie 2 : Famille (conjoint, enfants, père, mère, tuteur, accident, frères/sœurs)
-  // Partie 3 : Concours, Spécialités, Sports, Religion, Diplômes
-  // Partie 4 : Effets vestimentaires
-
   const tabs = [
     { id: 'p1', label: 'Partie 1 — Identification' },
     { id: 'p2', label: 'Partie 2 — Famille' },
@@ -378,7 +380,6 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
 
             {/* ══════════════════════════════════════════════════════════════════
                 PARTIE 1 — IDENTIFICATION & AFFECTATION
-                Ordre fiche mère : numéros → état civil → CIN → contacts → unité
             ══════════════════════════════════════════════════════════════════ */}
             {activeTab === 'p1' && (
               <div>
@@ -387,29 +388,65 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                 <SectionCard title="Numéros & Affectation (Escadron / Peloton)" icon="🔢" accent="#f59e0b">
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
                     <FieldGroup label="N° Incorporation">
-                      <input className="form-control form-control-sm" name="numeroIncorporation" value={eleve.numeroIncorporation || ''} onChange={onChange} />
+                      <input
+                        className="form-control form-control-sm"
+                        name="numeroIncorporation"
+                        value={formData.numeroIncorporation || ''}
+                        onChange={handleChange}
+                        style={redIfEmpty(formData.numeroIncorporation)}
+                      />
                     </FieldGroup>
                     <FieldGroup label="Escadron">
-                      <select className="form-select form-select-sm" name="escadron" value={formData.escadron || ''} onChange={handleChange}>
+                      <select
+                        className="form-select form-select-sm"
+                        name="escadron"
+                        value={formData.escadron || ''}
+                        onChange={handleChange}
+                        style={redIfEmpty(formData.escadron)}
+                      >
                         <option value="">—</option>
                         {Array.from({ length: 10 }, (_, i) => i + 1).map(i => <option key={i} value={i}>{i}</option>)}
                       </select>
                     </FieldGroup>
                     <FieldGroup label="Peloton">
-                      <select className="form-select form-select-sm" name="peloton" value={formData.peloton || ''} onChange={handleChange}>
+                      <select
+                        className="form-select form-select-sm"
+                        name="peloton"
+                        value={formData.peloton || ''}
+                        onChange={handleChange}
+                        style={redIfEmpty(formData.peloton)}
+                      >
                         <option value="">—</option>
                         {[1, 2, 3].map(i => <option key={i} value={String(i)}>{i}</option>)}
                       </select>
                     </FieldGroup>
                     <FieldGroup label="N° Candidature">
-                      <input className="form-control form-control-sm" name="numCandidature" value={eleve.numCandidature || ''} onChange={onChange} />
+                      <input
+                        className="form-control form-control-sm"
+                        name="numCandidature"
+                        value={formData.numCandidature || ''}
+                        onChange={handleChange}
+                        style={redIfEmpty(formData.numCandidature)}
+                      />
                     </FieldGroup>
                     <FieldGroup label="Matricule">
-                      <input className="form-control form-control-sm" name="matricule" value={eleve.matricule || ''} onChange={onChange} />
+                      <input
+                        className="form-control form-control-sm"
+                        name="matricule"
+                        value={formData.matricule || ''}
+                        onChange={handleChange}
+                        style={redIfEmpty(formData.matricule)}
+                      />
                     </FieldGroup>
                   </div>
                   <FieldGroup label="Centre de concours">
-                    <input className="form-control form-control-sm" name="centreConcours" value={eleve.centreConcours || ''} onChange={onChange} />
+                    <input
+                      className="form-control form-control-sm"
+                      name="centreConcours"
+                      value={formData.centreConcours || ''}
+                      onChange={handleChange}
+                      style={redIfEmpty(formData.centreConcours)}
+                    />
                   </FieldGroup>
                 </SectionCard>
 
@@ -417,25 +454,60 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                 <SectionCard title="Nom et Prénoms — État civil" icon="📋" accent="#3b82f6">
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <FieldGroup label="Nom (Anarana)" required>
-                      <input className="form-control" name="nom" value={eleve.nom || ''} onChange={onChange} placeholder="NOM" style={{ textTransform: 'uppercase', fontWeight: '600' }} />
+                      <input
+                        className="form-control"
+                        name="nom"
+                        value={formData.nom || ''}
+                        onChange={handleChange}
+                        placeholder="NOM"
+                        style={{ textTransform: 'uppercase', fontWeight: '600', ...redIfEmpty(formData.nom) }}
+                      />
                     </FieldGroup>
                     <FieldGroup label="Prénoms (Fanampiny)" required>
-                      <input className="form-control" name="prenom" value={eleve.prenom || ''} onChange={onChange} placeholder="Prénoms" />
+                      <input
+                        className="form-control"
+                        name="prenom"
+                        value={formData.prenom || ''}
+                        onChange={handleChange}
+                        placeholder="Prénoms"
+                        style={redIfEmpty(formData.prenom)}
+                      />
                     </FieldGroup>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                     <FieldGroup label="Date de naissance">
-                      <input type="date" className="form-control" name="dateNaissance" value={eleve.dateNaissance || ''} onChange={onChange} />
+                      <input
+                        type="date"
+                        className="form-control"
+                        name="dateNaissance"
+                        value={formData.dateNaissance || ''}
+                        onChange={handleChange}
+                        style={redIfEmpty(formData.dateNaissance)}
+                      />
                     </FieldGroup>
                     <FieldGroup label="Lieu de naissance">
-                      <input className="form-control" name="lieuNaissance" value={eleve.lieuNaissance || ''} onChange={onChange} placeholder="Ville" />
+                      <input
+                        className="form-control"
+                        name="lieuNaissance"
+                        value={formData.lieuNaissance || ''}
+                        onChange={handleChange}
+                        placeholder="Ville"
+                        style={redIfEmpty(formData.lieuNaissance)}
+                      />
                     </FieldGroup>
                     <FieldGroup label="Adresse exacte">
-                      <input className="form-control" name="adresseExacte" value={eleve.adresseExacte || ''} onChange={onChange} placeholder="Adresse" />
+                      <input
+                        className="form-control"
+                        name="adresseExacte"
+                        value={formData.adresseExacte || ''}
+                        onChange={handleChange}
+                        placeholder="Adresse"
+                        style={redIfEmpty(formData.adresseExacte)}
+                      />
                     </FieldGroup>
                   </div>
                   <FieldGroup label="Sexe">
-                    <InlineRadioGroup options={['Masculin', 'Feminin']} name="sexe" value={eleve.sexe} onChange={onChange} labelMap={{ Feminin: 'Féminin' }} />
+                    <InlineRadioGroup options={['Masculin', 'Feminin']} name="sexe" value={formData.sexe} onChange={handleChange} labelMap={{ Feminin: 'Féminin' }} />
                   </FieldGroup>
                   <FieldGroup label="Situation de famille (Fanambadiana)">
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
@@ -445,7 +517,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                         { val: 'Divorce', label: 'Divorcé(e) (Nisara-bady)' },
                         { val: 'Veuf', label: 'Veuf/ve (Maty vady)' },
                       ].map(({ val, label }) => (
-                        <CheckPill key={val} label={label} checked={eleve.situationFamiliale === val} onChange={() => onChange({ target: { name: 'situationFamiliale', value: val } })} />
+                        <CheckPill key={val} label={label} checked={formData.situationFamiliale === val} onChange={() => handleChange({ target: { name: 'situationFamiliale', value: val } })} />
                       ))}
                     </div>
                   </FieldGroup>
@@ -455,19 +527,52 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                 <SectionCard title="N° CIN — Pièce d'identité" icon="🪪" accent="#8b5cf6">
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
                     <FieldGroup label="Numéro CIN">
-                      <input className="form-control" name="CIN" value={eleve.CIN || ''} onChange={onChange} placeholder="N° CIN" />
+                      <input
+                        className="form-control"
+                        name="CIN"
+                        value={formData.CIN || ''}
+                        onChange={handleChange}
+                        placeholder="N° CIN"
+                        style={redIfEmpty(formData.CIN)}
+                      />
                     </FieldGroup>
                     <FieldGroup label="Délivrée le">
-                      <input type="date" className="form-control" name="dateDelivrance" value={eleve.dateDelivrance || ''} onChange={onChange} />
+                      <input
+                        type="date"
+                        className="form-control"
+                        name="dateDelivrance"
+                        value={formData.dateDelivrance || ''}
+                        onChange={handleChange}
+                        style={redIfEmpty(formData.dateDelivrance)}
+                      />
                     </FieldGroup>
                     <FieldGroup label="Lieu de délivrance">
-                      <input className="form-control" name="lieuDelivrance" value={eleve.lieuDelivrance || ''} onChange={onChange} placeholder="Lieu" />
+                      <input
+                        className="form-control"
+                        name="lieuDelivrance"
+                        value={formData.lieuDelivrance || ''}
+                        onChange={handleChange}
+                        placeholder="Lieu"
+                        style={redIfEmpty(formData.lieuDelivrance)}
+                      />
                     </FieldGroup>
                     <FieldGroup label="Duplicata du">
-                      <input type="date" className="form-control" name="duplicata" value={eleve.duplicata || ''} onChange={onChange} />
+                      <input
+                        type="date"
+                        className="form-control"
+                        name="duplicata"
+                        value={formData.duplicata || ''}
+                        onChange={handleChange}
+                      />
                     </FieldGroup>
                     <FieldGroup label="Lieu duplicata">
-                      <input className="form-control" name="lieuDuplicata" value={eleve.lieuDuplicata || ''} onChange={onChange} placeholder="Lieu" />
+                      <input
+                        className="form-control"
+                        name="lieuDuplicata"
+                        value={formData.lieuDuplicata || ''}
+                        onChange={handleChange}
+                        placeholder="Lieu"
+                      />
                     </FieldGroup>
                   </div>
                 </SectionCard>
@@ -477,16 +582,23 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '12px' }}>
                     {['telephone1', 'telephone2', 'telephone3'].map((k, i) => (
                       <FieldGroup key={k} label={`Tél ${i + 1} (03…)`}>
-                        <input className="form-control" placeholder="03X XX XXX XX" maxLength="11" value={formData[k] || ''} onChange={e => handlePhoneChange(e, k)} />
+                        <input
+                          className="form-control"
+                          placeholder="03X XX XXX XX"
+                          maxLength="11"
+                          value={formData[k] || ''}
+                          onChange={e => handlePhoneChange(e, k)}
+                          style={i === 0 ? redIfEmpty(formData[k]) : {}}
+                        />
                       </FieldGroup>
                     ))}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                     <FieldGroup label="Loisirs / Centres d'intérêt">
-                      <input className="form-control" name="facebook" value={eleve.facebook || ''} onChange={onChange} placeholder="Ex: Lecture, Musique..." />
+                      <input className="form-control" name="facebook" value={formData.facebook || ''} onChange={handleChange} placeholder="Ex: Lecture, Musique..." />
                     </FieldGroup>
                     <FieldGroup label="Mobile Money (Mvola, Orange Money…)">
-                      <input className="form-control" name="mobileMoney" value={eleve.mobileMoney || ''} onChange={onChange} placeholder="N° Mobile Money" />
+                      <input className="form-control" name="mobileMoney" value={formData.mobileMoney || ''} onChange={handleChange} placeholder="N° Mobile Money" />
                     </FieldGroup>
                   </div>
                 </SectionCard>
@@ -496,7 +608,6 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
 
             {/* ══════════════════════════════════════════════════════════════════
                 PARTIE 2 — RENSEIGNEMENTS FAMILIAUX
-                Ordre fiche mère : conjoint → enfants → père → mère → tuteur → accident → frères/sœurs
             ══════════════════════════════════════════════════════════════════ */}
             {activeTab === 'p2' && (
               <div>
@@ -577,7 +688,6 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
 
             {/* ══════════════════════════════════════════════════════════════════
                 PARTIE 3 — FORMATION, CONCOURS & APTITUDES
-                Ordre fiche mère : motif concours → spécialité concours → aptitudes → loisirs → sports → religion → diplômes → niveau
             ══════════════════════════════════════════════════════════════════ */}
             {activeTab === 'p3' && (
               <div>
@@ -593,7 +703,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                         { val: 'veuve', label: 'Veuve' },
                         { val: 'ex-militaire', label: 'Ex-militaire' },
                       ].map(({ val, label }) => (
-                        <CheckPill key={val} label={label} checked={eleve.genreConcours === val} onChange={() => onChange({ target: { name: 'genreConcours', value: val } })} />
+                        <CheckPill key={val} label={label} checked={formData.genreConcours === val} onChange={() => handleChange({ target: { name: 'genreConcours', value: val } })} />
                       ))}
                     </div>
                   </FieldGroup>
@@ -667,7 +777,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                 {/* 3.3 Loisirs & Sports */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <SectionCard title="Loisirs (Fialam-boly)" icon="🎭" accent="#06b6d4">
-                    <textarea className="form-control" name="facebook" rows="3" value={eleve.facebook || ''} onChange={onChange} placeholder="Ex: Lecture, Musique, Cinéma, Jardinage…" />
+                    <textarea className="form-control" name="facebook" rows="3" value={formData.facebook || ''} onChange={handleChange} placeholder="Ex: Lecture, Musique, Cinéma, Jardinage…" />
                   </SectionCard>
 
                   <SectionCard title="Sports pratiqués (Fanatanjahantena atao)" icon="🏅" accent="#10b981">
@@ -691,7 +801,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                   </SectionCard>
                 </div>
 
-                {/* 3.4 Religion + Groupe sanguin (côte à côte comme dans la fiche mère) */}
+                {/* 3.4 Religion + Groupe sanguin */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <SectionCard title="Religion (Finoana arahina)" icon="✝️" accent="#f59e0b">
                     <InlineRadioGroup options={['EKAR', 'FJKM', 'FLM', 'ISLAM', 'Autre']} name="religion" value={formData.religion || ''} onChange={handleChange} />
@@ -701,9 +811,15 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                   </SectionCard>
                 </div>
 
-                {/* 3.4b Ethnie / Fady */}
+                {/* 3.4b Ethnie / Fady — FIX: onChange={handleChange} au lieu de onChange={onChange} */}
                 <SectionCard title="Ethnie / Foko (Fady)" icon="🌍" accent="#10b981">
-                  <select className="form-select" name="fady" value={eleve.fady || ''} onChange={onChange}>
+                  <select
+                    className="form-select"
+                    name="fady"
+                    value={formData.fady || ''}
+                    onChange={handleChange}
+                    style={redIfEmpty(formData.fady)}
+                  >
                     <option value="">— Sélectionner —</option>
                     {['ANTAIFASY','ANTAIMORO','ANTAMBAHOAKA','ANTANDROY','ANTANOSY','ANTAKARANA','ANTESAKA','BARA','BEZANOZANO','BETSILEO','BETSIMISARAKA','MAHAFALY','MERINA','MIKEA','SAKALAVA','SIHANAKA','TANALA','TSIMIHETY','VEZO'].map(f => (
                       <option key={f} value={f}>{f}</option>
@@ -760,22 +876,34 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                   </div>
                 </SectionCard>
 
-                {/* 3.6 Niveau d'études */}
+                {/* 3.6 Niveau d'études — BACC par défaut */}
                 <SectionCard title="Niveau d'études — Dernière classe suivie avec année" icon="📚" accent="#3b82f6">
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <FieldGroup label="Dernière classe suivie (Kilasy farany nijanonana)">
-                      <select className="form-select" name="niveau" value={formData.niveau || ''} onChange={handleChange}>
-                        <option value="">— Sélectionner —</option>
-                        {['BACC','BACC +1','BACC +2','BACC +3','BACC +4','BACC +5','BACC +6','BACC +7','BACC +8'].map(n => <option key={n} value={n}>{n}</option>)}
+                      <select
+                        className="form-select"
+                        name="niveau"
+                        value={formData.niveau || 'BACC'}
+                        onChange={handleChange}
+                      >
+                        {['BACC','BACC +1','BACC +2','BACC +3','BACC +4','BACC +5','BACC +6','BACC +7','BACC +8'].map(n => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
                       </select>
                     </FieldGroup>
                     <FieldGroup label="Filière">
-                      <input className="form-control" name="niveaufiliere" value={eleve.niveaufiliere || ''} onChange={onChange} placeholder="Ex: Informatique, Droit, Médecine…" />
+                      <input
+                        className="form-control"
+                        name="niveaufiliere"
+                        value={formData.niveaufiliere || ''}
+                        onChange={handleChange}
+                        placeholder="Ex: Informatique, Droit, Médecine…"
+                      />
                     </FieldGroup>
                   </div>
                 </SectionCard>
 
-                {/* 3.7 Relations gênantes — dernière ligne de la fiche mère avant pointures */}
+                {/* 3.7 Relations gênantes */}
                 <SectionCard title="Relations gênantes (Toerana tsy tokony hiasàna)" icon="⚠️" accent="#ef4444">
                   <textarea className="form-control" name="relationGenante" rows="3" value={formData.relationGenante || ''} onChange={handleChange} placeholder="Préciser les lieux ou personnes…" />
                 </SectionCard>
@@ -812,7 +940,16 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
 
                   <FieldGroup label="Tour de tête (cm)">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <input type="number" className="form-control" name="Pointure.tourTete" value={formData.Pointure?.tourTete || ''} onChange={handleChange} min="28" max="65" placeholder="Ex: 54" style={{ maxWidth: '120px' }} />
+                      <input
+                        type="number"
+                        className="form-control"
+                        name="Pointure.tourTete"
+                        value={formData.Pointure?.tourTete || ''}
+                        onChange={handleChange}
+                        min="28" max="65"
+                        placeholder="Ex: 54"
+                        style={{ maxWidth: '120px', ...redIfEmpty(formData.Pointure?.tourTete) }}
+                      />
                       <span style={{ fontSize: '13px', color: '#9ca3af' }}>cm</span>
                     </div>
                   </FieldGroup>
