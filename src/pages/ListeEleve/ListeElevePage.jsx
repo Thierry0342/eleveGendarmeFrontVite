@@ -3459,13 +3459,23 @@ const sexToMF = (v) => {
 
   { name: 'Esc / Pon', selector: row => row.escadron + " "+row.peloton , sortable: true , width:"130px" },
   { name: 'Matricule', selector: row => row.matricule, sortable: true,width : "110px" },
-  {
-    name: 'Inc',
-    selector: row => Number(row.numeroIncorporation),
-    sortable: true,
-    sortFunction: (a, b) => Number(a.numeroIncorporation) - Number(b.numeroIncorporation),
-    width: "70px"
+ {
+  name: 'Inc',
+  selector: row => row.numeroIncorporation ?? '',
+  sortable: true,
+  sortFunction: (a, b) => {
+    const parseInc = (v) => {
+      const s = String(v ?? '').trim();
+      const m = s.match(/^(\d+)([A-Za-z]*)$/);
+      if (!m) return [Infinity, ''];
+      return [parseInt(m[1], 10), m[2].toLowerCase()];
+    };
+    const [na, sa] = parseInc(a.numeroIncorporation);
+    const [nb, sb] = parseInc(b.numeroIncorporation);
+    return na !== nb ? na - nb : sa.localeCompare(sb);
   },
+  width: "90px"
+},
 
   // === Nouvelles colonnes alimentées par les maps ===
   {
@@ -3716,6 +3726,361 @@ function handleExportExcel2() {
   // 💾 Générer et télécharger
   XLSX.writeFile(workbook, 'notes_francais_complet.xlsx');
 }
+//salade escadron 
+/**
+ * RÉPARTITION ÉQUITABLE
+ * 10 escadrons × 3 pelotons × 50 élèves = 1500 max
+ * Critères : niveau, fady (ethnie), genreConcours, sexe (équilibré par escadron/peloton)
+ */
+function repartirEquitable(eleves) {
+  const NB_ESC  = 10;
+  const NB_PEL  = 3;
+  const PAR_PEL = 50;
+
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function normalizeVal(v) {
+    return String(v ?? '').toLowerCase().trim();
+  }
+
+  const pool = (eleves ?? []).filter(e => e && typeof e === 'object');
+
+  const masc = pool.filter(e => {
+    const s = normalizeVal(e.sexe ?? e.gender ?? e.sex ?? e.genre ?? '');
+    return ['m','masculin','male','homme','lahy','garcon','garçon'].includes(s);
+  });
+  const fem = pool.filter(e => {
+    const s = normalizeVal(e.sexe ?? e.gender ?? e.sex ?? e.genre ?? '');
+    return ['f','feminin','féminin','female','femme','vavy','fille'].includes(s);
+  });
+
+  const ratioF = pool.length > 0 ? fem.length / pool.length : 0;
+
+  // Grouper par diversité
+  const groupMap = {};
+  pool.forEach(e => {
+    const key = [
+      normalizeVal(e.niveau          ?? e.level  ?? ''),
+      normalizeVal(e.fady            ?? e.ethnie ?? ''),
+      normalizeVal(e.genreConcours   ?? e.centreConcours ?? ''),
+    ].join('|');
+    if (!groupMap[key]) groupMap[key] = [];
+    groupMap[key].push(e);
+  });
+  Object.values(groupMap).forEach(shuffle);
+
+  // Créer les 30 cases
+  const cases = [];
+  for (let e = 1; e <= NB_ESC; e++)
+    for (let p = 1; p <= NB_PEL; p++)
+      cases.push({ escadron: e, peloton: p, eleves: [], _quotaF: Math.round(PAR_PEL * ratioF) });
+
+  // Distribution round-robin
+  const mascShuffled = shuffle(masc.slice());
+  const femShuffled  = shuffle(fem.slice());
+  let mi = 0, fi = 0;
+
+  shuffle(Object.keys(groupMap)).forEach(key => {
+    groupMap[key].forEach(elv => {
+      const isFem = fem.includes(elv);
+      for (let t = 0; t < cases.length; t++) {
+        const c = cases[t % cases.length];
+        const curF = c.eleves.filter(x => fem.includes(x)).length;
+        const curM = c.eleves.length - curF;
+        const hasRoom      = c.eleves.length < PAR_PEL;
+        const hasRoomSexe  = isFem ? curF < c._quotaF : curM < (PAR_PEL - c._quotaF);
+        if (hasRoom && hasRoomSexe) { c.eleves.push(elv); break; }
+      }
+    });
+  });
+
+  // ── Restants → dernier escadron (ESC 10), pelotons 1, 2, 3 dans l'ordre ──
+  const affectesSet = new Set(cases.flatMap(c => c.eleves.map(e => e.id ?? e.Id ?? e.numeroIncorporation)));
+  const restants = pool.filter(e => !affectesSet.has(e.id ?? e.Id ?? e.numeroIncorporation));
+
+  if (restants.length > 0) {
+    // On ajoute dans les pelotons de l'ESC 10 dans l'ordre, sans limite de capacité
+    const casesEsc10 = cases.filter(c => c.escadron === NB_ESC)
+      .sort((a, b) => a.peloton - b.peloton);
+    let pelIdx = 0;
+    restants.forEach(e => {
+      // On répartit équitablement sur les 3 pelotons de l'ESC 10
+      casesEsc10[pelIdx % casesEsc10.length].eleves.push(e);
+      pelIdx++;
+    });
+  }
+
+  // Finaliser
+  cases.forEach(c => {
+    c.eleves.sort((a, b) =>
+      (Number(a.numeroIncorporation) || 0) - (Number(b.numeroIncorporation) || 0)
+    );
+    c.effectif = c.eleves.length;
+    delete c._quotaF;
+  });
+
+  return { cases, restants };
+}
+//toinyyy
+//
+//
+//
+// Handler à ajouter dans le composant
+const handleRepartirEquitable = async () => {
+  const { cases, restants } = repartirEquitable(elevesAAfficher);
+
+  const totalAff = cases.reduce((s, c) => s + c.effectif, 0);
+  const totalM   = cases.flatMap(c => c.eleves).filter(e => sexToMF(e.sexe) === 'M').length;
+  const totalF   = cases.flatMap(c => c.eleves).filter(e => sexToMF(e.sexe) === 'F').length;
+
+  const lignes = [];
+  for (let esc = 1; esc <= 10; esc++) {
+    const casesEsc  = cases.filter(c => c.escadron === esc);
+    const totalEsc  = casesEsc.reduce((s, c) => s + c.effectif, 0);
+    const mEsc      = casesEsc.flatMap(c => c.eleves).filter(e => sexToMF(e.sexe) === 'M').length;
+    const fEsc      = casesEsc.flatMap(c => c.eleves).filter(e => sexToMF(e.sexe) === 'F').length;
+    lignes.push(`<li>ESC ${esc} → ${totalEsc} élèves (${mEsc}M / ${fEsc}F)</li>`);
+  }
+
+  const confirmResult = await Swal.fire({
+    title: 'Répartition équitable générée',
+    html: `
+      <div style="text-align:left">
+        <p>
+          <b>${totalAff}</b> élèves affectés —
+          <b>${totalM}</b> masculin / <b>${totalF}</b> féminin
+        </p>
+        ${restants.length > 0 ? `<p style="color:#b45309">⚠️ ${restants.length} élève(s) ajouté(s) à l'Escadron 10 (dépassement de 1500)</p>` : '<p style="color:#16a34a">✓ Tous les élèves sont affectés.</p>'}
+        <ul style="max-height:260px;overflow:auto;padding-left:18px">${lignes.join('')}</ul>
+      </div>
+    `,
+    icon: 'info',
+    showCancelButton: true,
+    confirmButtonText: 'Exporter Excel',
+    cancelButtonText: 'Annuler',
+  });
+
+  if (!confirmResult.isConfirmed) return;
+
+  const elevesModifies = cases.flatMap(c =>
+    c.eleves.map(e => ({ ...e, escadron: c.escadron, peloton: c.peloton }))
+  );
+
+  await exportRepartitionEquitableExcel(elevesModifies, cases);
+};
+// Export Excel de la répartition
+async function exportRepartitionEquitableExcel(elevesModifies, cases) {
+  const wb = XLSX.utils.book_new();
+
+  // ── helpers ────────────────────────────────────────────────────────────────
+  function uniqueName(wb, base) {
+    let name = base.slice(0, 31);
+    let i = 2;
+    while (wb.SheetNames.includes(name)) {
+      name = `${base.slice(0, 28)}_${i++}`;
+    }
+    return name;
+  }
+
+  function setColWidths(ws, widths) {
+    ws['!cols'] = widths.map(w => ({ wpx: w }));
+  }
+
+  function styleHeader(ws, rowIdx, nbCols) {
+    for (let c = 0; c < nbCols; c++) {
+      const ref = XLSX.utils.encode_cell({ r: rowIdx, c });
+      if (!ws[ref]) continue;
+      if (!ws[ref].s) ws[ref].s = {};
+      ws[ref].s.font = { bold: true };
+      ws[ref].s.fill = { patternType: 'solid', fgColor: { rgb: 'D9D9D9' } };
+      ws[ref].s.alignment = { horizontal: 'center', vertical: 'center' };
+      ws[ref].s.border = {
+        top:    { style: 'thin' }, bottom: { style: 'thin' },
+        left:   { style: 'thin' }, right:  { style: 'thin' }
+      };
+    }
+  }
+
+  function styleRow(ws, rowIdx, nbCols, fillRgb) {
+    for (let c = 0; c < nbCols; c++) {
+      const ref = XLSX.utils.encode_cell({ r: rowIdx, c });
+      if (!ws[ref]) ws[ref] = { v: '', t: 's' };
+      if (!ws[ref].s) ws[ref].s = {};
+      ws[ref].s.border = {
+        top:    { style: 'thin' }, bottom: { style: 'thin' },
+        left:   { style: 'thin' }, right:  { style: 'thin' }
+      };
+      ws[ref].s.alignment = { vertical: 'center' };
+      if (fillRgb) ws[ref].s.fill = { patternType: 'solid', fgColor: { rgb: fillRgb } };
+    }
+  }
+
+  const HEADER_PELOTON = ['NR','Nom','Prénom','Sexe','Escadron','Peloton','Incorporation','Niveau','Fady','Genre Concours'];
+  const COL_W_PELOTON  = [38, 180, 160, 50, 70, 70, 120, 120, 120, 130];
+
+  // ── 1) RÉSUMÉ ────────────────────────────────────────────────────────────────
+  {
+    const aoa = [];
+
+    // Titre
+    aoa.push(['RÉSUMÉ DE LA RÉPARTITION ÉQUITABLE']);
+    aoa.push([`Généré le ${new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' })}`]);
+    aoa.push([]);
+
+    // KPIs globaux
+    const totalAff  = elevesModifies.length;
+    const totalM    = elevesModifies.filter(e => sexToMF(e.sexe) === 'M').length;
+    const totalF    = elevesModifies.filter(e => sexToMF(e.sexe) === 'F').length;
+    const pctF      = totalAff > 0 ? Math.round(totalF / totalAff * 100) : 0;
+
+    aoa.push(['Total élèves affectés', totalAff, '', 'Masculin', totalM, '', 'Féminin', totalF, '', `${pctF}% filles`]);
+    aoa.push([]);
+
+    // En-tête tableau résumé
+    aoa.push(['Escadron','Peloton','Effectif','Masculin','Féminin','% F','Niveaux','Ethnies (fady)','Centres concours']);
+
+    let prevEsc = null;
+    const escTotaux = {}; // { esc: {total,m,f} }
+
+    // Trier les cases : esc 1→10, pel 1→3
+    const casesSorted = [...cases].sort((a, b) =>
+      a.escadron !== b.escadron ? a.escadron - b.escadron : a.peloton - b.peloton
+    );
+
+    casesSorted.forEach(c => {
+      const m   = c.eleves.filter(e => sexToMF(e.sexe) === 'M').length;
+      const f   = c.eleves.filter(e => sexToMF(e.sexe) === 'F').length;
+      const pf  = c.effectif > 0 ? Math.round(f / c.effectif * 100) : 0;
+      const niv = [...new Set(c.eleves.map(e => e.niveau          ?? '').filter(Boolean))].join(', ') || '-';
+      const eth = [...new Set(c.eleves.map(e => e.fady            ?? '').filter(Boolean))].join(', ') || '-';
+      const ctr = [...new Set(c.eleves.map(e => (e.genreConcours ?? e.centreConcours ?? '')).filter(Boolean))].join(', ') || '-';
+
+      if (!escTotaux[c.escadron]) escTotaux[c.escadron] = { total: 0, m: 0, f: 0 };
+      escTotaux[c.escadron].total += c.effectif;
+      escTotaux[c.escadron].m    += m;
+      escTotaux[c.escadron].f    += f;
+
+      aoa.push([c.escadron, c.peloton, c.effectif, m, f, `${pf}%`, niv, eth, ctr]);
+    });
+
+    aoa.push([]);
+    aoa.push(['— Totaux par escadron —']);
+    aoa.push(['Escadron','','Total','Masculin','Féminin','% F']);
+    Object.entries(escTotaux).forEach(([esc, t]) => {
+      const pf = t.total > 0 ? Math.round(t.f / t.total * 100) : 0;
+      aoa.push([`Escadron ${esc}`, '', t.total, t.m, t.f, `${pf}%`]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // Style titre
+    const cellT = ws['A1'];
+    if (cellT) { if (!cellT.s) cellT.s = {}; cellT.s.font = { bold: true, sz: 16 }; }
+
+    // Style en-tête colonnes (ligne index 5 = row 6)
+    styleHeader(ws, 5, 9);
+
+    // Style lignes données
+    for (let r = 6; r < 6 + casesSorted.length; r++) {
+      const esc = aoa[r]?.[0];
+      const fill = esc % 2 === 0 ? 'EEF2F7' : 'FFFFFF';
+      styleRow(ws, r, 9, fill);
+    }
+
+    // Fusion titre
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } },
+    ];
+
+    setColWidths(ws, [90, 70, 80, 80, 80, 55, 200, 220, 200]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Résumé');
+  }
+
+  // ── 2) UNE FEUILLE PAR PELOTON (30 feuilles) ──────────────────────────────
+  const casesSorted = [...cases].sort((a, b) =>
+    a.escadron !== b.escadron ? a.escadron - b.escadron : a.peloton - b.peloton
+  );
+
+  casesSorted.forEach(c => {
+    const aoa = [];
+
+    // Titre de la feuille
+    const titreTexte = `ESCADRON ${c.escadron} — PELOTON ${c.peloton}`;
+    aoa.push([titreTexte]);
+    aoa.push([`Effectif : ${c.effectif} élèves`]);
+    aoa.push([]);
+
+    // Stats rapides
+    const m  = c.eleves.filter(e => sexToMF(e.sexe) === 'M').length;
+    const f  = c.eleves.filter(e => sexToMF(e.sexe) === 'F').length;
+    const pf = c.effectif > 0 ? Math.round(f / c.effectif * 100) : 0;
+    aoa.push([`Masculin : ${m}`, `Féminin : ${f}`, `(${pf}% filles)`]);
+    aoa.push([]);
+
+    // En-tête colonnes
+    aoa.push([...HEADER_PELOTON]);
+
+    // Lignes élèves (triés par incorporation)
+    c.eleves
+      .slice()
+      .sort((a, b) => (Number(a.numeroIncorporation) || 0) - (Number(b.numeroIncorporation) || 0))
+      .forEach((e, idx) => {
+        aoa.push([
+          idx + 1,
+          e.nom || '',
+          e.prenom || '',
+          sexToMF(e.sexe ?? e.gender ?? e.sex ?? ''),
+          c.escadron,
+          c.peloton,
+          e.numeroIncorporation || '',
+          e.niveau          || '',
+          e.fady            || '',
+          e.genreConcours   ?? e.centreConcours ?? '',
+        ]);
+      });
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // Style titre (row 0)
+    const cellT = ws['A1'];
+    if (cellT) { if (!cellT.s) cellT.s = {}; cellT.s.font = { bold: true, sz: 14 }; }
+
+    // Fusion titre + sous-titre
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: HEADER_PELOTON.length - 1 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: HEADER_PELOTON.length - 1 } },
+      { s: { r: 3, c: 0 }, e: { r: 3, c: 2 } },
+    ];
+
+    // Style en-tête (row 5)
+    styleHeader(ws, 5, HEADER_PELOTON.length);
+
+    // Style lignes données
+    for (let r = 6; r < 6 + c.eleves.length; r++) {
+      styleRow(ws, r, HEADER_PELOTON.length, r % 2 === 0 ? 'F5F7FA' : 'FFFFFF');
+    }
+
+    setColWidths(ws, COL_W_PELOTON);
+
+    const sheetName = uniqueName(wb, `E${c.escadron}-P${c.peloton}`);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  });
+
+  // ── 3) Écriture ──────────────────────────────────────────────────────────────
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  saveAs(
+    new Blob([wbout], { type: 'application/octet-stream' }),
+    `repartition_equitable_${new Date().toISOString().slice(0, 10)}.xlsx`
+  );
+}
+
 
 
   return (
@@ -4054,6 +4419,17 @@ function handleExportExcel2() {
           </>
         )}
       </div>
+      {canEdit && (
+  <button
+    type="button"
+    className="btn btn-outline-info btn-sm shadow-sm rounded-3"
+    onClick={handleRepartirEquitable}
+    title="Répartir équitablement par niveau, fady, genreConcours et sexe"
+  >
+    <i className="fa fa-random me-2" aria-hidden="true"></i>
+    Répartition équitable
+  </button>
+)}
 
       {/* Toolbar mobile (menu condensé) */}
       <div className="dropdown d-md-none">
