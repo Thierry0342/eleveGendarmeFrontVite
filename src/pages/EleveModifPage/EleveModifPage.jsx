@@ -607,16 +607,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                       </FieldGroup>
                     ))}
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <FieldGroup label="Loisirs / Centres d'intérêt">
-                      <input className="form-control" name="facebook" value={formData.facebook || ''} onChange={handleChange} placeholder="Ex: Lecture, Musique..."
-                        style={orangeIfEmpty(formData.facebook)} />
-                    </FieldGroup>
-                    <FieldGroup label="Mobile Money (Mvola, Orange Money…)">
-                      <input className="form-control" name="mobileMoney" value={formData.mobileMoney || ''} onChange={handleChange} placeholder="N° Mobile Money"
-                        style={orangeIfEmpty(formData.mobileMoney)} />
-                    </FieldGroup>
-                  </div>
+                  
                 </SectionCard>
 
               </div>
