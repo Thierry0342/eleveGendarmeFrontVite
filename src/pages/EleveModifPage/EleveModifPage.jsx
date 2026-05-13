@@ -22,6 +22,7 @@ const alwaysOrange = () => ({
   borderColor: '#f97316',
   boxShadow: '0 0 0 0.2rem rgba(249,115,22,0.15)',
 });
+//
 
 // ─── Composants UI ────────────────────────────────────────────────────────────
 
@@ -159,6 +160,113 @@ const MembreFamilleCard = ({ label, membreKey, icon, accent, formData, setFormDa
     </SectionCard>
   );
 };
+const TuteurCard = ({ formData, setFormData }) => {
+  const membre = formData.famille?.tuteur || {};
+  const estFDS = membre.estFDS === true || membre.estFDS === 'true';
+
+  const update = (field, value) => setFormData(prev => ({
+    ...prev,
+    famille: {
+      ...prev.famille,
+      tuteur: { ...(prev.famille?.tuteur || {}), [field]: value }
+    }
+  }));
+
+  return (
+    <SectionCard title="Tuteur légal (Mpiantoka)" icon="🧑‍⚖️" accent="#f59e0b">
+      
+      <FieldGroup label="Nom et Prénoms">
+        <input
+          className="form-control form-control-sm"
+          value={membre.nom || ''}
+          onChange={e => update('nom', e.target.value)}
+          placeholder="Nom complet"
+          style={orangeIfEmpty(membre.nom)}
+        />
+      </FieldGroup>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+        <FieldGroup label="Téléphone">
+          <input
+            className="form-control form-control-sm"
+            value={membre.phone || ''}
+            onChange={e => update('phone', e.target.value)}
+            placeholder="Tél"
+            style={orangeIfEmpty(membre.phone)}
+          />
+        </FieldGroup>
+        <FieldGroup label="Adresse">
+          <input
+            className="form-control form-control-sm"
+            value={membre.adresse || ''}
+            onChange={e => update('adresse', e.target.value)}
+            placeholder="Adresse"
+            style={orangeIfEmpty(membre.adresse)}
+          />
+        </FieldGroup>
+      </div>
+      <FieldGroup label="Profession" hint="Ex: ministre, commerçant(e), enseignant(e)...">
+        <input
+          className="form-control form-control-sm"
+          value={membre.profession || ''}
+          onChange={e => update('profession', e.target.value)}
+          placeholder="Profession"
+          style={orangeIfEmpty(membre.profession)}
+        />
+      </FieldGroup>
+      <div style={{ marginBottom: '8px' }}>
+        <label style={{
+          display: 'inline-flex', alignItems: 'center', gap: '6px',
+          padding: '5px 12px', borderRadius: '20px', cursor: 'pointer',
+          border: `1.5px solid ${estFDS ? '#dc2626' : '#d1d5db'}`,
+          background: estFDS ? '#fef2f2' : '#f9fafb',
+          fontSize: '11px', fontWeight: estFDS ? '700' : '500',
+          color: estFDS ? '#991b1b' : '#6b7280', userSelect: 'none'
+        }}>
+          <input
+            type="checkbox"
+            checked={estFDS}
+            onChange={e => update('estFDS', e.target.checked)}
+            style={{ display: 'none' }}
+          />
+          🎖️ {estFDS ? 'Membre FDS ✓' : 'Membre FDS ?'}
+        </label>
+      </div>
+      {estFDS && (
+        <div style={{
+          background: '#fef2f2', border: '1px solid #fecaca',
+          borderRadius: '8px', padding: '10px'
+        }}>
+          <p style={{
+            fontSize: '10px', fontWeight: '700', color: '#991b1b',
+            textTransform: 'uppercase', marginBottom: '8px'
+          }}>
+            🎖️ Grade & Poste FDS
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <FieldGroup label="Grade">
+              <input
+                className="form-control form-control-sm"
+                value={membre.gradeFDS || ''}
+                onChange={e => update('gradeFDS', e.target.value)}
+                placeholder="Ex: Adjudant…"
+                style={orangeIfEmpty(membre.gradeFDS)}
+              />
+            </FieldGroup>
+            <FieldGroup label="Poste / Affectation">
+              <input
+                className="form-control form-control-sm"
+                value={membre.posteFDS || ''}
+                onChange={e => update('posteFDS', e.target.value)}
+                placeholder="Ex: Gendarmerie Tana"
+                style={orangeIfEmpty(membre.posteFDS)}
+              />
+            </FieldGroup>
+          </div>
+        </div>
+      )}
+    </SectionCard>
+  );
+};
 
 // ─── TabButton ────────────────────────────────────────────────────────────────
 const TabButton = ({ id, label, active, onClick, done }) => (
@@ -200,6 +308,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
             mere: eleve.Mere ?? {},
             pere: eleve.Pere ?? {},
             accident: eleve.Accident ?? {},
+            tuteur: eleve.Tuteur || eleve.tuteur || {},
             enfants: eleve.Enfants ?? [],
             frere: eleve.Freres ?? [],
             soeur: eleve.Soeurs ?? [],
@@ -341,7 +450,38 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
   if (!eleve) return null;
   const nomComplet = `${eleve.nom || '—'} ${eleve.prenom || ''}`.trim();
   const tabIdx = tabs.findIndex(t => t.id === activeTab);
+// --- Fonction de remplissage automatique ---
+  const remplirAccidentDepuis = (type) => {
+    // On va chercher dans formData.famille.pere, .mere ou .tuteur
+    const infosSource = formData.famille?.[type];
 
+    if (!infosSource || !infosSource.nom) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Source vide',
+        text: `Les informations du ${type} ne sont pas encore remplies.`,
+        timer: 2000
+      });
+      return;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      famille: {
+        ...prev.famille,
+        accident: {
+          ...prev.famille.accident, // On garde l'ID s'il existe déjà
+          nom: infosSource.nom || '',
+          phone: infosSource.phone || '', // Note: dans ton code tu utilises 'phone' et non 'telephone'
+          adresse: infosSource.adresse || '',
+          profession: infosSource.profession || '',
+          lien: type.charAt(0).toUpperCase() + type.slice(1) // "Pere", "Mere" ou "Tuteur"
+        }
+      }
+    }));
+    
+    toast.success(`Données copiées depuis : ${type}`);
+  };
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <>
@@ -612,6 +752,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
 
               </div>
             )}
+            
 
             {/* ══════════════════════════════════════════════════════════════════
                 PARTIE 2 — RENSEIGNEMENTS FAMILIAUX
@@ -642,7 +783,27 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
 
                 {/* 2.4 Mère */}
                 <MembreFamilleCard label="Mère (Reny)" membreKey="mere" icon="👩" accent="#ec4899" formData={formData} setFormData={setFormData} />
-
+                   <TuteurCard formData={formData} setFormData={setFormData} />
+{/* Petit bandeau de boutons pour le remplissage automatique */}
+<div style={{ 
+    display: 'flex', 
+    alignItems: 'center', 
+    gap: '10px', 
+    marginBottom: '10px',
+    background: '#f8fafc',
+    padding: '8px 12px',
+    borderRadius: '8px',
+    border: '1px dashed #cbd5e1'
+}}>
+  <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>
+    Remplir l'accident via :
+  </span>
+  <div className="btn-group">
+    <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => remplirAccidentDepuis('pere')}>👨 Père</button>
+    <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => remplirAccidentDepuis('mere')}>👩 Mère</button>
+    <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => remplirAccidentDepuis('tuteur')}>🛡️ Tuteur</button>
+  </div>
+</div>
                 {/* 2.5 À prévenir en cas d'accident */}
                 <MembreFamilleCard label="À prévenir en cas d'accident (Olona ilazàna raha misy loza)" membreKey="accident" icon="🚨" accent="#ef4444" formData={formData} setFormData={setFormData} />
 
@@ -840,7 +1001,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                     style={orangeIfEmpty(formData.fady)}
                   >
                     <option value="">— Sélectionner —</option>
-                    {['ANTAIFASY','ANTAIMORO','ANTAMBAHOAKA','ANTANDROY','ANTANOSY','ANTAKARANA','ANTESAKA','BARA','BEZANOZANO','BETSILEO','BETSIMISARAKA','MAHAFALY','MERINA','MIKEA','SAKALAVA','SIHANAKA','TANALA','TSIMIHETY','VEZO'].map(f => (
+                    {['ANTAIFASY','ANTAIMORO','ANTAMBAHOAKA','ANTANDROY','ANTANOSY','ANTAKARANA','ANTESAKA','BARA','BEZANOZANO','BETSILEO','BETSIMISARAKA','MAHAFALY','MASOKORO','MERINA','MIKEA','SAKALAVA','SIHANAKA','TANALA','TSIMIHETY','VEZO'].map(f => (
                       <option key={f} value={f}>{f}</option>
                     ))}
                   </select>
