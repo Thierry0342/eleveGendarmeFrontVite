@@ -979,7 +979,7 @@ useEffect(() => {
   }, {});
   //ppour SPA 
   const handleAfficherIndispo = () => {
-    const motifsI =["ADMIS IG","IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG","A REVOIR CHRR","A REVOIR CLINIC MANIA","CHAMBRE DE SURETE"];
+    const motifsI =["ADMIS IG","IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG","A REVOIR CHRR","ADMIS CHRR","A REVOIR CLINIC MANIA","ADMIS CLINIC MANIA","CHAMBRE DE SURETE"];
     // ISO pour comparaison de dates
   const spaDateISO = new Date(spaDate).toISOString().slice(0, 10);
 
@@ -1126,7 +1126,7 @@ const handleMotifChange = (e) => {
   
       // Préparation du tableau détaillé des absences
       const absencesDuJour = absenceafficher.filter(abs => abs.date === spaDate);
-      const specificMotifs = ["IG","ADMIS IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG","A REVOIR CHRR","A REVOIR CLINIC MANIA","CHAMBRE DE SURETE"];
+      const specificMotifs = ["IG","ADMIS IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG","A REVOIR CHRR","ADMIS CHRR","ADMIS CLINIC MANIA","A REVOIR CLINIC MANIA","CHAMBRE DE SURETE"];
      // Fonction pour identifier un motif "indisponible"
       const isIndisponible = (motif) => {
         if (!motif) return false;
@@ -1335,6 +1335,8 @@ spaSpecialesDuJour.forEach(spa => {
       'DONNEUR DE SANG',
       'CHAMBRE DE SURETE',
       'A REVOIR CHRR',
+      "ADMIS CHRR",
+      "ADMIS CLINIC MANIA",
       'A REVOIR CLINIC MANIA',
 
 
@@ -1529,7 +1531,9 @@ content += 'FIN RABEMANANTSOA';
       "DONNEUR DE SANG",
       "CHAMRE DE SURETE",
       "A REVOIR CHRR",
+      "ADMIS CHRR",
       "A REVOIR CLINIC MANIA",
+      "ADMIS CLINIC MANIA",
       "CHAMBRE DE SURETE"
     ];
   
@@ -1785,7 +1789,7 @@ content += 'FIN RABEMANANTSOA';
                             <option value="ANM">ANM</option>
                             <option value="ARTS MARTIAUX">ARTS MARTIAUX</option>
                             <option value="CHAMBRE DE SURETE">CHAMBRE DE SURETE</option>
-                            <option value="CHRR">CHRR</option>
+                
                             <option value="CONCOURS ACMIL">CONCOURS ACMIL</option>
                             <option value="CONFINES EN CHAMBRE">CONFINES EN CHAMBRE</option>
                             <option value="CONSULTATION">CONSULTATION</option>
