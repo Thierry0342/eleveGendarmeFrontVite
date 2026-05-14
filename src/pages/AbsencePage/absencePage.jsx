@@ -1263,10 +1263,6 @@ spaSpecialesDuJour.forEach(spa => {
       doc.text("-AMBOSITRA-", 70, finalY + 41);
       doc.text("(EGNA/DI)", 45, finalY + 45);
   
-      doc.text("- A Monsieur LE LIEUTENANT-COLONEL,", 7, finalY + 52);
-      doc.text("Chef de Service Administratif et Financier,", 7, finalY + 57);
-      doc.text("-AMBOSITRA-", 70, finalY + 63);
-      doc.text("(EGNA/SAF)", 45, finalY + 67);
   
       doc.text("- Aux archives,", 7, finalY + 71);
      doc.text(footer.line1, 120, finalY + 7);
