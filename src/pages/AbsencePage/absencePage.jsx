@@ -1264,7 +1264,7 @@ spaSpecialesDuJour.forEach(spa => {
       doc.text("(EGNA/DI)", 45, finalY + 45);
   
   
-      doc.text("- Aux archives,", 7, finalY + 71);
+      doc.text("- Aux archives,", 7, finalY + 50);
      doc.text(footer.line1, 120, finalY + 7);
       doc.text(footer.line2, 130, finalY + 17);
       doc.text(footer.line3, 114, finalY + 23);
