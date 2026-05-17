@@ -1,5 +1,5 @@
 import { Modal, Button, Form, Badge } from 'react-bootstrap';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import './style.css';
 import eleveService from '../../services/eleveService';
@@ -9,35 +9,62 @@ import { toast } from 'react-toastify';
 
 const user = JSON.parse(localStorage.getItem('user'));
 
-// ─── Helper : bordure orange si champ vide ────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// CSS D'IMPRESSION — injecté une seule fois dans <head>
+// ═══════════════════════════════════════════════════════════════════════════════
+const PRINT_STYLES = `
+  @media print {
+    body * { visibility: hidden !important; }
+    #fiche-mere-print, #fiche-mere-print * { visibility: visible !important; }
+    #fiche-mere-print {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 210mm !important;
+      min-height: 297mm !important;
+      margin: 0 auto !important;
+      padding: 8mm 10mm !important;
+      background: #fff !important;
+      font-family: 'Times New Roman', Times, serif !important;
+      font-size: 8.5pt !important;
+      color: #000 !important;
+      z-index: 999999 !important;
+    }
+    .no-print { display: none !important; }
+    @page { size: A4 portrait; margin: 6mm 8mm; }
+  }
+`;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════════════
 const orangeIfEmpty = (val) => {
   const isEmpty = val === null || val === undefined || String(val).trim() === '';
   return isEmpty
     ? { borderColor: '#f97316', boxShadow: '0 0 0 0.2rem rgba(249,115,22,0.15)' }
     : {};
 };
-
-// ─── Helper : bordure orange TOUJOURS (ex : CIN) ──────────────────────────────
 const alwaysOrange = () => ({
   borderColor: '#f97316',
   boxShadow: '0 0 0 0.2rem rgba(249,115,22,0.15)',
 });
-//
+const fmt = (val) => (val !== null && val !== undefined && String(val).trim() !== '') ? String(val) : '';
+const fmtDate = (d) => {
+  if (!d) return '';
+  try { return new Date(d).toLocaleDateString('fr-FR'); } catch { return d; }
+};
+const checked = (val) => val ? '☒' : '☐';
 
-// ─── Composants UI ────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMPOSANTS UI — MODAL
+// ═══════════════════════════════════════════════════════════════════════════════
 
 const SectionCard = ({ title, icon, children, accent = '#3b82f6' }) => (
   <div style={{
-    background: '#fff',
-    border: '1px solid #e2e8f0',
-    borderRadius: '12px',
-    marginBottom: '16px',
-    overflow: 'hidden',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
+    background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px',
+    marginBottom: '16px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
   }}>
     <div style={{
-      display: 'flex', alignItems: 'center', gap: '10px',
-      padding: '10px 16px',
+      display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px',
       background: `linear-gradient(135deg, ${accent}12, ${accent}06)`,
       borderBottom: `2px solid ${accent}28`,
     }}>
@@ -67,11 +94,9 @@ const InlineRadioGroup = ({ options, name, value, onChange, labelMap = {} }) => 
   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
     {options.map(opt => (
       <label key={opt} style={{
-        display: 'flex', alignItems: 'center', gap: '5px',
-        padding: '4px 11px', borderRadius: '20px',
+        display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 11px', borderRadius: '20px',
         border: `1.5px solid ${value === opt ? '#3b82f6' : '#d1d5db'}`,
-        background: value === opt ? '#eff6ff' : '#fff',
-        cursor: 'pointer', fontSize: '12px',
+        background: value === opt ? '#eff6ff' : '#fff', cursor: 'pointer', fontSize: '12px',
         fontWeight: value === opt ? '600' : '400',
         color: value === opt ? '#1d4ed8' : '#374151', transition: 'all 0.15s'
       }}>
@@ -82,59 +107,48 @@ const InlineRadioGroup = ({ options, name, value, onChange, labelMap = {} }) => 
   </div>
 );
 
-const CheckPill = ({ label, checked, onChange }) => (
+const CheckPill = ({ label, checked: isChecked, onChange }) => (
   <label style={{
-    display: 'flex', alignItems: 'center', gap: '5px',
-    padding: '4px 11px', borderRadius: '20px',
-    border: `1.5px solid ${checked ? '#10b981' : '#d1d5db'}`,
-    background: checked ? '#ecfdf5' : '#fff',
-    cursor: 'pointer', fontSize: '12px',
-    fontWeight: checked ? '600' : '400',
-    color: checked ? '#059669' : '#374151', transition: 'all 0.15s'
+    display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 11px', borderRadius: '20px',
+    border: `1.5px solid ${isChecked ? '#10b981' : '#d1d5db'}`,
+    background: isChecked ? '#ecfdf5' : '#fff', cursor: 'pointer', fontSize: '12px',
+    fontWeight: isChecked ? '600' : '400',
+    color: isChecked ? '#059669' : '#374151', transition: 'all 0.15s'
   }}>
-    <input type="checkbox" checked={checked} onChange={onChange} style={{ display: 'none' }} />
-    {checked ? '✓ ' : ''}{label}
+    <input type="checkbox" checked={isChecked} onChange={onChange} style={{ display: 'none' }} />
+    {isChecked ? '✓ ' : ''}{label}
   </label>
 );
 
-// Carte membre famille — défini HORS du parent pour éviter le remount
+// ─── Carte membre famille ──────────────────────────────────────────────────────
 const MembreFamilleCard = ({ label, membreKey, icon, accent, formData, setFormData }) => {
   const membre = formData.famille?.[membreKey] || {};
   const estFDS = membre.estFDS === true || membre.estFDS === 'true';
-
   const update = (field, value) => setFormData(prev => ({
     ...prev,
     famille: { ...prev.famille, [membreKey]: { ...(prev.famille?.[membreKey] || {}), [field]: value } }
   }));
-
   return (
     <SectionCard title={label} icon={icon} accent={accent}>
       <FieldGroup label="Nom et Prénoms">
-        <input className="form-control form-control-sm" value={membre.nom || ''} onChange={e => update('nom', e.target.value)} placeholder="Nom complet"
-          style={orangeIfEmpty(membre.nom)} />
+        <input className="form-control form-control-sm" value={membre.nom || ''} onChange={e => update('nom', e.target.value)} placeholder="Nom complet" style={orangeIfEmpty(membre.nom)} />
       </FieldGroup>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
         <FieldGroup label="Téléphone">
-          <input className="form-control form-control-sm" value={membre.phone || ''} onChange={e => update('phone', e.target.value)} placeholder="Tél"
-            style={orangeIfEmpty(membre.phone)} />
+          <input className="form-control form-control-sm" value={membre.phone || ''} onChange={e => update('phone', e.target.value)} placeholder="Tél" style={orangeIfEmpty(membre.phone)} />
         </FieldGroup>
         <FieldGroup label="Adresse">
-          <input className="form-control form-control-sm" value={membre.adresse || ''} onChange={e => update('adresse', e.target.value)} placeholder="Adresse"
-            style={orangeIfEmpty(membre.adresse)} />
+          <input className="form-control form-control-sm" value={membre.adresse || ''} onChange={e => update('adresse', e.target.value)} placeholder="Adresse" style={orangeIfEmpty(membre.adresse)} />
         </FieldGroup>
       </div>
       <FieldGroup label="Profession" hint="Ex: ministre, commerçant(e), enseignant(e)...">
-        <input className="form-control form-control-sm" value={membre.profession || ''} onChange={e => update('profession', e.target.value)} placeholder="Profession"
-          style={orangeIfEmpty(membre.profession)} />
+        <input className="form-control form-control-sm" value={membre.profession || ''} onChange={e => update('profession', e.target.value)} placeholder="Profession" style={orangeIfEmpty(membre.profession)} />
       </FieldGroup>
       <div style={{ marginBottom: '8px' }}>
         <label style={{
-          display: 'inline-flex', alignItems: 'center', gap: '6px',
-          padding: '5px 12px', borderRadius: '20px', cursor: 'pointer',
-          border: `1.5px solid ${estFDS ? '#dc2626' : '#d1d5db'}`,
-          background: estFDS ? '#fef2f2' : '#f9fafb',
-          fontSize: '11px', fontWeight: estFDS ? '700' : '500',
-          color: estFDS ? '#991b1b' : '#6b7280', userSelect: 'none'
+          display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 12px', borderRadius: '20px', cursor: 'pointer',
+          border: `1.5px solid ${estFDS ? '#dc2626' : '#d1d5db'}`, background: estFDS ? '#fef2f2' : '#f9fafb',
+          fontSize: '11px', fontWeight: estFDS ? '700' : '500', color: estFDS ? '#991b1b' : '#6b7280', userSelect: 'none'
         }}>
           <input type="checkbox" checked={estFDS} onChange={e => update('estFDS', e.target.checked)} style={{ display: 'none' }} />
           🎖️ {estFDS ? 'Membre FDS ✓' : 'Membre FDS ?'}
@@ -142,17 +156,13 @@ const MembreFamilleCard = ({ label, membreKey, icon, accent, formData, setFormDa
       </div>
       {estFDS && (
         <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px' }}>
-          <p style={{ fontSize: '10px', fontWeight: '700', color: '#991b1b', textTransform: 'uppercase', marginBottom: '8px' }}>
-            🎖️ Grade & Poste FDS
-          </p>
+          <p style={{ fontSize: '10px', fontWeight: '700', color: '#991b1b', textTransform: 'uppercase', marginBottom: '8px' }}>🎖️ Grade & Poste FDS</p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <FieldGroup label="Grade">
-              <input className="form-control form-control-sm" value={membre.gradeFDS || ''} onChange={e => update('gradeFDS', e.target.value)} placeholder="Ex: Adjudant..."
-                style={orangeIfEmpty(membre.gradeFDS)} />
+              <input className="form-control form-control-sm" value={membre.gradeFDS || ''} onChange={e => update('gradeFDS', e.target.value)} placeholder="Ex: Adjudant..." style={orangeIfEmpty(membre.gradeFDS)} />
             </FieldGroup>
             <FieldGroup label="Poste / Affectation">
-              <input className="form-control form-control-sm" value={membre.posteFDS || ''} onChange={e => update('posteFDS', e.target.value)} placeholder="Ex: Gendarmerie Tana"
-                style={orangeIfEmpty(membre.posteFDS)} />
+              <input className="form-control form-control-sm" value={membre.posteFDS || ''} onChange={e => update('posteFDS', e.target.value)} placeholder="Ex: Gendarmerie Tana" style={orangeIfEmpty(membre.posteFDS)} />
             </FieldGroup>
           </div>
         </div>
@@ -160,106 +170,50 @@ const MembreFamilleCard = ({ label, membreKey, icon, accent, formData, setFormDa
     </SectionCard>
   );
 };
+
+// ─── Carte tuteur ──────────────────────────────────────────────────────────────
 const TuteurCard = ({ formData, setFormData }) => {
   const membre = formData.famille?.tuteur || {};
   const estFDS = membre.estFDS === true || membre.estFDS === 'true';
-
   const update = (field, value) => setFormData(prev => ({
     ...prev,
-    famille: {
-      ...prev.famille,
-      tuteur: { ...(prev.famille?.tuteur || {}), [field]: value }
-    }
+    famille: { ...prev.famille, tuteur: { ...(prev.famille?.tuteur || {}), [field]: value } }
   }));
-
   return (
     <SectionCard title="Tuteur légal (Mpiantoka)" icon="🧑‍⚖️" accent="#f59e0b">
-      
       <FieldGroup label="Nom et Prénoms">
-        <input
-          className="form-control form-control-sm"
-          value={membre.nom || ''}
-          onChange={e => update('nom', e.target.value)}
-          placeholder="Nom complet"
-          style={orangeIfEmpty(membre.nom)}
-        />
+        <input className="form-control form-control-sm" value={membre.nom || ''} onChange={e => update('nom', e.target.value)} placeholder="Nom complet" style={orangeIfEmpty(membre.nom)} />
       </FieldGroup>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
         <FieldGroup label="Téléphone">
-          <input
-            className="form-control form-control-sm"
-            value={membre.phone || ''}
-            onChange={e => update('phone', e.target.value)}
-            placeholder="Tél"
-            style={orangeIfEmpty(membre.phone)}
-          />
+          <input className="form-control form-control-sm" value={membre.phone || ''} onChange={e => update('phone', e.target.value)} placeholder="Tél" style={orangeIfEmpty(membre.phone)} />
         </FieldGroup>
         <FieldGroup label="Adresse">
-          <input
-            className="form-control form-control-sm"
-            value={membre.adresse || ''}
-            onChange={e => update('adresse', e.target.value)}
-            placeholder="Adresse"
-            style={orangeIfEmpty(membre.adresse)}
-          />
+          <input className="form-control form-control-sm" value={membre.adresse || ''} onChange={e => update('adresse', e.target.value)} placeholder="Adresse" style={orangeIfEmpty(membre.adresse)} />
         </FieldGroup>
       </div>
       <FieldGroup label="Profession" hint="Ex: ministre, commerçant(e), enseignant(e)...">
-        <input
-          className="form-control form-control-sm"
-          value={membre.profession || ''}
-          onChange={e => update('profession', e.target.value)}
-          placeholder="Profession"
-          style={orangeIfEmpty(membre.profession)}
-        />
+        <input className="form-control form-control-sm" value={membre.profession || ''} onChange={e => update('profession', e.target.value)} placeholder="Profession" style={orangeIfEmpty(membre.profession)} />
       </FieldGroup>
       <div style={{ marginBottom: '8px' }}>
         <label style={{
-          display: 'inline-flex', alignItems: 'center', gap: '6px',
-          padding: '5px 12px', borderRadius: '20px', cursor: 'pointer',
-          border: `1.5px solid ${estFDS ? '#dc2626' : '#d1d5db'}`,
-          background: estFDS ? '#fef2f2' : '#f9fafb',
-          fontSize: '11px', fontWeight: estFDS ? '700' : '500',
-          color: estFDS ? '#991b1b' : '#6b7280', userSelect: 'none'
+          display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 12px', borderRadius: '20px', cursor: 'pointer',
+          border: `1.5px solid ${estFDS ? '#dc2626' : '#d1d5db'}`, background: estFDS ? '#fef2f2' : '#f9fafb',
+          fontSize: '11px', fontWeight: estFDS ? '700' : '500', color: estFDS ? '#991b1b' : '#6b7280', userSelect: 'none'
         }}>
-          <input
-            type="checkbox"
-            checked={estFDS}
-            onChange={e => update('estFDS', e.target.checked)}
-            style={{ display: 'none' }}
-          />
+          <input type="checkbox" checked={estFDS} onChange={e => update('estFDS', e.target.checked)} style={{ display: 'none' }} />
           🎖️ {estFDS ? 'Membre FDS ✓' : 'Membre FDS ?'}
         </label>
       </div>
       {estFDS && (
-        <div style={{
-          background: '#fef2f2', border: '1px solid #fecaca',
-          borderRadius: '8px', padding: '10px'
-        }}>
-          <p style={{
-            fontSize: '10px', fontWeight: '700', color: '#991b1b',
-            textTransform: 'uppercase', marginBottom: '8px'
-          }}>
-            🎖️ Grade & Poste FDS
-          </p>
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px' }}>
+          <p style={{ fontSize: '10px', fontWeight: '700', color: '#991b1b', textTransform: 'uppercase', marginBottom: '8px' }}>🎖️ Grade & Poste FDS</p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <FieldGroup label="Grade">
-              <input
-                className="form-control form-control-sm"
-                value={membre.gradeFDS || ''}
-                onChange={e => update('gradeFDS', e.target.value)}
-                placeholder="Ex: Adjudant…"
-                style={orangeIfEmpty(membre.gradeFDS)}
-              />
+              <input className="form-control form-control-sm" value={membre.gradeFDS || ''} onChange={e => update('gradeFDS', e.target.value)} placeholder="Ex: Adjudant…" style={orangeIfEmpty(membre.gradeFDS)} />
             </FieldGroup>
             <FieldGroup label="Poste / Affectation">
-              <input
-                className="form-control form-control-sm"
-                value={membre.posteFDS || ''}
-                onChange={e => update('posteFDS', e.target.value)}
-                placeholder="Ex: Gendarmerie Tana"
-                style={orangeIfEmpty(membre.posteFDS)}
-              />
+              <input className="form-control form-control-sm" value={membre.posteFDS || ''} onChange={e => update('posteFDS', e.target.value)} placeholder="Ex: Gendarmerie Tana" style={orangeIfEmpty(membre.posteFDS)} />
             </FieldGroup>
           </div>
         </div>
@@ -268,28 +222,377 @@ const TuteurCard = ({ formData, setFormData }) => {
   );
 };
 
-// ─── TabButton ────────────────────────────────────────────────────────────────
+// ─── TabButton ─────────────────────────────────────────────────────────────────
 const TabButton = ({ id, label, active, onClick, done }) => (
-  <button
-    type="button"
-    onClick={() => onClick(id)}
-    style={{
-      display: 'flex', alignItems: 'center', gap: '6px',
-      padding: '10px 16px', border: 'none',
-      borderBottom: active ? '3px solid #1d4ed8' : '3px solid transparent',
-      background: 'none',
-      color: active ? '#1d4ed8' : done ? '#10b981' : '#6b7280',
-      fontWeight: active ? '700' : '500',
-      fontSize: '12px', cursor: 'pointer', whiteSpace: 'nowrap',
-      transition: 'all 0.15s',
-    }}
-  >
+  <button type="button" onClick={() => onClick(id)} style={{
+    display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', border: 'none',
+    borderBottom: active ? '3px solid #1d4ed8' : '3px solid transparent', background: 'none',
+    color: active ? '#1d4ed8' : done ? '#10b981' : '#6b7280',
+    fontWeight: active ? '700' : '500', fontSize: '12px', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
+  }}>
     {done && !active && <span style={{ color: '#10b981', fontSize: '11px' }}>✓</span>}
     {label}
   </button>
 );
 
-// ─── Composant principal ───────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMPOSANTS UI — FICHE D'IMPRESSION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const PrintLineField = ({ label, value, style = {} }) => (
+  <div style={{ display: 'flex', alignItems: 'baseline', gap: '3px', marginBottom: '2px', ...style }}>
+    {label && <span style={{ fontWeight: 'bold', fontSize: '7.5pt', whiteSpace: 'nowrap' }}>{label} :</span>}
+    <span style={{ flex: 1, borderBottom: '1px solid #000', paddingLeft: '3px', fontSize: '8.5pt', minHeight: '11px', display: 'block' }}>
+      {value || '\u00A0'}
+    </span>
+  </div>
+);
+
+const PrintSectionTitle = ({ children }) => (
+  <div style={{
+    background: '#c8c8c8', border: '1px solid #000', padding: '2px 6px',
+    fontWeight: 'bold', fontSize: '8pt', textAlign: 'center',
+    marginBottom: '0', marginTop: '3px', textTransform: 'uppercase', letterSpacing: '0.04em'
+  }}>
+    {children}
+  </div>
+);
+
+const PrintMembreRow = ({ titre, membre = {}, lastRow = false }) => {
+  const estFDS = membre.estFDS === true || membre.estFDS === 'true';
+  return (
+    <div style={{ border: '1px solid #000', borderBottom: lastRow ? '1px solid #000' : 'none', padding: '3px 5px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '82px 1fr', gap: '4px', alignItems: 'start' }}>
+        <div style={{ fontWeight: 'bold', fontSize: '7.5pt', borderRight: '1px solid #bbb', paddingRight: '4px', paddingTop: '1px', lineHeight: 1.3 }}>
+          {titre}
+        </div>
+        <div>
+          <PrintLineField label="Nom & Prénoms" value={fmt(membre.nom)} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
+            <PrintLineField label="Adresse" value={fmt(membre.adresse)} />
+            <PrintLineField label="Téléphone" value={fmt(membre.phone)} />
+          </div>
+          <PrintLineField label="Profession" value={fmt(membre.profession)} />
+          {estFDS && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
+              <PrintLineField label="Grade FDS" value={fmt(membre.gradeFDS)} />
+              <PrintLineField label="Poste/Affectation" value={fmt(membre.posteFDS)} />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Fiche d'impression complète ──────────────────────────────────────────────
+const FicheImpression = ({ formData, specialites, previewImage }) => {
+  const famille = formData?.famille || {};
+  const diplome = formData?.Diplome || {};
+  const pointure = formData?.Pointure || {};
+  const filiereData = formData?.Filiere || {};
+
+  const sportsLabel = { Football: 'Football', Basketball: 'Basketball', Volley_ball: 'Volley-ball', Musculation: 'Musculation', Rugby: 'Rugby', Athletisme: 'Athlétisme', Tennis: 'Tennis', ArtsMartiaux: 'Arts Martiaux', Autre: 'Autre' };
+  const sportsActifs = (formData?.sports || []).map(s => sportsLabel[s] || s).join(', ');
+
+  const freres = famille.frere || [];
+  const soeurs = famille.soeur || [];
+  const maxFS = Math.max(freres.length, soeurs.length, 4);
+  const fsRows = Array.from({ length: maxFS }, (_, i) => ({ frere: freres[i] || null, soeur: soeurs[i] || null }));
+
+  const spList = (specialites || []).filter(sp => sp.categorie?.trim());
+  if (spList.length === 0) spList.push({ categorie: '', detail: '', niveauQualification: '' });
+
+  return (
+    <div id="fiche-mere-print" style={{
+      fontFamily: '"Times New Roman", Times, serif', fontSize: '8.5pt', color: '#000',
+      background: '#fff', padding: '8mm 10mm', width: '190mm', boxSizing: 'border-box', lineHeight: 1.25,
+      display: 'none', // caché à l'écran — visible via @media print
+    }}>
+
+      {/* ── En-tête ── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 'bold', fontSize: '12pt', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center' }}>
+            FICHE MÈRE — 80ÈME CFEG
+          </div>
+          <div style={{ fontSize: '7.5pt', textAlign: 'center', color: '#333' }}>
+            EGNA
+          </div>
+        </div>
+        {previewImage && (
+          <img src={previewImage} alt="Photo" style={{ width: '28mm', height: '35mm', objectFit: 'cover', border: '1px solid #000', marginLeft: '8px', flexShrink: 0 }} />
+        )}
+      </div>
+
+      {/* ── Numéros & Affectation ── */}
+      <div style={{ border: '1px solid #000', padding: '3px 6px', marginBottom: '3px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '5px' }}>
+          <PrintLineField label="N° Incorp." value={fmt(formData?.numeroIncorporation)} />
+          <PrintLineField label="Escadron" value={fmt(formData?.escadron)} />
+          <PrintLineField label="Peloton" value={fmt(formData?.peloton)} />
+          <PrintLineField label="N° Candid." value={fmt(formData?.numCandidature)} />
+          <PrintLineField label="Matricule" value={fmt(formData?.matricule)} />
+        </div>
+        <PrintLineField label="Centre de concours" value={fmt(formData?.centreConcours)} />
+      </div>
+
+      {/* ── État civil ── */}
+      <div style={{ border: '1px solid #000', padding: '3px 6px', marginBottom: '3px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
+          <PrintLineField label="NOM (Anarana)" value={fmt(formData?.nom)?.toUpperCase()} />
+          <PrintLineField label="Prénoms (Fanampiny)" value={fmt(formData?.prenom)} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '5px' }}>
+          <PrintLineField label="Né(e) le" value={fmtDate(formData?.dateNaissance)} />
+          <PrintLineField label="à" value={fmt(formData?.lieuNaissance)} />
+          <PrintLineField label="Adresse exacte" value={fmt(formData?.adresseExacte)} />
+        </div>
+        <div style={{ fontSize: '8pt', marginTop: '2px' }}>
+          <span style={{ fontWeight: 'bold' }}>Sexe : </span>
+          {checked(formData?.sexe === 'Masculin')} Masculin &nbsp;&nbsp;
+          {checked(formData?.sexe === 'Feminin')} Féminin
+        </div>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '2px', fontSize: '8pt' }}>
+          <span style={{ fontWeight: 'bold' }}>Situation (2) :</span>
+          {[
+            { val: 'Celibataire', label: 'Célibataire (Mpitovo)' },
+            { val: 'Marie', label: 'Marié(e) (Manambady)' },
+            { val: 'Divorce', label: 'Divorcé(e) (Nisara-bady)' },
+            { val: 'Veuf', label: 'Veuf/ve (Maty vady)' },
+          ].map(({ val, label }) => (
+            <span key={val}>{checked(formData?.situationFamiliale === val)} {label}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* ── CIN ── */}
+      <div style={{ border: '1px solid #000', padding: '3px 6px', marginBottom: '3px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '5px' }}>
+          <PrintLineField label="N° CIN" value={fmt(formData?.CIN)} />
+          <PrintLineField label="Délivrée le" value={fmtDate(formData?.dateDelivrance)} />
+          <PrintLineField label="à" value={fmt(formData?.lieuDelivrance)} />
+          <PrintLineField label="Duplicata du" value={fmtDate(formData?.duplicata)} />
+          <PrintLineField label="à" value={fmt(formData?.lieuDuplicata)} />
+        </div>
+      </div>
+
+      {/* ── Téléphones ── */}
+      <div style={{ border: '1px solid #000', padding: '3px 6px', marginBottom: '3px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '5px' }}>
+          <PrintLineField label="Tél 1" value={fmt(formData?.telephone1)} />
+          <PrintLineField label="Tél 2" value={fmt(formData?.telephone2)} />
+          <PrintLineField label="Tél 3" value={fmt(formData?.telephone3)} />
+        </div>
+      </div>
+
+      {/* ══ RENSEIGNEMENTS FAMILIAUX ══ */}
+      <PrintSectionTitle>Renseignements familiaux (Mikasika ny fianankaviana — mariho raha efa maty)</PrintSectionTitle>
+
+      <PrintMembreRow titre="CONJOINT(E)" membre={famille.conjointe || {}} />
+
+      {/* Enfants */}
+      <div style={{ border: '1px solid #000', borderBottom: 'none', padding: '3px 5px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '82px 1fr', gap: '4px' }}>
+          <div style={{ fontWeight: 'bold', fontSize: '7.5pt', borderRight: '1px solid #bbb', paddingRight: '4px', lineHeight: 1.3 }}>
+            ENFANTS<br />LÉGITIMES<br /><span style={{ fontWeight: 'normal', fontSize: '6.5pt' }}>(Zanaka ara-dalàna)</span>
+          </div>
+          <div>
+            {(famille.enfants?.length > 0 ? famille.enfants : Array(3).fill({})).map((e, i) => (
+              <div key={i} style={{ display: 'flex', gap: '5px', marginBottom: '2px' }}>
+                <span style={{ fontSize: '8pt', minWidth: '14px' }}>{i + 1}.</span>
+                <span style={{ flex: 1, borderBottom: '1px solid #000', paddingLeft: '3px', fontSize: '8.5pt', minHeight: '11px' }}>
+                  {fmt(e?.nom)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <PrintMembreRow titre="PÈRE (Ray)" membre={famille.pere || {}} />
+      <PrintMembreRow titre="MÈRE (Reny)" membre={famille.mere || {}} />
+      <PrintMembreRow titre={<>TUTEUR<br /><span style={{ fontWeight: 'normal', fontSize: '6.5pt' }}>(Olona mitaiza)</span></>} membre={famille.tuteur || {}} />
+      <PrintMembreRow titre={<>À PRÉVENIR<br />ACCIDENT<br /><span style={{ fontWeight: 'normal', fontSize: '6.5pt' }}>(Olona ilazàna raha misy loza)</span></>} membre={famille.accident || {}} lastRow />
+
+      {/* Frères & Sœurs */}
+      <div style={{ border: '1px solid #000', padding: '3px 5px', marginBottom: '3px', marginTop: '3px' }}>
+        <div style={{ fontWeight: 'bold', fontSize: '7.5pt', textTransform: 'uppercase', marginBottom: '3px', textAlign: 'center' }}>
+          Noms & Prénoms des Frères & Sœurs légitimes (Mpiray Tampo ara-dalàna)
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+          <div>
+            <div style={{ fontWeight: 'bold', fontSize: '7pt', borderBottom: '1px solid #000', marginBottom: '2px' }}>Frères (Anadahy) — Profession</div>
+            {fsRows.map((row, i) => (
+              <div key={i} style={{ display: 'flex', gap: '3px', marginBottom: '2px' }}>
+                <span style={{ fontSize: '8pt', minWidth: '14px' }}>{i + 1}.</span>
+                <span style={{ flex: 1, borderBottom: '1px solid #888', paddingLeft: '2px', fontSize: '8pt' }}>{fmt(row.frere?.nom)}&nbsp;</span>
+                <span style={{ width: '72px', borderBottom: '1px solid #888', paddingLeft: '2px', fontSize: '8pt' }}>{fmt(row.frere?.profession)}&nbsp;</span>
+              </div>
+            ))}
+          </div>
+          <div>
+            <div style={{ fontWeight: 'bold', fontSize: '7pt', borderBottom: '1px solid #000', marginBottom: '2px' }}>Sœurs (Rahavavy) — Profession</div>
+            {fsRows.map((row, i) => (
+              <div key={i} style={{ display: 'flex', gap: '3px', marginBottom: '2px' }}>
+                <span style={{ fontSize: '8pt', minWidth: '14px' }}>{i + 1}.</span>
+                <span style={{ flex: 1, borderBottom: '1px solid #888', paddingLeft: '2px', fontSize: '8pt' }}>{fmt(row.soeur?.nom)}&nbsp;</span>
+                <span style={{ width: '72px', borderBottom: '1px solid #888', paddingLeft: '2px', fontSize: '8pt' }}>{fmt(row.soeur?.profession)}&nbsp;</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ══ MOTIF DE CANDIDATURE ══ */}
+      <PrintSectionTitle>Motif de candidature au concours (1)</PrintSectionTitle>
+      <div style={{ border: '1px solid #000', padding: '3px 6px', marginBottom: '3px' }}>
+        <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', fontSize: '8pt' }}>
+          {[
+            { val: 'ordinaire', label: 'Ordinaire' },
+            { val: 'specialiste', label: 'Spécialiste' },
+            { val: 'orphelin', label: 'Orphelin(e)' },
+            { val: 'veuve', label: 'Veuve' },
+            { val: 'ex-militaire', label: 'Ex-militaire' },
+          ].map(({ val, label }) => (
+            <span key={val}>{checked(formData?.genreConcours === val)} {label}</span>
+          ))}
+        </div>
+        {formData?.genreConcours === 'specialiste' && (
+          <div style={{ marginTop: '2px' }}>
+            <PrintLineField label="Spécialité mentionnée" value={fmt(formData?.Specialiste)} />
+          </div>
+        )}
+      </div>
+
+      {/* ══ SPÉCIALITÉS & APTITUDES ══ */}
+      <PrintSectionTitle>Spécialités ou Aptitudes particulières (Fahaizana manokana) — avec ou sans diplôme (4)</PrintSectionTitle>
+      <div style={{ border: '1px solid #000', marginBottom: '3px', overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 3fr', background: '#e8e8e8', borderBottom: '1px solid #000' }}>
+          {['Domaine / Spécialité', 'Détails de la spécialisation', 'Niveau de qualification'].map((h, i) => (
+            <div key={i} style={{ padding: '2px 5px', fontWeight: 'bold', fontSize: '7pt', borderRight: i < 2 ? '1px solid #000' : 'none' }}>{h}</div>
+          ))}
+        </div>
+        {spList.map((sp, i) => (
+          <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 3fr', borderBottom: i < spList.length - 1 ? '1px solid #ddd' : 'none' }}>
+            <div style={{ padding: '2px 5px', borderRight: '1px solid #000', fontSize: '8pt', minHeight: '13px' }}>{fmt(sp.categorie)}</div>
+            <div style={{ padding: '2px 5px', borderRight: '1px solid #000', fontSize: '8pt', minHeight: '13px' }}>{fmt(sp.detail)}</div>
+            <div style={{ padding: '2px 5px', fontSize: '8pt', minHeight: '13px' }}>{fmt(sp.niveauQualification)}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ══ LOISIRS / SPORTS ══ */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0', marginBottom: '3px', border: '1px solid #000' }}>
+        <div style={{ padding: '3px 5px', borderRight: '1px solid #000' }}>
+          <div style={{ fontWeight: 'bold', fontSize: '7.5pt', marginBottom: '2px' }}>Loisirs (Fialam-boly)</div>
+          <div style={{ fontSize: '8.5pt', minHeight: '14px' }}>{fmt(formData?.facebook)}</div>
+        </div>
+        <div style={{ padding: '3px 5px' }}>
+          <div style={{ fontWeight: 'bold', fontSize: '7.5pt', marginBottom: '2px' }}>Sports pratiqués (Fanatanjahantena atao)</div>
+          <div style={{ fontSize: '8.5pt', minHeight: '14px' }}>{sportsActifs}</div>
+        </div>
+      </div>
+
+      {/* ══ RELIGION / GROUPE SANGUIN / ETHNIE ══ */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0', marginBottom: '3px', border: '1px solid #000' }}>
+        <div style={{ padding: '3px 5px', borderRight: '1px solid #000' }}>
+          <span style={{ fontWeight: 'bold', fontSize: '7.5pt' }}>Religion (Finoana) : </span>
+          <span style={{ fontSize: '8.5pt' }}>{fmt(formData?.religion)}</span>
+        </div>
+        <div style={{ padding: '3px 5px', borderRight: '1px solid #000' }}>
+          <span style={{ fontWeight: 'bold', fontSize: '7.5pt' }}>Groupe sanguin : </span>
+          <span style={{ fontSize: '8.5pt' }}>{fmt(formData?.groupeSaguin)}</span>
+        </div>
+        <div style={{ padding: '3px 5px' }}>
+          <span style={{ fontWeight: 'bold', fontSize: '7.5pt' }}>Ethnie / Foko : </span>
+          <span style={{ fontSize: '8.5pt' }}>{fmt(formData?.fady)}</span>
+        </div>
+      </div>
+
+      {/* ══ DIPLÔMES ══ */}
+      <PrintSectionTitle>Diplômes avec filières pour les études supérieures (3)</PrintSectionTitle>
+      <div style={{ border: '1px solid #000', padding: '3px 6px', marginBottom: '3px' }}>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '4px', fontSize: '8pt' }}>
+          {[
+            { key: 'CEPE', label: 'CEPE' }, { key: 'BEPC', label: 'BEPC' },
+            { key: 'BACC_S', label: 'BAC Série S' }, { key: 'BACC_L', label: 'BAC Série L' },
+            { key: 'BACC_TECHNIQUE', label: 'BAC Technique' },
+          ].map(({ key, label }) => (
+            <span key={key}>{checked(diplome[key])} {label}</span>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
+          {[
+            { key: 'Licence', label: 'Licence' },
+            { key: 'MasterOne', label: 'Master I' },
+            { key: 'MasterTwo', label: 'Master II' },
+            { key: 'Doctorat', label: 'Doctorat' },
+          ].map(({ key, label }) => (
+            <div key={key}>
+              <div style={{ fontSize: '8pt' }}>{checked(diplome[key])} <b>{label}</b></div>
+              <div style={{ borderBottom: '1px solid #000', fontSize: '8pt', paddingLeft: '3px', minHeight: '12px' }}>
+                {diplome[key] ? fmt(filiereData[`filiere${key}`]) : ''}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ══ NIVEAU D'ÉTUDES ══ */}
+      <div style={{ border: '1px solid #000', padding: '3px 6px', marginBottom: '3px', fontSize: '8.5pt' }}>
+        <span style={{ fontWeight: 'bold', fontSize: '7.5pt' }}>Niveau d'études — Dernière classe suivie (Kilasy farany nijanonana) : </span>
+        <span>{fmt(formData?.niveau)}</span>
+        {formData?.niveaufiliere && (
+          <span style={{ marginLeft: '12px' }}>Filière : <b>{fmt(formData?.niveaufiliere)}</b></span>
+        )}
+      </div>
+
+      {/* ══ EFFETS VESTIMENTAIRES ══ */}
+      <PrintSectionTitle>Pointures & Effets vestimentaires</PrintSectionTitle>
+      <div style={{ border: '1px solid #000', padding: '3px 6px', marginBottom: '3px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', fontSize: '8.5pt' }}>
+          <div><b>Chemise/T-shirt :</b> {fmt(pointure.tailleChemise)}</div>
+          <div><b>Tour de tête :</b> {pointure.tourTete ? `${pointure.tourTete} cm` : ''}</div>
+          <div><b>Pantalon :</b> {fmt(pointure.pointurePantalon)}</div>
+          <div><b>Chaussures :</b> {fmt(pointure.pointureChaussure)}</div>
+        </div>
+      </div>
+
+      {/* ══ RELATIONS GÊNANTES ══ */}
+      <div style={{ border: '1px solid #000', padding: '3px 6px', marginBottom: '6px' }}>
+        <div style={{ fontWeight: 'bold', fontSize: '7.5pt', marginBottom: '2px' }}>Relations gênantes (Toerana tsy tokony hiasàna)</div>
+        <div style={{ fontSize: '8.5pt', minHeight: '16px', borderBottom: '1px solid #ddd' }}>{fmt(formData?.relationGenante)}&nbsp;</div>
+      </div>
+
+      {/* ══ NOTES DE BAS DE PAGE ══ */}
+      <div style={{ fontSize: '6.5pt', color: '#444', borderTop: '1px solid #999', paddingTop: '3px', marginBottom: '8px', lineHeight: 1.4 }}>
+        (1) Candidat ordinaire ou spécialiste (spécialité à mentionner) ou ex-militaire ou veuve ou orphelin(e) &nbsp;|&nbsp;
+        (2) Cocher la bonne réponse (asio « X » izay marina) &nbsp;|&nbsp;
+        (3) Souligner la bonne réponse (tsipiho izay izy) &nbsp;|&nbsp;
+        (4) Possibilité de mettre des réponses multiples &nbsp;|&nbsp;
+        FDS : Forces de Défense et de Sécurité
+      </div>
+
+      {/* ══ SIGNATURES ══ */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div style={{ border: '1px solid #000', padding: '5px 8px', minHeight: '42px' }}>
+          <div style={{ fontSize: '7pt', fontWeight: 'bold', marginBottom: '4px' }}>Grade, Nom, Prénoms et Signature Gradé responsable :</div>
+          <div style={{ borderBottom: '1px solid #000', height: '22px' }} />
+        </div>
+        <div style={{ border: '1px solid #000', padding: '5px 8px', minHeight: '42px', textAlign: 'center' }}>
+          <div style={{ fontSize: '7.5pt', fontWeight: 'bold', marginBottom: '4px' }}>SIGNATURE de l'élève :</div>
+          <div style={{ height: '22px' }} />
+        </div>
+      </div>
+
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMPOSANT PRINCIPAL — ModalModificationEleve
+// ═══════════════════════════════════════════════════════════════════════════════
 
 const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpdateSuccess }) => {
   const [formData, setFormData] = useState({});
@@ -297,7 +600,23 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
   const [showFullImage, setShowFullImage] = useState(false);
   const [activeTab, setActiveTab] = useState('p1');
   const [specialites, setSpecialites] = useState([{ categorie: '', detail: '', niveauQualification: '' }]);
+  const printStyleInjected = useRef(false);
 
+  // ── Injection du CSS d'impression ──────────────────────────────────────────
+  useEffect(() => {
+    if (!printStyleInjected.current) {
+      const existing = document.getElementById('fiche-mere-print-styles');
+      if (!existing) {
+        const style = document.createElement('style');
+        style.id = 'fiche-mere-print-styles';
+        style.innerHTML = PRINT_STYLES;
+        document.head.appendChild(style);
+      }
+      printStyleInjected.current = true;
+    }
+  }, []);
+
+  // ── Chargement des données de l'élève ──────────────────────────────────────
   useEffect(() => {
     if (eleve) {
       setFormData(() => {
@@ -321,17 +640,17 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
         return baseData;
       });
 
-      setSpecialites(eleve.specialites?.length > 0
-        ? eleve.specialites.map(sp => ({ id: sp.id, categorie: sp.categorie || '', detail: sp.detail || '', niveauQualification: sp.niveauQualification || '' }))
-        : [{ categorie: '', detail: '', niveauQualification: '' }]
+      setSpecialites(
+        eleve.specialites?.length > 0
+          ? eleve.specialites.map(sp => ({ id: sp.id, categorie: sp.categorie || '', detail: sp.detail || '', niveauQualification: sp.niveauQualification || '' }))
+          : [{ categorie: '', detail: '', niveauQualification: '' }]
       );
 
       if (eleve.image && typeof eleve.image === 'string') setPreviewImage(eleve.image);
     }
   }, [eleve]);
 
-  // ─── Handlers ────────────────────────────────────────────────────────────────
-
+  // ── Image ──────────────────────────────────────────────────────────────────
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (!file?.type.startsWith('image/')) { alert('Image invalide'); return; }
@@ -357,11 +676,13 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
     reader.readAsDataURL(file);
   };
 
+  // ── Téléphone ──────────────────────────────────────────────────────────────
   const handlePhoneChange = (e, phoneKey) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 11);
     setFormData(prev => ({ ...prev, [phoneKey]: val }));
   };
 
+  // ── handleChange général ───────────────────────────────────────────────────
   const handleChange = (e, index = null) => {
     const { name, value } = e.target;
     if (name.startsWith('famille.enfants')) {
@@ -393,21 +714,51 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
     }
   };
 
+  // ── Spécialités ────────────────────────────────────────────────────────────
   const ajouterSpecialite = () => setSpecialites(prev => [...prev, { categorie: '', detail: '', niveauQualification: '' }]);
   const handleSpecialiteChange = (i, field, value) => setSpecialites(prev => { const u = [...prev]; u[i] = { ...u[i], [field]: value }; return u; });
   const supprimerSpecialite = async (i) => {
     const sp = specialites[i];
-    if (sp.id) { try { await specialiteService.delete(sp.id); } catch { Swal.fire({ icon: 'error', title: 'Erreur', text: 'Impossible de supprimer.' }); return; } }
+    if (sp.id) {
+      try { await specialiteService.delete(sp.id); }
+      catch { Swal.fire({ icon: 'error', title: 'Erreur', text: 'Impossible de supprimer.' }); return; }
+    }
     setSpecialites(prev => prev.length === 1 ? [{ categorie: '', detail: '', niveauQualification: '' }] : prev.filter((_, idx) => idx !== i));
   };
 
-  const ajouterEnfant = () => setFormData(prev => ({ ...prev, famille: { ...prev.famille, enfants: [...prev.famille.enfants, { nom: '' }] } }));
+  // ── Enfants / Frères / Sœurs ───────────────────────────────────────────────
+  const ajouterEnfant  = () => setFormData(prev => ({ ...prev, famille: { ...prev.famille, enfants: [...prev.famille.enfants, { nom: '' }] } }));
   const supprimerEnfant = (i) => setFormData(prev => { const e = [...prev.famille.enfants]; e.splice(i, 1); return { ...prev, famille: { ...prev.famille, enfants: e } }; });
-  const ajouterFrere = () => setFormData(prev => ({ ...prev, famille: { ...prev.famille, frere: [...prev.famille.frere, { nom: '', profession: '' }] } }));
-  const supprimerFrere = (i) => setFormData(prev => { const f = [...prev.famille.frere]; f.splice(i, 1); return { ...prev, famille: { ...prev.famille, frere: f } }; });
-  const ajouterSoeur = () => setFormData(prev => ({ ...prev, famille: { ...prev.famille, soeur: [...prev.famille.soeur, { nom: '', profession: '' }] } }));
-  const supprimerSoeur = (i) => setFormData(prev => { const s = [...prev.famille.soeur]; s.splice(i, 1); return { ...prev, famille: { ...prev.famille, soeur: s } }; });
+  const ajouterFrere   = () => setFormData(prev => ({ ...prev, famille: { ...prev.famille, frere: [...prev.famille.frere, { nom: '', profession: '' }] } }));
+  const supprimerFrere  = (i) => setFormData(prev => { const f = [...prev.famille.frere]; f.splice(i, 1); return { ...prev, famille: { ...prev.famille, frere: f } }; });
+  const ajouterSoeur   = () => setFormData(prev => ({ ...prev, famille: { ...prev.famille, soeur: [...prev.famille.soeur, { nom: '', profession: '' }] } }));
+  const supprimerSoeur  = (i) => setFormData(prev => { const s = [...prev.famille.soeur]; s.splice(i, 1); return { ...prev, famille: { ...prev.famille, soeur: s } }; });
 
+  // ── Remplissage accident depuis un membre ──────────────────────────────────
+  const remplirAccidentDepuis = (type) => {
+    const infosSource = formData.famille?.[type];
+    if (!infosSource?.nom) {
+      Swal.fire({ icon: 'info', title: 'Source vide', text: `Les informations du ${type} ne sont pas encore remplies.`, timer: 2000 });
+      return;
+    }
+    setFormData(prev => ({
+      ...prev,
+      famille: {
+        ...prev.famille,
+        accident: {
+          ...prev.famille.accident,
+          nom: infosSource.nom || '',
+          phone: infosSource.phone || '',
+          adresse: infosSource.adresse || '',
+          profession: infosSource.profession || '',
+          lien: type.charAt(0).toUpperCase() + type.slice(1)
+        }
+      }
+    }));
+    toast.success(`Données copiées depuis : ${type}`);
+  };
+
+  // ── Enregistrement ─────────────────────────────────────────────────────────
   const handleSave = async () => {
     try {
       const fd = new FormData();
@@ -440,6 +791,17 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
     }
   };
 
+  // ── Impression ─────────────────────────────────────────────────────────────
+  const handlePrint = () => {
+    // Rendre la fiche visible avant impression
+    const fiche = document.getElementById('fiche-mere-print');
+    if (fiche) fiche.style.display = 'block';
+    window.print();
+    // Re-cacher après impression
+    setTimeout(() => { if (fiche) fiche.style.display = 'none'; }, 500);
+  };
+
+  // ── Onglets ────────────────────────────────────────────────────────────────
   const tabs = [
     { id: 'p1', label: 'Partie 1 — Identification' },
     { id: 'p2', label: 'Partie 2 — Famille' },
@@ -450,39 +812,8 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
   if (!eleve) return null;
   const nomComplet = `${eleve.nom || '—'} ${eleve.prenom || ''}`.trim();
   const tabIdx = tabs.findIndex(t => t.id === activeTab);
-// --- Fonction de remplissage automatique ---
-  const remplirAccidentDepuis = (type) => {
-    // On va chercher dans formData.famille.pere, .mere ou .tuteur
-    const infosSource = formData.famille?.[type];
 
-    if (!infosSource || !infosSource.nom) {
-      Swal.fire({
-        icon: 'info',
-        title: 'Source vide',
-        text: `Les informations du ${type} ne sont pas encore remplies.`,
-        timer: 2000
-      });
-      return;
-    }
-
-    setFormData(prev => ({
-      ...prev,
-      famille: {
-        ...prev.famille,
-        accident: {
-          ...prev.famille.accident, // On garde l'ID s'il existe déjà
-          nom: infosSource.nom || '',
-          phone: infosSource.phone || '', // Note: dans ton code tu utilises 'phone' et non 'telephone'
-          adresse: infosSource.adresse || '',
-          profession: infosSource.profession || '',
-          lien: type.charAt(0).toUpperCase() + type.slice(1) // "Pere", "Mere" ou "Tuteur"
-        }
-      }
-    }));
-    
-    toast.success(`Données copiées depuis : ${type}`);
-  };
-  // ─── Render ───────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
       <Modal show={show} onHide={onClose} size="xl" className="modal-overlay">
@@ -491,8 +822,11 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
         <Modal.Header closeButton style={{ borderBottom: '1px solid #e5e7eb', padding: '14px 22px', background: '#f8fafc' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', width: '100%' }}>
             <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => setShowFullImage(true)}>
-              <img src={previewImage || formData.image || '/placeholder.png'} alt="Photo"
-                style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: '2px solid #e2e8f0' }} />
+              <img
+                src={previewImage || formData.image || '/placeholder.png'}
+                alt="Photo"
+                style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: '2px solid #e2e8f0' }}
+              />
               <div style={{
                 position: 'absolute', bottom: '-3px', right: '-3px', background: '#3b82f6',
                 borderRadius: '50%', width: '14px', height: '14px', display: 'flex', alignItems: 'center',
@@ -503,9 +837,9 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
               <div style={{ fontSize: '17px', fontWeight: '800', color: '#111827' }}>{nomComplet || 'Modifier un élève'}</div>
               <div style={{ display: 'flex', gap: '6px', marginTop: '3px', flexWrap: 'wrap' }}>
                 {eleve.matricule && <Badge bg="secondary" style={{ fontSize: '10px' }}>#{eleve.matricule}</Badge>}
-                {eleve.escadron && <Badge bg="primary" style={{ fontSize: '10px' }}>ESC {eleve.escadron}</Badge>}
-                {eleve.peloton && <Badge bg="info" style={{ fontSize: '10px' }}>PEL {eleve.peloton}</Badge>}
-                {eleve.sexe && <Badge bg={eleve.sexe === 'Masculin' ? 'primary' : 'danger'} style={{ fontSize: '10px' }}>{eleve.sexe}</Badge>}
+                {eleve.escadron  && <Badge bg="primary"   style={{ fontSize: '10px' }}>ESC {eleve.escadron}</Badge>}
+                {eleve.peloton   && <Badge bg="info"      style={{ fontSize: '10px' }}>PEL {eleve.peloton}</Badge>}
+                {eleve.sexe      && <Badge bg={eleve.sexe === 'Masculin' ? 'primary' : 'danger'} style={{ fontSize: '10px' }}>{eleve.sexe}</Badge>}
               </div>
             </div>
             <label style={{
@@ -540,65 +874,29 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                 <SectionCard title="Numéros & Affectation (Escadron / Peloton)" icon="🔢" accent="#f59e0b">
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
                     <FieldGroup label="N° Incorporation">
-                      <input
-                        className="form-control form-control-sm"
-                        name="numeroIncorporation"
-                        value={formData.numeroIncorporation || ''}
-                        onChange={handleChange}
-                        style={orangeIfEmpty(formData.numeroIncorporation)}
-                      />
+                      <input className="form-control form-control-sm" name="numeroIncorporation" value={formData.numeroIncorporation || ''} onChange={handleChange} style={orangeIfEmpty(formData.numeroIncorporation)} />
                     </FieldGroup>
                     <FieldGroup label="Escadron">
-                      <select
-                        className="form-select form-select-sm"
-                        name="escadron"
-                        value={formData.escadron || ''}
-                        onChange={handleChange}
-                        style={orangeIfEmpty(formData.escadron)}
-                      >
+                      <select className="form-select form-select-sm" name="escadron" value={formData.escadron || ''} onChange={handleChange} style={orangeIfEmpty(formData.escadron)}>
                         <option value="">—</option>
                         {Array.from({ length: 10 }, (_, i) => i + 1).map(i => <option key={i} value={i}>{i}</option>)}
                       </select>
                     </FieldGroup>
                     <FieldGroup label="Peloton">
-                      <select
-                        className="form-select form-select-sm"
-                        name="peloton"
-                        value={formData.peloton || ''}
-                        onChange={handleChange}
-                        style={orangeIfEmpty(formData.peloton)}
-                      >
+                      <select className="form-select form-select-sm" name="peloton" value={formData.peloton || ''} onChange={handleChange} style={orangeIfEmpty(formData.peloton)}>
                         <option value="">—</option>
                         {[1, 2, 3].map(i => <option key={i} value={String(i)}>{i}</option>)}
                       </select>
                     </FieldGroup>
                     <FieldGroup label="N° Candidature">
-                      <input
-                        className="form-control form-control-sm"
-                        name="numCandidature"
-                        value={formData.numCandidature || ''}
-                        onChange={handleChange}
-                        style={orangeIfEmpty(formData.numCandidature)}
-                      />
+                      <input className="form-control form-control-sm" name="numCandidature" value={formData.numCandidature || ''} onChange={handleChange} style={orangeIfEmpty(formData.numCandidature)} />
                     </FieldGroup>
                     <FieldGroup label="Matricule">
-                      <input
-                        className="form-control form-control-sm"
-                        name="matricule"
-                        value={formData.matricule || ''}
-                        onChange={handleChange}
-                        style={orangeIfEmpty(formData.matricule)}
-                      />
+                      <input className="form-control form-control-sm" name="matricule" value={formData.matricule || ''} onChange={handleChange} style={orangeIfEmpty(formData.matricule)} />
                     </FieldGroup>
                   </div>
                   <FieldGroup label="Centre de concours">
-                    <input
-                      className="form-control form-control-sm"
-                      name="centreConcours"
-                      value={formData.centreConcours || ''}
-                      onChange={handleChange}
-                      style={orangeIfEmpty(formData.centreConcours)}
-                    />
+                    <input className="form-control form-control-sm" name="centreConcours" value={formData.centreConcours || ''} onChange={handleChange} style={orangeIfEmpty(formData.centreConcours)} />
                   </FieldGroup>
                 </SectionCard>
 
@@ -606,56 +904,22 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                 <SectionCard title="Nom et Prénoms — État civil" icon="📋" accent="#3b82f6">
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <FieldGroup label="Nom (Anarana)" required>
-                      <input
-                        className="form-control"
-                        name="nom"
-                        value={formData.nom || ''}
-                        onChange={handleChange}
-                        placeholder="NOM"
-                        style={{ textTransform: 'uppercase', fontWeight: '600', ...orangeIfEmpty(formData.nom) }}
-                      />
+                      <input className="form-control" name="nom" value={formData.nom || ''} onChange={handleChange} placeholder="NOM"
+                        style={{ textTransform: 'uppercase', fontWeight: '600', ...orangeIfEmpty(formData.nom) }} />
                     </FieldGroup>
                     <FieldGroup label="Prénoms (Fanampiny)" required>
-                      <input
-                        className="form-control"
-                        name="prenom"
-                        value={formData.prenom || ''}
-                        onChange={handleChange}
-                        placeholder="Prénoms"
-                        style={orangeIfEmpty(formData.prenom)}
-                      />
+                      <input className="form-control" name="prenom" value={formData.prenom || ''} onChange={handleChange} placeholder="Prénoms" style={orangeIfEmpty(formData.prenom)} />
                     </FieldGroup>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                     <FieldGroup label="Date de naissance">
-                      <input
-                        type="date"
-                        className="form-control"
-                        name="dateNaissance"
-                        value={formData.dateNaissance || ''}
-                        onChange={handleChange}
-                        style={orangeIfEmpty(formData.dateNaissance)}
-                      />
+                      <input type="date" className="form-control" name="dateNaissance" value={formData.dateNaissance || ''} onChange={handleChange} style={orangeIfEmpty(formData.dateNaissance)} />
                     </FieldGroup>
                     <FieldGroup label="Lieu de naissance">
-                      <input
-                        className="form-control"
-                        name="lieuNaissance"
-                        value={formData.lieuNaissance || ''}
-                        onChange={handleChange}
-                        placeholder="Ville"
-                        style={orangeIfEmpty(formData.lieuNaissance)}
-                      />
+                      <input className="form-control" name="lieuNaissance" value={formData.lieuNaissance || ''} onChange={handleChange} placeholder="Ville" style={orangeIfEmpty(formData.lieuNaissance)} />
                     </FieldGroup>
                     <FieldGroup label="Adresse exacte">
-                      <input
-                        className="form-control"
-                        name="adresseExacte"
-                        value={formData.adresseExacte || ''}
-                        onChange={handleChange}
-                        placeholder="Adresse"
-                        style={orangeIfEmpty(formData.adresseExacte)}
-                      />
+                      <input className="form-control" name="adresseExacte" value={formData.adresseExacte || ''} onChange={handleChange} placeholder="Adresse" style={orangeIfEmpty(formData.adresseExacte)} />
                     </FieldGroup>
                   </div>
                   <FieldGroup label="Sexe">
@@ -675,95 +939,49 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                   </FieldGroup>
                 </SectionCard>
 
-                {/* 1.3 CIN — toujours orange */}
+                {/* 1.3 CIN */}
                 <SectionCard title="N° CIN — Pièce d'identité" icon="🪪" accent="#8b5cf6">
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
                     <FieldGroup label="Numéro CIN">
-                      <input
-                        className="form-control"
-                        name="CIN"
-                        value={formData.CIN || ''}
-                        onChange={handleChange}
-                        placeholder="N° CIN"
-                        style={alwaysOrange()}
-                      />
+                      <input className="form-control" name="CIN" value={formData.CIN || ''} onChange={handleChange} placeholder="N° CIN" style={alwaysOrange()} />
                     </FieldGroup>
                     <FieldGroup label="Délivrée le">
-                      <input
-                        type="date"
-                        className="form-control"
-                        name="dateDelivrance"
-                        value={formData.dateDelivrance || ''}
-                        onChange={handleChange}
-                        style={orangeIfEmpty(formData.dateDelivrance)}
-                      />
+                      <input type="date" className="form-control" name="dateDelivrance" value={formData.dateDelivrance || ''} onChange={handleChange} style={orangeIfEmpty(formData.dateDelivrance)} />
                     </FieldGroup>
                     <FieldGroup label="Lieu de délivrance">
-                      <input
-                        className="form-control"
-                        name="lieuDelivrance"
-                        value={formData.lieuDelivrance || ''}
-                        onChange={handleChange}
-                        placeholder="Lieu"
-                        style={orangeIfEmpty(formData.lieuDelivrance)}
-                      />
+                      <input className="form-control" name="lieuDelivrance" value={formData.lieuDelivrance || ''} onChange={handleChange} placeholder="Lieu" style={orangeIfEmpty(formData.lieuDelivrance)} />
                     </FieldGroup>
                     <FieldGroup label="Duplicata du">
-                      <input
-                        type="date"
-                        className="form-control"
-                        name="duplicata"
-                        value={formData.duplicata || ''}
-                        onChange={handleChange}
-                        style={orangeIfEmpty(formData.duplicata)}
-                      />
+                      <input type="date" className="form-control" name="duplicata" value={formData.duplicata || ''} onChange={handleChange} style={orangeIfEmpty(formData.duplicata)} />
                     </FieldGroup>
                     <FieldGroup label="Lieu duplicata">
-                      <input
-                        className="form-control"
-                        name="lieuDuplicata"
-                        value={formData.lieuDuplicata || ''}
-                        onChange={handleChange}
-                        placeholder="Lieu"
-                        style={orangeIfEmpty(formData.lieuDuplicata)}
-                      />
+                      <input className="form-control" name="lieuDuplicata" value={formData.lieuDuplicata || ''} onChange={handleChange} placeholder="Lieu" style={orangeIfEmpty(formData.lieuDuplicata)} />
                     </FieldGroup>
                   </div>
                 </SectionCard>
 
                 {/* 1.4 Contacts */}
                 <SectionCard title="N° Téléphone & Réseaux sociaux" icon="📱" accent="#10b981">
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
                     {['telephone1', 'telephone2', 'telephone3'].map((k, i) => (
                       <FieldGroup key={k} label={`Tél ${i + 1} (03…)`}>
-                        <input
-                          className="form-control"
-                          placeholder="03X XX XXX XX"
-                          maxLength="11"
-                          value={formData[k] || ''}
-                          onChange={e => handlePhoneChange(e, k)}
-                          style={orangeIfEmpty(formData[k])}
-                        />
+                        <input className="form-control" placeholder="03X XX XXX XX" maxLength="11" value={formData[k] || ''} onChange={e => handlePhoneChange(e, k)} style={orangeIfEmpty(formData[k])} />
                       </FieldGroup>
                     ))}
                   </div>
-                  
                 </SectionCard>
 
               </div>
             )}
-            
 
             {/* ══════════════════════════════════════════════════════════════════
                 PARTIE 2 — RENSEIGNEMENTS FAMILIAUX
             ══════════════════════════════════════════════════════════════════ */}
             {activeTab === 'p2' && (
               <div>
-
-                {/* 2.1 Conjoint */}
                 <MembreFamilleCard label="Conjoint(e)" membreKey="conjointe" icon="💑" accent="#6366f1" formData={formData} setFormData={setFormData} />
 
-                {/* 2.2 Enfants légitimes */}
+                {/* Enfants */}
                 <SectionCard title="Noms et Prénoms des enfants légitimes (Zanaka ara-dalàna)" icon="👶" accent="#10b981">
                   {formData.famille?.enfants?.map((enfant, i) => (
                     <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
@@ -778,40 +996,30 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                   </button>
                 </SectionCard>
 
-                {/* 2.3 Père */}
                 <MembreFamilleCard label="Père (Ray)" membreKey="pere" icon="👨" accent="#3b82f6" formData={formData} setFormData={setFormData} />
-
-                {/* 2.4 Mère */}
                 <MembreFamilleCard label="Mère (Reny)" membreKey="mere" icon="👩" accent="#ec4899" formData={formData} setFormData={setFormData} />
-                   <TuteurCard formData={formData} setFormData={setFormData} />
-{/* Petit bandeau de boutons pour le remplissage automatique */}
-<div style={{ 
-    display: 'flex', 
-    alignItems: 'center', 
-    gap: '10px', 
-    marginBottom: '10px',
-    background: '#f8fafc',
-    padding: '8px 12px',
-    borderRadius: '8px',
-    border: '1px dashed #cbd5e1'
-}}>
-  <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>
-    Remplir l'accident via :
-  </span>
-  <div className="btn-group">
-    <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => remplirAccidentDepuis('pere')}>👨 Père</button>
-    <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => remplirAccidentDepuis('mere')}>👩 Mère</button>
-    <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => remplirAccidentDepuis('tuteur')}>🛡️ Tuteur</button>
-  </div>
-</div>
-                {/* 2.5 À prévenir en cas d'accident */}
+                <TuteurCard formData={formData} setFormData={setFormData} />
+
+                {/* Remplissage accident auto */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px',
+                  background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', border: '1px dashed #cbd5e1'
+                }}>
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>
+                    Remplir l'accident via :
+                  </span>
+                  <div className="btn-group">
+                    <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => remplirAccidentDepuis('pere')}>👨 Père</button>
+                    <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => remplirAccidentDepuis('mere')}>👩 Mère</button>
+                    <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => remplirAccidentDepuis('tuteur')}>🛡️ Tuteur</button>
+                  </div>
+                </div>
+
                 <MembreFamilleCard label="À prévenir en cas d'accident (Olona ilazàna raha misy loza)" membreKey="accident" icon="🚨" accent="#ef4444" formData={formData} setFormData={setFormData} />
 
-                {/* 2.6 Frères & Sœurs */}
+                {/* Frères & Sœurs */}
                 <SectionCard title="Frères & Sœurs légitimes (Mpiray tampo ara-dalàna)" icon="👫" accent="#f59e0b">
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-
-                    {/* Frères */}
                     <div>
                       <p style={{ fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', marginBottom: '10px', letterSpacing: '0.04em' }}>
                         Frères (Anadahy) + Profession
@@ -823,17 +1031,13 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                             <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => supprimerFrere(i)} style={{ padding: '1px 7px', fontSize: '11px' }}>🗑️</button>
                           </div>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                            <input className="form-control form-control-sm" name="famille.frere.nom" value={f.nom || ''} onChange={e => handleChange(e, i)} placeholder="Nom et prénoms"
-                              style={orangeIfEmpty(f.nom)} />
-                            <input className="form-control form-control-sm" name="famille.frere.profession" value={f.profession || ''} onChange={e => handleChange(e, i)} placeholder="Profession"
-                              style={orangeIfEmpty(f.profession)} />
+                            <input className="form-control form-control-sm" name="famille.frere.nom" value={f.nom || ''} onChange={e => handleChange(e, i)} placeholder="Nom et prénoms" style={orangeIfEmpty(f.nom)} />
+                            <input className="form-control form-control-sm" name="famille.frere.profession" value={f.profession || ''} onChange={e => handleChange(e, i)} placeholder="Profession" style={orangeIfEmpty(f.profession)} />
                           </div>
                         </div>
                       ))}
                       <button type="button" className="btn btn-outline-primary btn-sm w-100" onClick={ajouterFrere} style={{ borderRadius: '8px', borderStyle: 'dashed' }}>+ Frère</button>
                     </div>
-
-                    {/* Sœurs */}
                     <div>
                       <p style={{ fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', marginBottom: '10px', letterSpacing: '0.04em' }}>
                         Sœurs (Rahavavy) + Profession
@@ -845,10 +1049,8 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                             <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => supprimerSoeur(i)} style={{ padding: '1px 7px', fontSize: '11px' }}>🗑️</button>
                           </div>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                            <input className="form-control form-control-sm" name="famille.soeur.nom" value={s.nom || ''} onChange={e => handleChange(e, i)} placeholder="Nom et prénoms"
-                              style={orangeIfEmpty(s.nom)} />
-                            <input className="form-control form-control-sm" name="famille.soeur.profession" value={s.profession || ''} onChange={e => handleChange(e, i)} placeholder="Profession"
-                              style={orangeIfEmpty(s.profession)} />
+                            <input className="form-control form-control-sm" name="famille.soeur.nom" value={s.nom || ''} onChange={e => handleChange(e, i)} placeholder="Nom et prénoms" style={orangeIfEmpty(s.nom)} />
+                            <input className="form-control form-control-sm" name="famille.soeur.profession" value={s.profession || ''} onChange={e => handleChange(e, i)} placeholder="Profession" style={orangeIfEmpty(s.profession)} />
                           </div>
                         </div>
                       ))}
@@ -865,7 +1067,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
             {activeTab === 'p3' && (
               <div>
 
-                {/* 3.1 Motif & Genre de concours */}
+                {/* 3.1 Genre de concours */}
                 <SectionCard title="Motif de candidature au concours" icon="📝" accent="#ef4444">
                   <FieldGroup label="Genre de concours (1) : Ordinaire, Spécialiste, Orphelin, Veuve, Ex-militaire">
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
@@ -880,14 +1082,13 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                       ))}
                     </div>
                   </FieldGroup>
-
                   {formData.genreConcours === 'specialiste' && (
                     <FieldGroup label="Mentionner la spécialité (ex : Informatique, Sport, Infirmière…)">
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
                         {['Info-Telecom', 'Topo', 'Mecanicien', 'Infrastructure', 'Sport', 'Plombier', 'Infirmier'].map(val => (
                           <label key={val} style={{
-                            display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 12px',
-                            borderRadius: '8px', border: `1.5px solid ${formData.Specialiste === val ? '#3b82f6' : '#e5e7eb'}`,
+                            display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 12px', borderRadius: '8px',
+                            border: `1.5px solid ${formData.Specialiste === val ? '#3b82f6' : '#e5e7eb'}`,
                             background: formData.Specialiste === val ? '#eff6ff' : '#fff',
                             cursor: 'pointer', fontSize: '12px', fontWeight: formData.Specialiste === val ? '600' : '400'
                           }}>
@@ -900,20 +1101,17 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                   )}
                 </SectionCard>
 
-                {/* 3.2 Spécialités & Aptitudes particulières */}
+                {/* 3.2 Spécialités */}
                 <SectionCard title="Spécialité ou Aptitudes particulières (Fahaizana manokana) — avec ou sans diplôme" icon="⚡" accent="#8b5cf6">
                   <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '12px' }}>
                     Ex : BTP, mécanicien, sport, musique, informatique… (plusieurs réponses possibles)
                   </p>
-
                   {formData.SpecialisteAptitude && (
                     <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '10px', marginBottom: '12px' }}>
                       <small style={{ color: '#92400e', fontWeight: '600', fontSize: '11px' }}>⚠️ Ancienne donnée (à migrer)</small>
                       <input className="form-control form-control-sm mt-1" name="SpecialisteAptitude" value={formData.SpecialisteAptitude || ''} onChange={handleChange} />
                     </div>
                   )}
-
-                  {/* Tableau style fiche mère */}
                   <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 3fr auto', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                       {['Domaine / Spécialité', 'Détails', 'Niveau de qualification', ''].map((h, i) => (
@@ -924,18 +1122,15 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                       <div key={index} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 3fr auto', borderBottom: index < specialites.length - 1 ? '1px solid #f1f5f9' : 'none', alignItems: 'center' }}>
                         <div style={{ padding: '8px 10px' }}>
                           <input className="form-control form-control-sm" placeholder="Ex: Informatique, BTP…" value={sp.categorie}
-                            onChange={e => handleSpecialiteChange(index, 'categorie', e.target.value)}
-                            style={orangeIfEmpty(sp.categorie)} />
+                            onChange={e => handleSpecialiteChange(index, 'categorie', e.target.value)} style={orangeIfEmpty(sp.categorie)} />
                         </div>
                         <div style={{ padding: '8px 10px' }}>
                           <input className="form-control form-control-sm" placeholder="Ex: Génie logiciel, Électricien…" value={sp.detail}
-                            onChange={e => handleSpecialiteChange(index, 'detail', e.target.value)}
-                            style={orangeIfEmpty(sp.detail)} />
+                            onChange={e => handleSpecialiteChange(index, 'detail', e.target.value)} style={orangeIfEmpty(sp.detail)} />
                         </div>
                         <div style={{ padding: '8px 10px' }}>
                           <select className="form-select form-select-sm" value={sp.niveauQualification}
-                            onChange={e => handleSpecialiteChange(index, 'niveauQualification', e.target.value)}
-                            style={orangeIfEmpty(sp.niveauQualification)}>
+                            onChange={e => handleSpecialiteChange(index, 'niveauQualification', e.target.value)} style={orangeIfEmpty(sp.niveauQualification)}>
                             <option value="">— Niveau —</option>
                             <option value="Licencié">Licencié (diplôme / certificat / licence sportive)</option>
                             <option value="En cours de licence">En cours de licence</option>
@@ -959,19 +1154,15 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                     <textarea className="form-control" name="facebook" rows="3" value={formData.facebook || ''} onChange={handleChange} placeholder="Ex: Lecture, Musique, Cinéma, Jardinage…"
                       style={orangeIfEmpty(formData.facebook)} />
                   </SectionCard>
-
                   <SectionCard title="Sports pratiqués (Fanatanjahantena atao)" icon="🏅" accent="#10b981">
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
                       {['Football', 'Basketball', 'Volley_ball', 'Musculation', 'Rugby', 'Athletisme', 'Tennis', 'ArtsMartiaux', 'Autre'].map(sport => (
-                        <CheckPill
-                          key={sport}
-                          label={sport.replace('_', ' ')}
-                          checked={formData.sports?.includes(sport)}
+                        <CheckPill key={sport} label={sport.replace('_', ' ')} checked={formData.sports?.includes(sport)}
                           onChange={e => {
-                            const checked = e.target.checked;
+                            const isChecked = e.target.checked;
                             setFormData(prev => {
                               const s = new Set(prev.sports || []);
-                              checked ? s.add(sport) : s.delete(sport);
+                              isChecked ? s.add(sport) : s.delete(sport);
                               return { ...prev, sports: Array.from(s) };
                             });
                           }}
@@ -987,21 +1178,15 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                     <InlineRadioGroup options={['EKAR', 'FJKM', 'FLM', 'ISLAM', 'Autre']} name="religion" value={formData.religion || ''} onChange={handleChange} />
                   </SectionCard>
                   <SectionCard title="Groupe sanguin" icon="🩸" accent="#ef4444">
-                    <InlineRadioGroup options={['A+','A-','B+','B-','AB+','AB-','O+','O-']} name="groupeSaguin" value={formData.groupeSaguin || ''} onChange={handleChange} />
+                    <InlineRadioGroup options={['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']} name="groupeSaguin" value={formData.groupeSaguin || ''} onChange={handleChange} />
                   </SectionCard>
                 </div>
 
-                {/* 3.4b Ethnie / Fady */}
+                {/* 3.4b Ethnie */}
                 <SectionCard title="Ethnie / Foko (Fady)" icon="🌍" accent="#10b981">
-                  <select
-                    className="form-select"
-                    name="fady"
-                    value={formData.fady || ''}
-                    onChange={handleChange}
-                    style={orangeIfEmpty(formData.fady)}
-                  >
+                  <select className="form-select" name="fady" value={formData.fady || ''} onChange={handleChange} style={orangeIfEmpty(formData.fady)}>
                     <option value="">— Sélectionner —</option>
-                    {['ANTAIFASY','ANTAIMORO','ANTAMBAHOAKA','ANTANDROY','ANTANOSY','ANTAKARANA','ANTESAKA','BARA','BEZANOZANO','BETSILEO','BETSIMISARAKA','MAHAFALY','MASOKORO','MERINA','MIKEA','SAKALAVA','SIHANAKA','TANALA','TSIMIHETY','VEZO'].map(f => (
+                    {['ANTAIFASY', 'ANTAIMORO', 'ANTAMBAHOAKA', 'ANTANDROY', 'ANTANOSY', 'ANTAKARANA', 'ANTESAKA', 'BARA', 'BEZANOZANO', 'BETSILEO', 'BETSIMISARAKA', 'MAHAFALY', 'MASOKORO', 'MERINA', 'MIKEA', 'SAKALAVA', 'SIHANAKA', 'TANALA', 'TSIMIHETY', 'VEZO'].map(f => (
                       <option key={f} value={f}>{f}</option>
                     ))}
                   </select>
@@ -1022,8 +1207,6 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                         onChange={e => setFormData(prev => ({ ...prev, Diplome: { ...(prev.Diplome || {}), [key]: e.target.checked } }))} />
                     ))}
                   </div>
-
-                  {/* Tableau diplômes supérieurs */}
                   <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
                     {[
                       { label: 'Licence', key: 'Licence' },
@@ -1033,25 +1216,18 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                     ].map(({ label, key }, i, arr) => (
                       <div key={key} style={{
                         display: 'grid', gridTemplateColumns: '160px 1fr',
-                        borderBottom: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none',
-                        alignItems: 'center'
+                        borderBottom: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none', alignItems: 'center'
                       }}>
                         <div style={{ padding: '10px 12px', borderRight: '1px solid #f1f5f9' }}>
                           <CheckPill label={label} checked={formData.Diplome?.[key] || false}
                             onChange={e => setFormData(prev => ({ ...prev, Diplome: { ...(prev.Diplome || {}), [key]: e.target.checked } }))} />
                         </div>
                         <div style={{ padding: '8px 12px' }}>
-                          <input
-                            className="form-control form-control-sm"
-                            name={`Filiere.filiere${key}`}
-                            value={formData.Filiere?.[`filiere${key}`] || ''}
-                            onChange={handleChange}
+                          <input className="form-control form-control-sm" name={`Filiere.filiere${key}`}
+                            value={formData.Filiere?.[`filiere${key}`] || ''} onChange={handleChange}
                             placeholder={formData.Diplome?.[key] ? 'Préciser la filière…' : '—'}
                             disabled={!formData.Diplome?.[key]}
-                            style={{
-                              background: formData.Diplome?.[key] ? '#fff' : '#f8fafc',
-                              ...(formData.Diplome?.[key] ? orangeIfEmpty(formData.Filiere?.[`filiere${key}`]) : {})
-                            }}
+                            style={{ background: formData.Diplome?.[key] ? '#fff' : '#f8fafc', ...(formData.Diplome?.[key] ? orangeIfEmpty(formData.Filiere?.[`filiere${key}`]) : {}) }}
                           />
                         </div>
                       </div>
@@ -1063,26 +1239,14 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                 <SectionCard title="Niveau d'études — Dernière classe suivie avec année" icon="📚" accent="#3b82f6">
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <FieldGroup label="Dernière classe suivie (Kilasy farany nijanonana)">
-                      <select
-                        className="form-select"
-                        name="niveau"
-                        value={formData.niveau || 'BACC'}
-                        onChange={handleChange}
-                      >
-                        {['BACC','BACC +1','BACC +2','BACC +3','BACC +4','BACC +5','BACC +6','BACC +7','BACC +8'].map(n => (
+                      <select className="form-select" name="niveau" value={formData.niveau || 'BACC'} onChange={handleChange}>
+                        {['BACC', 'BACC +1', 'BACC +2', 'BACC +3', 'BACC +4', 'BACC +5', 'BACC +6', 'BACC +7', 'BACC +8'].map(n => (
                           <option key={n} value={n}>{n}</option>
                         ))}
                       </select>
                     </FieldGroup>
                     <FieldGroup label="Filière">
-                      <input
-                        className="form-control"
-                        name="niveaufiliere"
-                        value={formData.niveaufiliere || ''}
-                        onChange={handleChange}
-                        placeholder="Ex: Informatique, Droit, Médecine…"
-                        style={orangeIfEmpty(formData.niveaufiliere)}
-                      />
+                      <input className="form-control" name="niveaufiliere" value={formData.niveaufiliere || ''} onChange={handleChange} placeholder="Ex: Informatique, Droit, Médecine…" style={orangeIfEmpty(formData.niveaufiliere)} />
                     </FieldGroup>
                   </div>
                 </SectionCard>
@@ -1107,15 +1271,8 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                       {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map(t => {
                         const active = formData.Pointure?.tailleChemise === t;
                         return (
-                          <button key={t} type="button"
-                            onClick={() => setFormData(prev => ({ ...prev, Pointure: { ...prev.Pointure, tailleChemise: t } }))}
-                            style={{
-                              padding: '8px 18px', borderRadius: '8px',
-                              border: `2px solid ${active ? '#ec4899' : '#e5e7eb'}`,
-                              background: active ? '#fdf2f8' : '#fff',
-                              color: active ? '#be185d' : '#374151',
-                              fontWeight: active ? '700' : '500', fontSize: '13px', cursor: 'pointer'
-                            }}>
+                          <button key={t} type="button" onClick={() => setFormData(prev => ({ ...prev, Pointure: { ...prev.Pointure, tailleChemise: t } }))}
+                            style={{ padding: '8px 18px', borderRadius: '8px', border: `2px solid ${active ? '#ec4899' : '#e5e7eb'}`, background: active ? '#fdf2f8' : '#fff', color: active ? '#be185d' : '#374151', fontWeight: active ? '700' : '500', fontSize: '13px', cursor: 'pointer' }}>
                             {t}
                           </button>
                         );
@@ -1125,16 +1282,8 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
 
                   <FieldGroup label="Tour de tête (cm)">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <input
-                        type="number"
-                        className="form-control"
-                        name="Pointure.tourTete"
-                        value={formData.Pointure?.tourTete || ''}
-                        onChange={handleChange}
-                        min="28" max="65"
-                        placeholder="Ex: 54"
-                        style={{ maxWidth: '120px', ...orangeIfEmpty(formData.Pointure?.tourTete) }}
-                      />
+                      <input type="number" className="form-control" name="Pointure.tourTete" value={formData.Pointure?.tourTete || ''} onChange={handleChange}
+                        min="28" max="65" placeholder="Ex: 54" style={{ maxWidth: '120px', ...orangeIfEmpty(formData.Pointure?.tourTete) }} />
                       <span style={{ fontSize: '13px', color: '#9ca3af' }}>cm</span>
                     </div>
                   </FieldGroup>
@@ -1144,15 +1293,8 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                       {[28, 30, 34, 36, 38, 40, 42, 44, 46, 48, 50].map(t => {
                         const active = Number(formData.Pointure?.pointurePantalon) === t;
                         return (
-                          <button key={t} type="button"
-                            onClick={() => setFormData(prev => ({ ...prev, Pointure: { ...prev.Pointure, pointurePantalon: t } }))}
-                            style={{
-                              padding: '6px 12px', borderRadius: '6px',
-                              border: `1.5px solid ${active ? '#8b5cf6' : '#e5e7eb'}`,
-                              background: active ? '#f5f3ff' : '#fff',
-                              color: active ? '#6d28d9' : '#374151',
-                              fontWeight: active ? '700' : '400', fontSize: '12px', cursor: 'pointer'
-                            }}>
+                          <button key={t} type="button" onClick={() => setFormData(prev => ({ ...prev, Pointure: { ...prev.Pointure, pointurePantalon: t } }))}
+                            style={{ padding: '6px 12px', borderRadius: '6px', border: `1.5px solid ${active ? '#8b5cf6' : '#e5e7eb'}`, background: active ? '#f5f3ff' : '#fff', color: active ? '#6d28d9' : '#374151', fontWeight: active ? '700' : '400', fontSize: '12px', cursor: 'pointer' }}>
                             {t}
                           </button>
                         );
@@ -1165,15 +1307,8 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                       {[30, 34, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50].map(t => {
                         const active = Number(formData.Pointure?.pointureChaussure) === t;
                         return (
-                          <button key={t} type="button"
-                            onClick={() => setFormData(prev => ({ ...prev, Pointure: { ...prev.Pointure, pointureChaussure: t } }))}
-                            style={{
-                              padding: '5px 10px', borderRadius: '6px',
-                              border: `1.5px solid ${active ? '#3b82f6' : '#e5e7eb'}`,
-                              background: active ? '#eff6ff' : '#fff',
-                              color: active ? '#1d4ed8' : '#374151',
-                              fontWeight: active ? '700' : '400', fontSize: '12px', cursor: 'pointer'
-                            }}>
+                          <button key={t} type="button" onClick={() => setFormData(prev => ({ ...prev, Pointure: { ...prev.Pointure, pointureChaussure: t } }))}
+                            style={{ padding: '5px 10px', borderRadius: '6px', border: `1.5px solid ${active ? '#3b82f6' : '#e5e7eb'}`, background: active ? '#eff6ff' : '#fff', color: active ? '#1d4ed8' : '#374151', fontWeight: active ? '700' : '400', fontSize: '12px', cursor: 'pointer' }}>
                             {t}
                           </button>
                         );
@@ -1202,9 +1337,27 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
               </button>
             )}
           </div>
+
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <span style={{ fontSize: '11px', color: '#9ca3af' }}>Partie {tabIdx + 1} / {tabs.length}</span>
+
             <Button variant="outline-secondary" onClick={onClose} style={{ borderRadius: '8px' }}>Annuler</Button>
+
+            {/* ✅ Bouton imprimer */}
+            <button
+              type="button"
+              onClick={handlePrint}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                padding: '7px 14px', borderRadius: '8px',
+                background: 'linear-gradient(135deg, #0f766e, #0d9488)',
+                color: '#fff', border: 'none', fontWeight: '600', fontSize: '12px', cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(15,118,110,0.3)'
+              }}
+            >
+              🖨️ Imprimer la fiche
+            </button>
+
             {user?.type === 'admin' && (
               <Button variant="primary" onClick={handleSave} style={{
                 borderRadius: '8px', fontWeight: '600', padding: '7px 18px',
@@ -1237,6 +1390,13 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
         </div>,
         document.body
       )}
+
+      {/* ✅ Fiche d'impression — rendue dans le DOM, cachée à l'écran, visible lors de window.print() */}
+      <FicheImpression
+        formData={formData}
+        specialites={specialites}
+        previewImage={previewImage || (typeof formData.image === 'string' ? formData.image : '')}
+      />
     </>
   );
 };
