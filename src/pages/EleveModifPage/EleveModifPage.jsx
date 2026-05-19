@@ -622,6 +622,7 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
       setFormData(() => {
         const baseData = {
           ...eleve,
+           situationFamiliale: eleve.situationFamiliale || 'Celibataire',
           famille: {
             conjointe: eleve.Conjointe ?? {},
             mere: eleve.Mere ?? {},
