@@ -622,6 +622,8 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
       setFormData(() => {
         const baseData = {
           ...eleve,
+          // Remplacez dans baseData :
+           genreConcours: eleve.genreConcours || 'ordinaire', 
            situationFamiliale: eleve.situationFamiliale || 'Celibataire',
           famille: {
             conjointe: eleve.Conjointe ?? {},
@@ -635,9 +637,15 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
           },
         };
         if (eleve.Sport) {
-          const sportMapping = { Football: 'Football', Basketball: 'Basketball', Volley_ball: 'Volley_ball', Musculation: 'Musculation', Rugby: 'Rugby', Athletisme: 'Athletisme', Tennis: 'Tennis', ArtsMartiaux: 'ArtsMartiaux', Autre: 'Autre' };
-          baseData.sports = Object.entries(sportMapping).filter(([k]) => eleve.Sport[k]).map(([k]) => sportMapping[k]);
-        }
+            const sportMapping = { Football: 'Football', Basketball: 'Basketball', Volley_ball: 'Volley_ball',
+              Musculation: 'Musculation', Rugby: 'Rugby', Athletisme: 'Athletisme',
+              Tennis: 'Tennis', ArtsMartiaux: 'ArtsMartiaux', Autre: 'Autre' };
+            baseData.sports = Object.entries(sportMapping)
+              .filter(([k]) => eleve.Sport[k])
+              .map(([k]) => sportMapping[k]);
+            // ✅ Lire autresSport depuis Sport (table Sport) ou depuis eleve directement
+            baseData.autresSport = eleve.Sport.autresSport || eleve.autresSport || '';
+          }
         return baseData;
       });
 
@@ -1155,29 +1163,85 @@ const ModalModificationEleve = ({ show, onClose, eleve, onChange, onSave, onUpda
                     <textarea className="form-control" name="facebook" rows="3" value={formData.facebook || ''} onChange={handleChange} placeholder="Ex: Lecture, Musique, Cinéma, Jardinage…"
                       style={orangeIfEmpty(formData.facebook)} />
                   </SectionCard>
-                  <SectionCard title="Sports pratiqués (Fanatanjahantena atao)" icon="🏅" accent="#10b981">
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
-                      {['Football', 'Basketball', 'Volley_ball', 'Musculation', 'Rugby', 'Athletisme', 'Tennis', 'ArtsMartiaux', 'Autre'].map(sport => (
-                        <CheckPill key={sport} label={sport.replace('_', ' ')} checked={formData.sports?.includes(sport)}
-                          onChange={e => {
-                            const isChecked = e.target.checked;
-                            setFormData(prev => {
-                              const s = new Set(prev.sports || []);
-                              isChecked ? s.add(sport) : s.delete(sport);
-                              return { ...prev, sports: Array.from(s) };
-                            });
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </SectionCard>
+                 <SectionCard title="Sports pratiqués (Fanatanjahantena atao)" icon="🏅" accent="#10b981">
+  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
+    {['Football', 'Basketball', 'Volley_ball', 'Musculation', 'Rugby', 'Athletisme', 'Tennis', 'ArtsMartiaux', 'Autre'].map(sport => (
+      <CheckPill
+        key={sport}
+        label={sport.replace('_', ' ')}
+        checked={formData.sports?.includes(sport)}
+        onChange={e => {
+          const isChecked = e.target.checked;
+          setFormData(prev => {
+            const s = new Set(prev.sports || []);
+            isChecked ? s.add(sport) : s.delete(sport);
+            // Si on décoche Autre, vider le champ texte
+            if (!isChecked && sport === 'Autre') {
+              return { ...prev, sports: Array.from(s), autresSport: '' };
+            }
+            return { ...prev, sports: Array.from(s) };
+          });
+        }}
+      />
+    ))}
+  </div>
+  {formData.sports?.includes('Autre') && (
+    <input
+      className="form-control form-control-sm mt-2"
+      placeholder="Préciser le sport…"
+      value={formData.autresSport || ''}
+      onChange={e => setFormData(prev => ({ ...prev, autresSport: e.target.value }))}
+      autoFocus
+      style={orangeIfEmpty(formData.autresSport)}
+    />
+  )}
+</SectionCard>
                 </div>
 
                 {/* 3.4 Religion + Groupe sanguin */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <SectionCard title="Religion (Finoana arahina)" icon="✝️" accent="#f59e0b">
-                    <InlineRadioGroup options={['EKAR', 'FJKM', 'FLM', 'ISLAM', 'Autre']} name="religion" value={formData.religion || ''} onChange={handleChange} />
-                  </SectionCard>
+                <SectionCard title="Religion (Finoana arahina)" icon="✝️" accent="#f59e0b">
+  <InlineRadioGroup
+    options={['EKAR', 'FJKM', 'FLM', 'ISLAM', 'Autre']}
+    name="religion"
+    value={['EKAR', 'FJKM', 'FLM', 'ISLAM'].includes(formData.religion)
+      ? formData.religion
+      : (formData.religion ? 'Autre' : '')}
+    onChange={(e) => {
+      if (e.target.value !== 'Autre') {
+        handleChange(e); // sauvegarde directement 'EKAR', 'FJKM', etc.
+      } else {
+        // Marque "Autre" sélectionné avec une sentinelle non vide
+        setFormData(prev => ({ ...prev, religion: '__autre__' }));
+      }
+    }}
+  />
+  {/* Affiche le champ texte si religion n'est pas une valeur fixe */}
+  {!['EKAR', 'FJKM', 'FLM', 'ISLAM', '', '__autre__'].includes(formData.religion)
+    ? (
+      // L'utilisateur a déjà tapé quelque chose — afficher directement
+      <input
+        className="form-control form-control-sm mt-2"
+        placeholder="Préciser la religion…"
+        value={formData.religion}
+        onChange={e => setFormData(prev => ({ ...prev, religion: e.target.value }))}
+        autoFocus
+        style={orangeIfEmpty(formData.religion)}
+      />
+    )
+    : formData.religion === '__autre__' && (
+      // Autre vient d'être cliqué — champ vide prêt à taper
+      <input
+        className="form-control form-control-sm mt-2"
+        placeholder="Préciser la religion…"
+        value=""
+        onChange={e => setFormData(prev => ({ ...prev, religion: e.target.value }))}
+        autoFocus
+        style={orangeIfEmpty('')}
+      />
+    )
+  }
+</SectionCard>
                   <SectionCard title="Groupe sanguin" icon="🩸" accent="#ef4444">
                     <InlineRadioGroup options={['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']} name="groupeSaguin" value={formData.groupeSaguin || ''} onChange={handleChange} />
                   </SectionCard>
