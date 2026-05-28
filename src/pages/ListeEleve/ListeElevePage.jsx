@@ -3673,159 +3673,229 @@ const handleExportExcel = async () => {
 };
 
 
-function handleExportExcel2() {
-  // Créer un nouveau classeur
-  const workbook = XLSX.utils.book_new();
-
-  // 1️⃣ Feuille principale : toutes les notes filtrées
-  const allData = filteredNotes.map(row => ({
-    Nom: row.Eleve?.nom || '',
-    Prénom: row.Eleve?.prenom || '',
-    Incorporation: row.Eleve?.numeroIncorporation || '',
-    Escadron: row.Eleve?.escadron || '',
-    Peloton: row.Eleve?.peloton || '',
-    Niveau: row.niveau || '',
-    Note: row.note != null ? row.note : ''
-  }));
-  const wsAll = XLSX.utils.json_to_sheet(allData);
-  XLSX.utils.book_append_sheet(workbook, wsAll, 'Toutes Notes');
-
-  // 2️⃣ Feuille Débutants
-  const debutants = filteredNotes.filter(r => r.niveau?.toUpperCase().startsWith('D')).map(row => ({
-    Nom: row.Eleve?.nom || '',
-    Prénom: row.Eleve?.prenom || '',
-    Incorporation: row.Eleve?.numeroIncorporation || '',
-    Niveau: row.niveau || '',
-    Note: row.note != null ? row.note : ''
-  }));
-  const wsDebutants = XLSX.utils.json_to_sheet(debutants);
-  XLSX.utils.book_append_sheet(workbook, wsDebutants, 'Débutants');
-
-  // 3️⃣ Feuille Intermédiaires
-  const intermediaires = filteredNotes.filter(r => r.niveau?.toUpperCase().startsWith('I')).map(row => ({
-    Nom: row.Eleve?.nom || '',
-    Prénom: row.Eleve?.prenom || '',
-    Incorporation: row.Eleve?.numeroIncorporation || '',
-    Niveau: row.niveau || '',
-    Note: row.note != null ? row.note : ''
-  }));
-  const wsInter = XLSX.utils.json_to_sheet(intermediaires);
-  XLSX.utils.book_append_sheet(workbook, wsInter, 'Intermédiaires');
-
-  // 4️⃣ Feuille Avancés
-  const avances = filteredNotes.filter(r => r.niveau?.toUpperCase().startsWith('A')).map(row => ({
-    Nom: row.Eleve?.nom || '',
-    Prénom: row.Eleve?.prenom || '',
-    Incorporation: row.Eleve?.numeroIncorporation || '',
-    Niveau: row.niveau || '',
-    Note: row.note != null ? row.note : ''
-  }));
-  const wsAvances = XLSX.utils.json_to_sheet(avances);
-  XLSX.utils.book_append_sheet(workbook, wsAvances, 'Avancés');
-
-  // 💾 Générer et télécharger
-  XLSX.writeFile(workbook, 'notes_francais_complet.xlsx');
-}
-//salade escadron 
-/**
- * RÉPARTITION ÉQUITABLE
- * 10 escadrons × 3 pelotons × 50 élèves = 1500 max
- * Critères : niveau, fady (ethnie), genreConcours, sexe (équilibré par escadron/peloton)
- */
 function repartirEquitable(eleves) {
   const NB_ESC  = 10;
   const NB_PEL  = 3;
   const PAR_PEL = 50;
 
-  function shuffle(arr) {
-    for (let i = arr.length - 1; i > 0; i--) {
+  /* ── utilitaires ─────────────────────────────────────────────── */
+  const shuffle = (arr) => {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
+      [a[i], a[j]] = [a[j], a[i]];
     }
-    return arr;
-  }
+    return a;
+  };
 
-  function normalizeVal(v) {
-    return String(v ?? '').toLowerCase().trim();
-  }
+  const norm = (v) => String(v ?? '').toLowerCase().trim();
 
-  const pool = (eleves ?? []).filter(e => e && typeof e === 'object');
-
-  const masc = pool.filter(e => {
-    const s = normalizeVal(e.sexe ?? e.gender ?? e.sex ?? e.genre ?? '');
-    return ['m','masculin','male','homme','lahy','garcon','garçon'].includes(s);
-  });
-  const fem = pool.filter(e => {
-    const s = normalizeVal(e.sexe ?? e.gender ?? e.sex ?? e.genre ?? '');
+  const isFemale = (e) => {
+    const s = norm(e.sexe ?? e.gender ?? e.sex ?? e.genre ?? '');
     return ['f','feminin','féminin','female','femme','vavy','fille'].includes(s);
-  });
+  };
+  const isMale = (e) => !isFemale(e);
 
-  const ratioF = pool.length > 0 ? fem.length / pool.length : 0;
+  /* ── Bresenham : distribue N sur K cases, retourne tableau de K entiers ── */
+  const bresenham = (N, K) => {
+    if (K <= 0 || N <= 0) return Array(K).fill(0);
+    const base = Math.floor(N / K);
+    const rest = N % K;
+    return Array.from({ length: K }, (_, i) => i < rest ? base + 1 : base);
+  };
 
-  // Grouper par diversité
-  const groupMap = {};
-  pool.forEach(e => {
-    const key = [
-      normalizeVal(e.niveau          ?? e.level  ?? ''),
-      normalizeVal(e.fady            ?? e.ethnie ?? ''),
-      normalizeVal(e.genreConcours   ?? e.centreConcours ?? ''),
-    ].join('|');
-    if (!groupMap[key]) groupMap[key] = [];
-    groupMap[key].push(e);
-  });
-  Object.values(groupMap).forEach(shuffle);
+  /* ── accesseurs critères ──────────────────────────────────────── */
+  const pool  = (eleves ?? []).filter(e => e && typeof e === 'object');
+  const total = pool.length;
 
-  // Créer les 30 cases
+  const getNiveau  = (e) => norm(e.niveau          ?? e.level            ?? '') || '—';
+  const getEthnie  = (e) => norm(e.fady             ?? e.ethnie           ?? '') || '—';
+  const getGenre   = (e) => norm(e.genreConcours    ?? ''                    ) || '—';
+  const getCentre  = (e) => norm(e.centreConcours   ?? e.centre           ?? '') || '—';
+
+  /* ════════════════════════════════════════════════════════════════
+     ÉTAPE 1 — Créer les 30 cases avec leurs quotas
+  ════════════════════════════════════════════════════════════════ */
   const cases = [];
   for (let e = 1; e <= NB_ESC; e++)
     for (let p = 1; p <= NB_PEL; p++)
-      cases.push({ escadron: e, peloton: p, eleves: [], _quotaF: Math.round(PAR_PEL * ratioF) });
+      cases.push({
+        escadron: e, peloton: p,
+        eleves:   [],
+        quotaF: 0, quotaM: 0,
+        quotas: { niveau: {}, ethnie: {}, genre: {}, centre: {} },
+        counts: { niveau: {}, ethnie: {}, genre: {}, centre: {} },
+      });
 
-  // Distribution round-robin
-  const mascShuffled = shuffle(masc.slice());
-  const femShuffled  = shuffle(fem.slice());
-  let mi = 0, fi = 0;
+  const caseOf = (ei, pi) => cases[ei * NB_PEL + pi];
 
-  shuffle(Object.keys(groupMap)).forEach(key => {
-    groupMap[key].forEach(elv => {
-      const isFem = fem.includes(elv);
-      for (let t = 0; t < cases.length; t++) {
-        const c = cases[t % cases.length];
-        const curF = c.eleves.filter(x => fem.includes(x)).length;
-        const curM = c.eleves.length - curF;
-        const hasRoom      = c.eleves.length < PAR_PEL;
-        const hasRoomSexe  = isFem ? curF < c._quotaF : curM < (PAR_PEL - c._quotaF);
-        if (hasRoom && hasRoomSexe) { c.eleves.push(elv); break; }
-      }
-    });
-  });
+  /* ── quotas F / M ────────────────────────────────────────────── */
+  const femPool  = pool.filter(isFemale);
+  const mascPool = pool.filter(isMale);
+  const nbF = femPool.length;
+  const nbM = mascPool.length;
 
-  // ── Restants → dernier escadron (ESC 10), pelotons 1, 2, 3 dans l'ordre ──
-  const affectesSet = new Set(cases.flatMap(c => c.eleves.map(e => e.id ?? e.Id ?? e.numeroIncorporation)));
-  const restants = pool.filter(e => !affectesSet.has(e.id ?? e.Id ?? e.numeroIncorporation));
+  const qFEsc = bresenham(nbF, NB_ESC);
+  const qMEsc = bresenham(nbM, NB_ESC);
 
-  if (restants.length > 0) {
-    // On ajoute dans les pelotons de l'ESC 10 dans l'ordre, sans limite de capacité
-    const casesEsc10 = cases.filter(c => c.escadron === NB_ESC)
-      .sort((a, b) => a.peloton - b.peloton);
-    let pelIdx = 0;
-    restants.forEach(e => {
-      // On répartit équitablement sur les 3 pelotons de l'ESC 10
-      casesEsc10[pelIdx % casesEsc10.length].eleves.push(e);
-      pelIdx++;
-    });
+  for (let ei = 0; ei < NB_ESC; ei++) {
+    const fPel = bresenham(qFEsc[ei], NB_PEL);
+    const mPel = bresenham(qMEsc[ei], NB_PEL);
+    for (let pi = 0; pi < NB_PEL; pi++) {
+      const c = caseOf(ei, pi);
+      c.quotaF = fPel[pi];
+      c.quotaM = mPel[pi];
+    }
   }
 
-  // Finaliser
+  /* ── quotas par critère (Bresenham 2 niveaux) ────────────────── */
+  const assignQuota = (criterion, getVal) => {
+    const countByVal = {};
+    pool.forEach(e => {
+      const v = getVal(e);
+      countByVal[v] = (countByVal[v] || 0) + 1;
+    });
+    Object.entries(countByVal).forEach(([val, count]) => {
+      const qEsc = bresenham(count, NB_ESC);
+      for (let ei = 0; ei < NB_ESC; ei++) {
+        const qPel = bresenham(qEsc[ei], NB_PEL);
+        for (let pi = 0; pi < NB_PEL; pi++) {
+          const c = caseOf(ei, pi);
+          c.quotas[criterion][val] = qPel[pi];
+          c.counts[criterion][val] = 0;
+        }
+      }
+    });
+  };
+
+  assignQuota('niveau', getNiveau);
+  assignQuota('ethnie', getEthnie);
+  assignQuota('genre',  getGenre);
+  assignQuota('centre', getCentre);
+
+  /* ════════════════════════════════════════════════════════════════
+     ÉTAPE 2 — Score d'une case pour un élève
+  ════════════════════════════════════════════════════════════════ */
+  const score = (c, e, sexKey) => {
+    const sexCount = c.eleves.filter(sexKey === 'F' ? isFemale : isMale).length;
+    const sexQuota = sexKey === 'F' ? c.quotaF : c.quotaM;
+    if (sexCount >= sexQuota) return -Infinity;
+
+    const manque = (crit, getVal) => {
+      const v = getVal(e);
+      return (c.quotas[crit][v] || 0) - (c.counts[crit][v] || 0);
+    };
+
+    return (
+      manque('niveau', getNiveau) * 4 +
+      manque('ethnie', getEthnie) * 3 +
+      manque('genre',  getGenre)  * 3 +
+      manque('centre', getCentre) * 2 +
+      (sexQuota - sexCount)           // bonus : case qui a encore besoin de ce sexe
+    );
+  };
+
+  /* ════════════════════════════════════════════════════════════════
+     ÉTAPE 3 — Trier par rareté (groupes rares placés en premier)
+  ════════════════════════════════════════════════════════════════ */
+  const freqMap = {};
+  pool.forEach(e => {
+    const k = [getNiveau(e), getEthnie(e), getGenre(e), getCentre(e)].join('|||');
+    freqMap[k] = (freqMap[k] || 0) + 1;
+  });
+
+  const sortByRarity = (arr) =>
+    shuffle(arr).sort((a, b) => {
+      const ka = [getNiveau(a), getEthnie(a), getGenre(a), getCentre(a)].join('|||');
+      const kb = [getNiveau(b), getEthnie(b), getGenre(b), getCentre(b)].join('|||');
+      return (freqMap[ka] || 0) - (freqMap[kb] || 0);
+    });
+
+  /* ════════════════════════════════════════════════════════════════
+     ÉTAPE 4 — Placement
+  ════════════════════════════════════════════════════════════════ */
+  const restants = [];
+
+  const placerEleve = (e, sexKey) => {
+    let bestCase = null, bestScore = -Infinity;
+    for (const c of cases) {
+      const s = score(c, e, sexKey);
+      if (s > bestScore) { bestScore = s; bestCase = c; }
+    }
+    if (bestCase && bestScore > -Infinity) {
+      bestCase.eleves.push(e);
+      bestCase.counts.niveau[getNiveau(e)]  = (bestCase.counts.niveau[getNiveau(e)]  || 0) + 1;
+      bestCase.counts.ethnie[getEthnie(e)]  = (bestCase.counts.ethnie[getEthnie(e)]  || 0) + 1;
+      bestCase.counts.genre [getGenre(e)]   = (bestCase.counts.genre [getGenre(e)]   || 0) + 1;
+      bestCase.counts.centre[getCentre(e)]  = (bestCase.counts.centre[getCentre(e)]  || 0) + 1;
+    } else {
+      restants.push(e);
+    }
+  };
+
+  sortByRarity(femPool) .forEach(e => placerEleve(e, 'F'));
+  sortByRarity(mascPool).forEach(e => placerEleve(e, 'M'));
+
+  /* ── restants → ESC 10 ───────────────────────────────────────── */
+  if (restants.length) {
+    const esc10 = cases.filter(c => c.escadron === NB_ESC)
+                       .sort((a, b) => a.peloton - b.peloton);
+    restants.forEach((e, i) => esc10[i % esc10.length].eleves.push(e));
+  }
+
+  /* ── finalisation ────────────────────────────────────────────── */
   cases.forEach(c => {
     c.eleves.sort((a, b) =>
       (Number(a.numeroIncorporation) || 0) - (Number(b.numeroIncorporation) || 0)
     );
     c.effectif = c.eleves.length;
-    delete c._quotaF;
+    delete c.quotaF; delete c.quotaM;
+    delete c.quotas; delete c.counts;
   });
 
-  return { cases, restants };
+  /* ════════════════════════════════════════════════════════════════
+     ÉTAPE 5 — Résumé
+  ════════════════════════════════════════════════════════════════ */
+  const compte = (arr, getKey) => {
+    const map = {};
+    arr.forEach(e => { const k = getKey(e); map[k] = (map[k] || 0) + 1; });
+    return Object.entries(map).sort((a, b) => b[1] - a[1])
+      .map(([label, count]) => ({ label, count }));
+  };
+
+  const resume = {
+    totalEleves:   total,
+    totalAffectes: cases.reduce((s, c) => s + c.effectif, 0),
+    totalRestants: restants.length,
+    totalM: nbM, totalF: nbF,
+    parEscadron: Array.from({ length: NB_ESC }, (_, i) => {
+      const esc       = i + 1;
+      const cEsc      = cases.filter(c => c.escadron === esc);
+      const elevesEsc = cEsc.flatMap(c => c.eleves);
+      return {
+        escadron: esc,
+        effectif: elevesEsc.length,
+        masculin: elevesEsc.filter(isMale).length,
+        feminin:  elevesEsc.filter(isFemale).length,
+        niveaux:  compte(elevesEsc, getNiveau),
+        ethnies:  compte(elevesEsc, getEthnie),
+        genres:   compte(elevesEsc, getGenre),
+        centres:  compte(elevesEsc, getCentre),
+        parPeloton: cEsc.map(c => ({
+          peloton:  c.peloton,
+          effectif: c.effectif,
+          masculin: c.eleves.filter(isMale).length,
+          feminin:  c.eleves.filter(isFemale).length,
+          niveaux:  compte(c.eleves, getNiveau),
+          ethnies:  compte(c.eleves, getEthnie),
+          genres:   compte(c.eleves, getGenre),
+          centres:  compte(c.eleves, getCentre),
+        })),
+      };
+    }),
+  };
+
+  return { cases, restants, resume };
 }
 //toinyyy
 //
@@ -3833,36 +3903,99 @@ function repartirEquitable(eleves) {
 //
 // Handler à ajouter dans le composant
 const handleRepartirEquitable = async () => {
-  const { cases, restants } = repartirEquitable(elevesAAfficher);
+  const { cases, restants, resume } = repartirEquitable(elevesAAfficher);
 
-  const totalAff = cases.reduce((s, c) => s + c.effectif, 0);
-  const totalM   = cases.flatMap(c => c.eleves).filter(e => sexToMF(e.sexe) === 'M').length;
-  const totalF   = cases.flatMap(c => c.eleves).filter(e => sexToMF(e.sexe) === 'F').length;
+  // ── Construire tableau HTML résumé ──────────────────────────────
+  const lignesEsc = (resume.parEscadron ?? []).map(esc => {
+    // ✅ utiliser esc.niveaux et esc.genres (pas genresConcours)
+    const niveauxStr = (esc.niveaux ?? [])
+      .slice(0, 4)
+      .map(n => `${n.label}:<b>${n.count}</b>`)
+      .join(' · ') || '-';
 
-  const lignes = [];
-  for (let esc = 1; esc <= 10; esc++) {
-    const casesEsc  = cases.filter(c => c.escadron === esc);
-    const totalEsc  = casesEsc.reduce((s, c) => s + c.effectif, 0);
-    const mEsc      = casesEsc.flatMap(c => c.eleves).filter(e => sexToMF(e.sexe) === 'M').length;
-    const fEsc      = casesEsc.flatMap(c => c.eleves).filter(e => sexToMF(e.sexe) === 'F').length;
-    lignes.push(`<li>ESC ${esc} → ${totalEsc} élèves (${mEsc}M / ${fEsc}F)</li>`);
-  }
+    const genresStr = (esc.genres ?? [])
+      .slice(0, 4)
+      .map(g => `${g.label}:<b>${g.count}</b>`)
+      .join(' · ') || '-';
+
+    const centresStr = (esc.centres ?? [])
+      .slice(0, 4)
+      .map(c => `${c.label}:<b>${c.count}</b>`)
+      .join(' · ') || '-';
+
+    // Pelotons : une mini-ligne par peloton
+    const pelStr = (esc.parPeloton ?? []).map(p =>
+      `<span style="white-space:nowrap">
+        P${p.peloton}: <b>${p.effectif}</b>
+        (${p.masculin}M/${p.feminin}F)
+      </span>`
+    ).join(' | ');
+
+    return `
+      <tr style="border-bottom:1px solid #e5e7eb">
+        <td style="padding:4px 8px;font-weight:700">ESC ${esc.escadron}</td>
+        <td style="padding:4px 8px;text-align:center">${esc.effectif}</td>
+        <td style="padding:4px 8px;text-align:center;white-space:nowrap">
+          ${esc.masculin}M / ${esc.feminin}F
+        </td>
+        <td style="padding:4px 8px;font-size:11px">${niveauxStr}</td>
+        <td style="padding:4px 8px;font-size:11px">${genresStr}</td>
+        <td style="padding:4px 8px;font-size:11px">${centresStr}</td>
+        <td style="padding:4px 8px;font-size:11px">${pelStr}</td>
+      </tr>`;
+  }).join('');
 
   const confirmResult = await Swal.fire({
-    title: 'Répartition équitable générée',
+    title: 'Répartition équitable',
     html: `
       <div style="text-align:left">
-        <p>
-          <b>${totalAff}</b> élèves affectés —
-          <b>${totalM}</b> masculin / <b>${totalF}</b> féminin
-        </p>
-        ${restants.length > 0 ? `<p style="color:#b45309">⚠️ ${restants.length} élève(s) ajouté(s) à l'Escadron 10 (dépassement de 1500)</p>` : '<p style="color:#16a34a">✓ Tous les élèves sont affectés.</p>'}
-        <ul style="max-height:260px;overflow:auto;padding-left:18px">${lignes.join('')}</ul>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+          <span style="background:#eff6ff;border:1px solid #bfdbfe;
+                       padding:4px 12px;border-radius:999px;font-size:13px">
+            👥 <b>${resume.totalAffectes}</b> affectés
+          </span>
+          <span style="background:#f0fdf4;border:1px solid #bbf7d0;
+                       padding:4px 12px;border-radius:999px;font-size:13px">
+            ♂ <b>${resume.totalM}</b> M
+          </span>
+          <span style="background:#fdf2f8;border:1px solid #f5d0fe;
+                       padding:4px 12px;border-radius:999px;font-size:13px">
+            ♀ <b>${resume.totalF}</b> F
+          </span>
+          ${resume.totalRestants > 0
+            ? `<span style="background:#fef3c7;border:1px solid #fde68a;
+                           padding:4px 12px;border-radius:999px;font-size:13px">
+                ⚠️ <b>${resume.totalRestants}</b> restant(s) → ESC 10
+               </span>`
+            : `<span style="background:#f0fdf4;border:1px solid #bbf7d0;
+                           padding:4px 12px;border-radius:999px;font-size:13px">
+                ✓ Tous placés
+               </span>`
+          }
+        </div>
+
+        <div style="overflow:auto;max-height:420px">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:#f8fafc">
+                <th style="padding:6px 8px;text-align:left;position:sticky;top:0;background:#f8fafc">ESC</th>
+                <th style="padding:6px 8px;position:sticky;top:0;background:#f8fafc">Total</th>
+                <th style="padding:6px 8px;position:sticky;top:0;background:#f8fafc">Sexe</th>
+                <th style="padding:6px 8px;text-align:left;position:sticky;top:0;background:#f8fafc">Niveaux</th>
+                <th style="padding:6px 8px;text-align:left;position:sticky;top:0;background:#f8fafc">Genre Concours</th>
+                <th style="padding:6px 8px;text-align:left;position:sticky;top:0;background:#f8fafc">Centres</th>
+                <th style="padding:6px 8px;text-align:left;position:sticky;top:0;background:#f8fafc">Pelotons</th>
+              </tr>
+            </thead>
+            <tbody>${lignesEsc}</tbody>
+          </table>
+        </div>
       </div>
     `,
+    width: '1000px',
     icon: 'info',
     showCancelButton: true,
-    confirmButtonText: 'Exporter Excel',
+    confirmButtonText: '📥 Exporter Excel',
     cancelButtonText: 'Annuler',
   });
 
@@ -3872,208 +4005,297 @@ const handleRepartirEquitable = async () => {
     c.eleves.map(e => ({ ...e, escadron: c.escadron, peloton: c.peloton }))
   );
 
-  await exportRepartitionEquitableExcel(elevesModifies, cases);
+  await exportRepartitionEquitableExcel(elevesModifies, cases, resume);
 };
 // Export Excel de la répartition
-async function exportRepartitionEquitableExcel(elevesModifies, cases) {
+async function exportRepartitionEquitableExcel(elevesModifies, cases, resume) {
   const wb = XLSX.utils.book_new();
 
-  // ── helpers ────────────────────────────────────────────────────────────────
-  function uniqueName(wb, base) {
-    let name = base.slice(0, 31);
-    let i = 2;
-    while (wb.SheetNames.includes(name)) {
+  /* ── helpers ──────────────────────────────────────────────────── */
+  const uniqueName = (wb, base) => {
+    let name = base.slice(0, 31), i = 2;
+    while (wb.SheetNames.includes(name))
       name = `${base.slice(0, 28)}_${i++}`;
-    }
     return name;
-  }
+  };
 
-  function setColWidths(ws, widths) {
-    ws['!cols'] = widths.map(w => ({ wpx: w }));
-  }
+  const isFemale = (e) => {
+    const s = String(e.sexe ?? '').toLowerCase().trim();
+    return ['f','feminin','féminin','female','femme','vavy','fille'].includes(s);
+  };
 
-  function styleHeader(ws, rowIdx, nbCols) {
+  const normSex = (v) => {
+    const s = String(v ?? '').toLowerCase().trim();
+    if (['m','masculin','male','homme','lahy','garcon','garçon'].includes(s)) return 'M';
+    if (['f','feminin','féminin','female','femme','vavy','fille'].includes(s)) return 'F';
+    return '';
+  };
+
+  /* ── couleurs ─────────────────────────────────────────────────── */
+  const COLOR = {
+    TITRE_BG:   '1F3864',  // bleu foncé
+    TITRE_FG:   'FFFFFF',
+    HEADER_BG:  'D9E1F2',  // bleu clair
+    HEADER_FG:  '1F3864',
+    FILLE_BG:   'FCE4D6',  // rose pâle
+    GARCON_BG:  'DDEBF7',  // bleu pâle
+    ESC_TITLE:  'E2EFDA',  // vert pâle (titre escadron)
+    BORDER:     '8EA9C1',
+  };
+
+  const borderAll = {
+    top:    { style: 'thin', color: { rgb: COLOR.BORDER } },
+    bottom: { style: 'thin', color: { rgb: COLOR.BORDER } },
+    left:   { style: 'thin', color: { rgb: COLOR.BORDER } },
+    right:  { style: 'thin', color: { rgb: COLOR.BORDER } },
+  };
+
+  const cellStyle = (fgRgb, bold = false, center = false) => ({
+    font:      { bold, color: { rgb: fgRgb === COLOR.TITRE_BG ? 'FFFFFF' : '000000' } },
+    fill:      { patternType: 'solid', fgColor: { rgb: fgRgb } },
+    border:    borderAll,
+    alignment: { horizontal: center ? 'center' : 'left', vertical: 'center', wrapText: true },
+  });
+
+  /* applique un style à une cellule */
+  const applyStyle = (ws, ref, style) => {
+    if (!ws[ref]) ws[ref] = { v: '', t: 's' };
+    ws[ref].s = style;
+  };
+
+  /* applique un style sur toute une ligne */
+  const styleRow = (ws, rowIdx, nbCols, style) => {
     for (let c = 0; c < nbCols; c++) {
       const ref = XLSX.utils.encode_cell({ r: rowIdx, c });
-      if (!ws[ref]) continue;
-      if (!ws[ref].s) ws[ref].s = {};
-      ws[ref].s.font = { bold: true };
-      ws[ref].s.fill = { patternType: 'solid', fgColor: { rgb: 'D9D9D9' } };
-      ws[ref].s.alignment = { horizontal: 'center', vertical: 'center' };
-      ws[ref].s.border = {
-        top:    { style: 'thin' }, bottom: { style: 'thin' },
-        left:   { style: 'thin' }, right:  { style: 'thin' }
-      };
+      applyStyle(ws, ref, style);
+    }
+  };
+
+  /* ════════════════════════════════════════════════════════════════
+     FEUILLES PAR PELOTON  (format identique à vos images)
+     1 feuille = 1 escadron × 1 peloton
+  ════════════════════════════════════════════════════════════════ */
+  const COLS_PEL = ['NR', 'N° INCORP', 'NOM ET PRENOMS', 'N° INSCR.', 'CENTRE', 'SEXE', 'ESC', 'PON'];
+  const WIDTHS_PEL = [40, 80, 220, 110, 140, 55, 50, 50];
+
+  for (let ei = 0; ei < 10; ei++) {
+    for (let pi = 0; pi < 3; pi++) {
+      const c        = cases[ei * 3 + pi];
+      const escLabel = `${c.escadron}ÈME ESCADRON`;
+      const pelLabel = `${c.peloton === 1 ? '1ER' : c.peloton + 'ÈME'} PELOTON`;
+      const titreStr = `REPARTITION — ${escLabel}`;
+
+      const aoa = [];
+
+      /* ligne 0 : titre principal */
+      aoa.push([titreStr, '', '', '', '', '', '', '']);
+
+      /* ligne 1 : sous-titre peloton */
+      aoa.push([pelLabel, '', '', '', '', '', '', '']);
+
+      /* ligne 2 : vide */
+      aoa.push(['', '', '', '', '', '', '', '']);
+
+      /* ligne 3 : en-têtes colonnes */
+      aoa.push([...COLS_PEL]);
+
+      /* lignes données — filles d'abord (avec leur numéro F) puis garçons */
+      const filles  = c.eleves.filter(isFemale);
+      const garcons = c.eleves.filter(e => !isFemale(e));
+
+      // numéroter globalement dans l'ordre : filles en premier, garçons ensuite
+      // (comme dans vos images où les F apparaissent avec leur inc suivi de "F")
+      let nr = 1;
+      [...filles, ...garcons].forEach(e => {
+        aoa.push([
+          nr++,
+          e.numeroIncorporation ?? '',
+          `${String(e.nom ?? '').toUpperCase()} ${String(e.prenom ?? '')}`.trim(),
+          e.CIN ?? e.numCandidature ?? '',   // N° INSCR. → CIN ou numCandidature
+          e.centreConcours ?? e.centre ?? '',
+          normSex(e.sexe ?? ''),
+          c.escadron,
+          c.peloton,
+        ]);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+      /* ── fusions ── */
+      ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: COLS_PEL.length - 1 } }, // titre
+        { s: { r: 1, c: 0 }, e: { r: 1, c: COLS_PEL.length - 1 } }, // sous-titre
+      ];
+
+      /* ── styles ── */
+      // titre
+      applyStyle(ws, 'A1', { ...cellStyle(COLOR.TITRE_BG, true, true), font: { bold: true, sz: 14, color: { rgb: 'FFFFFF' } }, alignment: { horizontal: 'center', vertical: 'center' } });
+      // sous-titre peloton
+      applyStyle(ws, 'A2', { ...cellStyle(COLOR.ESC_TITLE, true, true), font: { bold: true, sz: 12, color: { rgb: '1F3864' } }, alignment: { horizontal: 'center', vertical: 'center' } });
+      // en-têtes
+      styleRow(ws, 3, COLS_PEL.length, cellStyle(COLOR.HEADER_BG, true, true));
+
+      // lignes élèves
+      const dataStart = 4;
+      [...filles, ...garcons].forEach((e, idx) => {
+        const rowIdx  = dataStart + idx;
+        const isFille = isFemale(e);
+        const bg      = isFille ? COLOR.FILLE_BG : COLOR.GARCON_BG;
+        styleRow(ws, rowIdx, COLS_PEL.length, cellStyle(bg, false, false));
+        // centrer N°, SEXE, ESC, PON
+        [0, 5, 6, 7].forEach(ci => {
+          const ref = XLSX.utils.encode_cell({ r: rowIdx, c: ci });
+          if (ws[ref]) ws[ref].s = { ...ws[ref].s, alignment: { horizontal: 'center', vertical: 'center' } };
+        });
+      });
+
+      /* hauteurs de lignes */
+      ws['!rows'] = [
+        { hpt: 28 }, // titre
+        { hpt: 22 }, // sous-titre
+        { hpt: 8  }, // vide
+        { hpt: 18 }, // header
+        ...Array(c.eleves.length).fill({ hpt: 16 }),
+      ];
+
+      /* largeurs colonnes */
+      ws['!cols'] = WIDTHS_PEL.map(w => ({ wpx: w }));
+
+      const sheetName = uniqueName(wb, `ESC${c.escadron}-PEL${c.peloton}`);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
     }
   }
 
-  function styleRow(ws, rowIdx, nbCols, fillRgb) {
-    for (let c = 0; c < nbCols; c++) {
-      const ref = XLSX.utils.encode_cell({ r: rowIdx, c });
-      if (!ws[ref]) ws[ref] = { v: '', t: 's' };
-      if (!ws[ref].s) ws[ref].s = {};
-      ws[ref].s.border = {
-        top:    { style: 'thin' }, bottom: { style: 'thin' },
-        left:   { style: 'thin' }, right:  { style: 'thin' }
-      };
-      ws[ref].s.alignment = { vertical: 'center' };
-      if (fillRgb) ws[ref].s.fill = { patternType: 'solid', fgColor: { rgb: fillRgb } };
-    }
-  }
-
-  const HEADER_PELOTON = ['NR','Nom','Prénom','Sexe','Escadron','Peloton','Incorporation','Niveau','Fady','Genre Concours'];
-  const COL_W_PELOTON  = [38, 180, 160, 50, 70, 70, 120, 120, 120, 130];
-
-  // ── 1) RÉSUMÉ ────────────────────────────────────────────────────────────────
+  /* ════════════════════════════════════════════════════════════════
+     FEUILLE RÉSUMÉ GLOBAL
+  ════════════════════════════════════════════════════════════════ */
   {
     const aoa = [];
 
     // Titre
-    aoa.push(['RÉSUMÉ DE LA RÉPARTITION ÉQUITABLE']);
-    aoa.push([`Généré le ${new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' })}`]);
-    aoa.push([]);
+    aoa.push(['RÉSUMÉ DE LA RÉPARTITION ÉQUITABLE', '', '', '', '', '', '']);
+    aoa.push([`Total élèves : ${resume.totalAffectes}   |   Masculin : ${resume.totalM}   |   Féminin : ${resume.totalF}   |   Restants ESC10 : ${resume.totalRestants}`, '', '', '', '', '', '']);
+    aoa.push([]); // vide
 
-    // KPIs globaux
-    const totalAff  = elevesModifies.length;
-    const totalM    = elevesModifies.filter(e => sexToMF(e.sexe) === 'M').length;
-    const totalF    = elevesModifies.filter(e => sexToMF(e.sexe) === 'F').length;
-    const pctF      = totalAff > 0 ? Math.round(totalF / totalAff * 100) : 0;
+    // En-tête résumé
+    aoa.push(['ESC', 'PELOTON', 'EFFECTIF', 'MASCULIN', 'FÉMININ', 'NIVEAUX', 'GENRES CONCOURS', 'CENTRES', 'ETHNIES']);
 
-    aoa.push(['Total élèves affectés', totalAff, '', 'Masculin', totalM, '', 'Féminin', totalF, '', `${pctF}% filles`]);
-    aoa.push([]);
+    resume.parEscadron.forEach(esc => {
+  esc.parPeloton.forEach((pel, pi) => {
+    // ✅ fmt sécurisé + bonne clé genres (pas genresConcours)
+    const fmt = (arr) => (arr ?? []).slice(0, 5)
+      .map(x => `${x.label}(${x.count})`).join(', ') || '-';
 
-    // En-tête tableau résumé
-    aoa.push(['Escadron','Peloton','Effectif','Masculin','Féminin','% F','Niveaux','Ethnies (fady)','Centres concours']);
-
-    let prevEsc = null;
-    const escTotaux = {}; // { esc: {total,m,f} }
-
-    // Trier les cases : esc 1→10, pel 1→3
-    const casesSorted = [...cases].sort((a, b) =>
-      a.escadron !== b.escadron ? a.escadron - b.escadron : a.peloton - b.peloton
-    );
-
-    casesSorted.forEach(c => {
-      const m   = c.eleves.filter(e => sexToMF(e.sexe) === 'M').length;
-      const f   = c.eleves.filter(e => sexToMF(e.sexe) === 'F').length;
-      const pf  = c.effectif > 0 ? Math.round(f / c.effectif * 100) : 0;
-      const niv = [...new Set(c.eleves.map(e => e.niveau          ?? '').filter(Boolean))].join(', ') || '-';
-      const eth = [...new Set(c.eleves.map(e => e.fady            ?? '').filter(Boolean))].join(', ') || '-';
-      const ctr = [...new Set(c.eleves.map(e => (e.genreConcours ?? e.centreConcours ?? '')).filter(Boolean))].join(', ') || '-';
-
-      if (!escTotaux[c.escadron]) escTotaux[c.escadron] = { total: 0, m: 0, f: 0 };
-      escTotaux[c.escadron].total += c.effectif;
-      escTotaux[c.escadron].m    += m;
-      escTotaux[c.escadron].f    += f;
-
-      aoa.push([c.escadron, c.peloton, c.effectif, m, f, `${pf}%`, niv, eth, ctr]);
-    });
-
-    aoa.push([]);
-    aoa.push(['— Totaux par escadron —']);
-    aoa.push(['Escadron','','Total','Masculin','Féminin','% F']);
-    Object.entries(escTotaux).forEach(([esc, t]) => {
-      const pf = t.total > 0 ? Math.round(t.f / t.total * 100) : 0;
-      aoa.push([`Escadron ${esc}`, '', t.total, t.m, t.f, `${pf}%`]);
-    });
-
+    aoa.push([
+      pi === 0 ? `ESC ${esc.escadron}` : '',
+      `Peloton ${pel.peloton}`,
+      pel.effectif  ?? 0,
+      pel.masculin  ?? 0,
+      pel.feminin   ?? 0,
+      fmt(pel.niveaux),
+      fmt(pel.genres),    // ✅ genres (pas genresConcours)
+      fmt(pel.centres),
+      fmt(pel.ethnies),
+    ]);
+  });
+  aoa.push(['', '', '', '', '', '', '', '', '']);
+});
     const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-    // Style titre
-    const cellT = ws['A1'];
-    if (cellT) { if (!cellT.s) cellT.s = {}; cellT.s.font = { bold: true, sz: 16 }; }
-
-    // Style en-tête colonnes (ligne index 5 = row 6)
-    styleHeader(ws, 5, 9);
-
-    // Style lignes données
-    for (let r = 6; r < 6 + casesSorted.length; r++) {
-      const esc = aoa[r]?.[0];
-      const fill = esc % 2 === 0 ? 'EEF2F7' : 'FFFFFF';
-      styleRow(ws, r, 9, fill);
-    }
-
-    // Fusion titre
+    // fusions titre
     ws['!merges'] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
       { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } },
     ];
 
-    setColWidths(ws, [90, 70, 80, 80, 80, 55, 200, 220, 200]);
-    XLSX.utils.book_append_sheet(wb, ws, 'Résumé');
+    // style titre
+    applyStyle(ws, 'A1', { fill: { patternType: 'solid', fgColor: { rgb: COLOR.TITRE_BG } }, font: { bold: true, sz: 14, color: { rgb: 'FFFFFF' } }, alignment: { horizontal: 'center', vertical: 'center' } });
+    applyStyle(ws, 'A2', { fill: { patternType: 'solid', fgColor: { rgb: 'D9E1F2' } }, font: { bold: true, sz: 11 }, alignment: { horizontal: 'center' } });
+
+    // style en-tête
+    styleRow(ws, 3, 9, cellStyle(COLOR.HEADER_BG, true, true));
+
+    // style lignes données
+    let rowIdx = 4;
+    resume.parEscadron.forEach(esc => {
+      esc.parPeloton.forEach(() => {
+        styleRow(ws, rowIdx, 9, cellStyle('FFFFFF', false, false));
+        rowIdx++;
+      });
+      rowIdx++; // ligne vide
+    });
+
+    ws['!cols'] = [60, 80, 80, 80, 80, 200, 200, 200, 200].map(w => ({ wpx: w }));
+    ws['!rows'] = [{ hpt: 28 }, { hpt: 18 }];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'RÉSUMÉ');
   }
 
-  // ── 2) UNE FEUILLE PAR PELOTON (30 feuilles) ──────────────────────────────
-  const casesSorted = [...cases].sort((a, b) =>
-    a.escadron !== b.escadron ? a.escadron - b.escadron : a.peloton - b.peloton
-  );
+  /* ════════════════════════════════════════════════════════════════
+     FEUILLE PAR ESCADRON (vue consolidée : 3 pelotons côte à côte)
+  ════════════════════════════════════════════════════════════════ */
+  for (let ei = 0; ei < 10; ei++) {
+    const escNum    = ei + 1;
+    const cEsc      = cases.filter(c => c.escadron === escNum)
+                           .sort((a, b) => a.peloton - b.peloton);
+    const elevesEsc = cEsc.flatMap(c => c.eleves);
 
-  casesSorted.forEach(c => {
     const aoa = [];
 
-    // Titre de la feuille
-    const titreTexte = `ESCADRON ${c.escadron} — PELOTON ${c.peloton}`;
-    aoa.push([titreTexte]);
-    aoa.push([`Effectif : ${c.effectif} élèves`]);
+    // Titre
+    aoa.push([`RÉPARTITION — ${escNum}ÈME ESCADRON (TOUS PELOTONS)`, '', '', '', '', '', '', '']);
+    aoa.push([`Effectif total : ${elevesEsc.length}   |   M : ${elevesEsc.filter(e => !isFemale(e)).length}   |   F : ${elevesEsc.filter(isFemale).length}`, '', '', '', '', '', '', '']);
     aoa.push([]);
 
-    // Stats rapides
-    const m  = c.eleves.filter(e => sexToMF(e.sexe) === 'M').length;
-    const f  = c.eleves.filter(e => sexToMF(e.sexe) === 'F').length;
-    const pf = c.effectif > 0 ? Math.round(f / c.effectif * 100) : 0;
-    aoa.push([`Masculin : ${m}`, `Féminin : ${f}`, `(${pf}% filles)`]);
-    aoa.push([]);
+    // En-tête
+    aoa.push(['NR', 'N° INCORP', 'NOM ET PRENOMS', 'N° INSCR.', 'CENTRE', 'SEXE', 'ESC', 'PON']);
 
-    // En-tête colonnes
-    aoa.push([...HEADER_PELOTON]);
+    // Données : regroupées par peloton avec un séparateur
+    let nr = 1;
+    cEsc.forEach((c, ci) => {
+      // sous-titre peloton
+      aoa.push([
+        `${c.peloton === 1 ? '1ER' : c.peloton + 'ÈME'} PELOTON — ${c.effectif} élèves`,
+        '', '', '', '', '', '', ''
+      ]);
+      const rowSep = aoa.length - 1; // index pour style
 
-    // Lignes élèves (triés par incorporation)
-    c.eleves
-      .slice()
-      .sort((a, b) => (Number(a.numeroIncorporation) || 0) - (Number(b.numeroIncorporation) || 0))
-      .forEach((e, idx) => {
+      const filles  = c.eleves.filter(isFemale);
+      const garcons = c.eleves.filter(e => !isFemale(e));
+      [...filles, ...garcons].forEach(e => {
         aoa.push([
-          idx + 1,
-          e.nom || '',
-          e.prenom || '',
-          sexToMF(e.sexe ?? e.gender ?? e.sex ?? ''),
+          nr++,
+          e.numeroIncorporation ?? '',
+          `${String(e.nom ?? '').toUpperCase()} ${String(e.prenom ?? '')}`.trim(),
+          e.CIN ?? e.numCandidature ?? '',
+          e.centreConcours ?? e.centre ?? '',
+          normSex(e.sexe ?? ''),
           c.escadron,
           c.peloton,
-          e.numeroIncorporation || '',
-          e.niveau          || '',
-          e.fady            || '',
-          e.genreConcours   ?? e.centreConcours ?? '',
         ]);
       });
 
+      if (ci < cEsc.length - 1) aoa.push([]); // espace entre pelotons
+    });
+
     const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-    // Style titre (row 0)
-    const cellT = ws['A1'];
-    if (cellT) { if (!cellT.s) cellT.s = {}; cellT.s.font = { bold: true, sz: 14 }; }
-
-    // Fusion titre + sous-titre
     ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: HEADER_PELOTON.length - 1 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: HEADER_PELOTON.length - 1 } },
-      { s: { r: 3, c: 0 }, e: { r: 3, c: 2 } },
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
     ];
 
-    // Style en-tête (row 5)
-    styleHeader(ws, 5, HEADER_PELOTON.length);
+    applyStyle(ws, 'A1', { fill: { patternType: 'solid', fgColor: { rgb: COLOR.TITRE_BG } }, font: { bold: true, sz: 13, color: { rgb: 'FFFFFF' } }, alignment: { horizontal: 'center', vertical: 'center' } });
+    applyStyle(ws, 'A2', { fill: { patternType: 'solid', fgColor: { rgb: 'D9E1F2' } }, font: { bold: true }, alignment: { horizontal: 'center' } });
+    styleRow(ws, 3, 8, cellStyle(COLOR.HEADER_BG, true, true));
 
-    // Style lignes données
-    for (let r = 6; r < 6 + c.eleves.length; r++) {
-      styleRow(ws, r, HEADER_PELOTON.length, r % 2 === 0 ? 'F5F7FA' : 'FFFFFF');
-    }
+    ws['!cols'] = WIDTHS_PEL.map(w => ({ wpx: w }));
+    ws['!rows'] = [{ hpt: 26 }, { hpt: 18 }];
 
-    setColWidths(ws, COL_W_PELOTON);
+    XLSX.utils.book_append_sheet(wb, ws, uniqueName(wb, `ESC ${escNum}`));
+  }
 
-    const sheetName = uniqueName(wb, `E${c.escadron}-P${c.peloton}`);
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  });
-
-  // ── 3) Écriture ──────────────────────────────────────────────────────────────
+  /* ── écriture fichier ─────────────────────────────────────────── */
   const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   saveAs(
     new Blob([wbout], { type: 'application/octet-stream' }),

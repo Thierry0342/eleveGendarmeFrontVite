@@ -1096,7 +1096,7 @@ const handleMotifChange = (e) => {
       doc.text("-----------------------", 165, 25);
   
       doc.setFontSize(10);
-      doc.text(`Situation de Prise d'Arme du ${filter.cour} CFEG du ${capitalizedDate} `, 90, 55);
+      doc.text(`Situation de Prise d'Arme du 80 CFEG du ${capitalizedDate} `, 90, 55);
   
       // Calcul des données spaSpeciale du jour
       const spaDateISO = new Date(spaDate).toISOString().slice(0, 10);
@@ -1310,7 +1310,7 @@ spaSpecialesDuJour.forEach(spa => {
     const formattedDate = formatDateCustom(spaDate);
 
     doc.setFontSize(13);
-    let content = `OBJET  SPA ELEVE GENDARME 79 EME CFEG X HVRC X DATE  DU ${formattedDate} X `;
+    let content = `OBJET  SPA ELEVE GENDARME 80 EME CFEG X HVRC X DATE  DU ${formattedDate} X `;
     const totalRealise = spaNumber || 0;
     const totalAbsent = totalA || 0;
     const totalPresent = spaNumber - totalA || 0;
@@ -1447,7 +1447,7 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
   }
 }
 
-content += 'FIN RABEMANANTSOA';
+content += 'FIN RASOLOFONIARY';
 
   
     // Nettoyage espaces et retours ligne
