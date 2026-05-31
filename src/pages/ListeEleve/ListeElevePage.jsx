@@ -3574,7 +3574,6 @@ const handleExportExcel = async () => {
     titleCell.font = { size: 16, bold: true };
     worksheet.getRow(1).height = 30;
 
-    // Définir les colonnes (sera réutilisé pour chaque section)
     const columns = [
       { header: 'Nom', key: 'nom', width: 20 },
       { header: 'Prénom', key: 'prenom', width: 20 },
@@ -3582,13 +3581,16 @@ const handleExportExcel = async () => {
       { header: 'Matricule', key: 'matricule', width: 25 },
       { header: 'Escadron', key: 'escadron', width: 15 },
       { header: 'Peloton', key: 'peloton', width: 15 },
- 
-      { header: 'NUMERO 1', key: 'numero', width: 15 },
-      { header: 'NUMERO 2', key: 'numero', width: 15 },
-      { header: 'NUMERO 3', key: 'numero', width: 15 },
 
+      { header: 'NUMERO 1', key: 'telephone1', width: 15 },
+      { header: 'NUMERO 2', key: 'telephone2', width: 15 },
+      { header: 'NUMERO 3', key: 'telephone3', width: 15 },
 
-
+      { header: 'Sexe', key: 'sexe', width: 10 },                        // NEW
+      { header: 'Fady (Ethnie)', key: 'fady', width: 20 },               // NEW
+      { header: 'Genre Concours', key: 'genreConcours', width: 20 },     // NEW
+      { header: 'Niveau', key: 'niveau', width: 15 },                    // NEW
+      { header: 'Centre Concours', key: 'centreConcours', width: 20 },   // NEW
 
       { header: 'Note FETTA', key: 'finfetta', width: 15 },
       { header: 'Rang FETTA', key: 'rangFinfetta', width: 15 },
@@ -3598,16 +3600,12 @@ const handleExportExcel = async () => {
       { header: 'Rang Fin Formation', key: 'rangFinstage', width: 18 },
     ];
     worksheet.columns = columns;
-    
 
-    // Ligne de départ après le titre
     let currentRow = 3;
 
-    // Récupérer la liste des escadrons uniques, triés par ordre croissant
     const escadronsUniques = [...new Set(elevesAAfficher.map(e => e.escadron))].sort((a, b) => a - b);
 
     for (const escadron of escadronsUniques) {
-      // Sous-titre escadron
       worksheet.mergeCells(`A${currentRow}:F${currentRow}`);
       const sousTitreCell = worksheet.getCell(`A${currentRow}`);
       sousTitreCell.value = `${escadron}ème escadron`;
@@ -3616,19 +3614,14 @@ const handleExportExcel = async () => {
       worksheet.getRow(currentRow).height = 20;
       currentRow++;
 
-      // En-tête colonnes pour cet escadron
       worksheet.getRow(currentRow).values = columns.map(col => col.header);
       worksheet.getRow(currentRow).font = { bold: true };
       worksheet.getRow(currentRow).alignment = { horizontal: 'center' };
-      worksheet.getRow(currentRow).border = {
-        bottom: { style: 'thin' }
-      };
+      worksheet.getRow(currentRow).border = { bottom: { style: 'thin' } };
       currentRow++;
 
-      // Filtrer élèves de cet escadron
       const elevesEscadron = elevesAAfficher.filter(e => e.escadron === escadron);
-//console.log(elevesEscadron);
-      // Ajouter chaque élève dans une ligne
+
       elevesEscadron.forEach(eleve => {
         worksheet.getRow(currentRow).values = [
           eleve.nom || '',
@@ -3642,6 +3635,11 @@ const handleExportExcel = async () => {
           eleve.telephone2 || '',
           eleve.telephone3 || '',
 
+          eleve.sexe || '',              // NEW
+          eleve.fady || '',              // NEW
+          eleve.genreConcours || '',     // NEW
+          eleve.niveau || '',            // NEW
+          eleve.centreConcours || '',    // NEW
 
           eleve.Note?.finfetta || '',
           eleve.Note?.rangfinfetta || '',
@@ -3650,19 +3648,16 @@ const handleExportExcel = async () => {
           eleve.Note?.finstage || '',
           eleve.Note?.rangfinstage || '',
         ];
-         // Centrer chaque cellule de cette ligne
-         worksheet.getRow(currentRow).eachCell({ includeEmpty: true }, cell => {
-            cell.alignment = { horizontal: 'center', vertical: 'middle' };
-          });
+
+        worksheet.getRow(currentRow).eachCell({ includeEmpty: true }, cell => {
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
         currentRow++;
       });
-      
 
-      // Ligne vide entre escadrons
       currentRow++;
     }
 
-    // Sauvegarder le fichier Excel
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     saveAs(blob, `Eleves_par_Escadron_${new Date().toISOString().slice(0,10)}.xlsx`);
@@ -3671,7 +3666,6 @@ const handleExportExcel = async () => {
     alert("Erreur lors de l'exportation Excel");
   }
 };
-
 
 function repartirEquitable(eleves) {
   const NB_ESC  = 10;

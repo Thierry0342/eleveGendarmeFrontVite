@@ -224,8 +224,8 @@ const DiverPage = () => {
         </span>
       )
     },
-    { name: 'Escadron', selector: row => row.escadron, width: "100px" },
-    { name: 'Peloton', selector: row => row.peloton, width: "100px" },
+    { name: 'Escadron', selector: row => row.escadron, width: "100px" , sortable: true},
+    { name: 'Peloton', selector: row => row.peloton, width: "100px" ,sortable: true },
     {
       name: 'Âge', width: "80px",
       selector: row => {
