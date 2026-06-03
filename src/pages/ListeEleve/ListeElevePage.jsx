@@ -65,7 +65,7 @@ const [sanctionEditingId, setSanctionEditingId] = useState(null);
   // Droit d'édition
 const canEditSanctions = ["admin", "superadmin"].includes(user?.type);
 const [notesByEleve, setNotesByEleve] = React.useState({});
-  const [filter, setFilter] = useState({ escadron: '', peloton: '' ,search:'' ,cour:'', centreConcours: "" , lieuNaissance: "",  fady: "" });
+  const [filter, setFilter] = useState({ escadron: '', peloton: '' ,search:'' ,cour:'', centreConcours: "" , lieuNaissance: "",  fady: "",  famille: '' });
   //maka centre de concours 
   const centreConcoursList = [...new Set(eleves.map(e => e.centreConcours).filter(Boolean))].sort((a, b) =>
   a.localeCompare(b, 'fr', { sensitivity: 'base' })
@@ -3394,42 +3394,48 @@ const fetchAllData = async () => {
  
   // Application du filtre
   const elevesAAfficher = eleves.filter(eleve => {
-    const escadronMatch = filter.escadron === '' || eleve.escadron === Number(filter.escadron);
-    const pelotonMatch = filter.peloton === '' || eleve.peloton === Number(filter.peloton);
-    const courMatch = filter.cour === '' || eleve.cour === Number(filter.cour);
-  
-    const sexeEleve = normSexe(eleve.sexe ?? eleve.gender ?? eleve.sex);
-    const matricule = eleve.matricule ?? eleve.mle ?? eleve.matriculeNumber;
-    const sexeMatch = !filter.sexe || sexeEleve === filter.sexe;
-  
-    const centreConcoursMatch = filter.centreConcours === '' || eleve.centreConcours === filter.centreConcours;
-    const lieuNaissanceMatch = filter.lieuNaissance === '' || eleve.lieuNaissance === filter.lieuNaissance;
-    const fadyMatch = filter.fady === '' || eleve.fady === filter.fady;
-  
-    const matchSearch = !filter.search || (
-      eleve.nom?.toLowerCase().includes(filter.search.toLowerCase()) ||
-      eleve.prenom?.toLowerCase().includes(filter.search.toLowerCase()) ||
-      eleve.numeroIncorporation?.toString().includes(filter.search) ||
-      matricule?.toString().includes(filter.search) ||
-      (['m', 'f'].includes(filter.search) && sexeEleve.toLowerCase() === filter.search)
-    );
-  
-    // Cas particulier : peloton sélectionné sans escadron mais une recherche est présente → OK
-    if (filter.peloton !== '' && filter.escadron === '' && filter.search) {
-      return true;
-    }
-  
-    return (
-      escadronMatch &&
-      pelotonMatch &&
-      courMatch &&
-      sexeMatch &&
-      matchSearch &&
-      centreConcoursMatch &&
-      lieuNaissanceMatch &&
-      fadyMatch
-    );
-  });
+  const escadronMatch = filter.escadron === '' || eleve.escadron === Number(filter.escadron);
+  const pelotonMatch  = filter.peloton  === '' || eleve.peloton  === Number(filter.peloton);
+  const courMatch     = filter.cour     === '' || eleve.cour     === Number(filter.cour);
+
+  const sexeEleve  = normSexe(eleve.sexe ?? eleve.gender ?? eleve.sex);
+  const matricule  = eleve.matricule ?? eleve.mle ?? eleve.matriculeNumber;
+  const sexeMatch  = !filter.sexe || sexeEleve === filter.sexe;
+
+  const centreConcoursMatch  = filter.centreConcours === '' || eleve.centreConcours === filter.centreConcours;
+  const lieuNaissanceMatch   = filter.lieuNaissance  === '' || eleve.lieuNaissance  === filter.lieuNaissance;
+  const fadyMatch            = filter.fady           === '' || eleve.fady           === filter.fady;
+
+  const matchSearch = !filter.search || (
+    eleve.nom?.toLowerCase().includes(filter.search.toLowerCase()) ||
+    eleve.prenom?.toLowerCase().includes(filter.search.toLowerCase()) ||
+    eleve.numeroIncorporation?.toString().includes(filter.search) ||
+    matricule?.toString().includes(filter.search) ||
+    (['m', 'f'].includes(filter.search) && sexeEleve.toLowerCase() === filter.search)
+  );
+
+  // ← NOUVEAU : recherche famille
+  const familleSearch = filter.famille.toLowerCase().trim();
+  const familleMatch = !familleSearch || (
+    (eleve.Pere?.nom    ?? '').toLowerCase().includes(familleSearch) ||
+    (eleve.Mere?.nom    ?? '').toLowerCase().includes(familleSearch) ||
+    (eleve.Tuteur?.nom  ?? '').toLowerCase().includes(familleSearch)
+  );
+
+  if (filter.peloton !== '' && filter.escadron === '' && filter.search) return true;
+
+  return (
+    escadronMatch &&
+    pelotonMatch  &&
+    courMatch     &&
+    sexeMatch     &&
+    matchSearch   &&
+    centreConcoursMatch &&
+    lieuNaissanceMatch  &&
+    fadyMatch     &&
+    familleMatch        // ← NOUVEAU
+  );
+});
   
   // Helper robuste
 const sexToMF = (v) => {
@@ -3475,6 +3481,37 @@ const sexToMF = (v) => {
     return na !== nb ? na - nb : sa.localeCompare(sb);
   },
   width: "90px"
+},
+{
+  name: 'Famille',
+  width: '200px',
+  omit: !filter.famille, // cachée si pas de recherche famille active
+  cell: row => {
+    const q = filter.famille.toLowerCase().trim();
+    if (!q) return null;
+    const roles = [
+      { key: 'Pere',   label: 'Père',   style: { background:'#E6F1FB', color:'#0C447C', border:'0.5px solid #85B7EB' } },
+      { key: 'Mere',   label: 'Mère',   style: { background:'#FBEAF0', color:'#72243E', border:'0.5px solid #ED93B1' } },
+      { key: 'Tuteur', label: 'Tuteur', style: { background:'#E1F5EE', color:'#085041', border:'0.5px solid #5DCAA5' } },
+    ];
+    return (
+      <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+        {roles
+          .filter(r => (row[r.key]?.nom ?? '').toLowerCase().includes(q))
+          .map(r => (
+            <span key={r.key} style={{
+              ...r.style,
+              padding:'2px 8px', borderRadius:999,
+              fontSize:11, fontWeight:500,
+              display:'flex', alignItems:'center', gap:4
+            }}>
+              {r.label} : {row[r.key].nom}
+            </span>
+          ))
+        }
+      </div>
+    );
+  }
 },
 
   // === Nouvelles colonnes alimentées par les maps ===
@@ -4331,7 +4368,7 @@ async function exportRepartitionEquitableExcel(elevesModifies, cases, resume) {
             type="button"
             className="btn btn-sm btn-outline-secondary"
             onClick={() =>
-              setFilter({ escadron: "", peloton: "", search: "", cour: "", sexe: "" })
+              setFilter({ escadron: "", peloton: "", search: "", cour: "", sexe: "" ,famille: '' })
             }
           >
             <i className="fa fa-refresh me-1"></i> Réinitialiser
@@ -4341,7 +4378,11 @@ async function exportRepartitionEquitableExcel(elevesModifies, cases, resume) {
                   Number(Boolean(filter.search)) +
                   Number(Boolean(filter.escadron)) +
                   Number(Boolean(filter.peloton)) +
-                  Number(Boolean(filter.sexe))}
+                  Number(Boolean(filter.sexe)) +
+                  Number(Boolean(filter.famille)) 
+
+                  } +
+                  
               </span>
             )}
           </button>
@@ -4389,6 +4430,35 @@ async function exportRepartitionEquitableExcel(elevesModifies, cases, resume) {
             </div>
            
           </div>
+          <div className="col-12">
+  <label className="form-label fw-semibold" htmlFor="famille">
+    Recherche famille (père / mère / tuteur)
+  </label>
+  <div className="position-relative">
+    <span className="position-absolute top-50 translate-middle-y ms-3">
+      <i className="fa fa-users text-muted"></i>
+    </span>
+    <input
+      id="famille"
+      type="text"
+      className="form-control ps-5"
+      placeholder="Nom du père, de la mère ou du tuteur"
+      name="famille"
+      value={filter.famille}
+      onChange={handleFilterChange}
+    />
+    {filter.famille && (
+      <button
+        type="button"
+        className="btn btn-sm btn-link text-decoration-none position-absolute top-50 end-0 translate-middle-y me-2"
+        onClick={() => setFilter(prev => ({ ...prev, famille: '' }))}
+        title="Effacer"
+      >
+        <i className="fa fa-times-circle"></i>
+      </button>
+    )}
+  </div>
+</div>
         
 
 
