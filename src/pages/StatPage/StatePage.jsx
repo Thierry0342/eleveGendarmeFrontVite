@@ -55,6 +55,9 @@ const StatePage = () => {
     const [filteredData, setFilteredData] = useState([]);
     //patc
     const [patcsByEleve, setPatcsByEleve] = useState({});
+    const [searchRecap, setSearchRecap] = useState('');
+    const [currentPage2, setCurrentPage2] = useState(1);
+    const itemsPerPage2 = 5; // Changez ce nombre pour afficher plus ou moins de lignes par page
 
   //paggination
   
@@ -520,7 +523,25 @@ useEffect(() => {
     });
    // console.log('asasasasas',data);
   });
-
+// Récapitulatif : nombre d'absences par élève avec détail par motif
+const recapParEleveTotal = React.useMemo(() => {
+  const map = {};
+  motifData.forEach(row => {
+    const key = row.eleveId;
+    if (!map[key]) {
+      map[key] = {
+        eleveId: row.eleveId,
+        nom: row.nom,
+        incorp: row.incorp,
+        motifs: [],
+        total: 0,
+      };
+    }
+    map[key].motifs.push({ motif: row.motif, count: row.count });
+    map[key].total += row.count;
+  });
+  return Object.values(map).sort((a, b) => b.total - a.total);
+}, [motifData]);
   
   const columns2 = [
     {
@@ -1752,7 +1773,225 @@ const handleExportConsultationsPDF = (joursParEleve, dateServeur, joursSup = 0) 
 
                       </div>
 
+{/* ─── Récapitulatif par élève ─── */}
+<div style={{ marginTop: '2rem' }}>
+  {/* En-tête */}
+  <div style={{
+    background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+    borderRadius: '12px 12px 0 0',
+    padding: '14px 20px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <i className="ti ti-list-details" style={{ fontSize: '18px', color: '#60a5fa' }} aria-hidden="true"></i>
+      <span style={{ color: '#f1f5f9', fontWeight: 500, fontSize: '15px', letterSpacing: '0.3px' }}>
+        Récapitulatif par élève
+      </span>
+    </div>
+    <input
+      type="text"
+      placeholder="Rechercher un élève..."
+      value={searchRecap}
+      onChange={e => {
+        setSearchRecap(e.target.value);
+        setCurrentPage2(1); // Réinitialise à la page 1 lors d'une recherche
+      }}
+      style={{
+        padding: '6px 12px',
+        borderRadius: '8px',
+        border: '1px solid rgba(255,255,255,0.15)',
+        background: 'rgba(255,255,255,0.08)',
+        color: '#f1f5f9',
+        fontSize: '13px',
+        width: '210px',
+        outline: 'none',
+      }}
+    />
+  </div>
 
+  {/* Corps */}
+  <div style={{
+    border: '1px solid #e2e8f0',
+    borderTop: 'none',
+    borderRadius: '0 0 12px 12px',
+    overflow: 'hidden',
+    background: '#fff',
+  }}>
+    {(() => {
+      // 1. Filtrage des données
+      const filteredData = recapParEleveTotal.filter(el =>
+        el.nom.toLowerCase().includes(searchRecap.toLowerCase()) ||
+        String(el.incorp).includes(searchRecap)
+      );
+
+      // 2. Calcul des index pour la pagination
+      const totalPages = Math.ceil(filteredData.length / itemsPerPage2) || 1;
+      const indexOfLastItem = currentPage2 * itemsPerPage2;
+      const indexOfFirstItem = indexOfLastItem - itemsPerPage2;
+      const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
+
+      if (filteredData.length === 0) {
+        return (
+          <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+            <i className="ti ti-mood-empty" style={{ fontSize: '24px', display: 'block', marginBottom: '8px' }} aria-hidden="true"></i>
+            Aucun résultat
+          </div>
+        );
+      }
+
+      return (
+        <>
+          {/* Liste des lignes (rendues plus petites) */}
+          {currentItems.map((el, idx) => (
+            <div
+              key={el.eleveId}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '6px 20px', // Lignes plus serrées (réduit de 12px à 6px)
+                borderBottom: '1px solid #f1f5f9',
+                background: idx % 2 === 0 ? '#fff' : '#f8fafc',
+                gap: '12px',
+                flexWrap: 'wrap',
+              }}
+            >
+              {/* Identité */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '180px' }}>
+                <div style={{
+                  width: '30px', height: '30px', borderRadius: '50%', // Avatar plus petit (réduit de 36px à 30px)
+                  background: '#dbeafe', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', fontWeight: 500, fontSize: '12px', color: '#1d4ed8',
+                  flexShrink: 0,
+                }}>
+                  {el.nom.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 500, fontSize: '12.5px', color: '#1e293b' }}>
+                    EG {el.nom}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748b', marginTop: '-2px' }}>Inc. {el.incorp}</div>
+                </div>
+              </div>
+
+              {/* Motifs pills */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', flex: 1 }}>
+                {el.motifs.map((m, i) => (
+                  <span
+                    key={i}
+                    title={m.motif}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '4px',
+                      background: '#f0f9ff', border: '1px solid #bae6fd',
+                      borderRadius: '20px', padding: '2px 8px', // Pills légèrement plus compactes
+                      fontSize: '11px', color: '#0369a1', maxWidth: '220px',
+                      overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+                    }}
+                  >
+                    <span style={{
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      textTransform: 'capitalize',
+                    }}>
+                      {m.motif.toLowerCase()}
+                    </span>
+                    <span style={{
+                      background: '#0284c7', color: '#fff', borderRadius: '50%',
+                      width: '16px', height: '16px', display: 'inline-flex',
+                      alignItems: 'center', justifyContent: 'center',
+                      fontSize: '10px', flexShrink: 0, fontWeight: 500,
+                    }}>
+                      {m.count}
+                    </span>
+                  </span>
+                ))}
+              </div>
+
+              {/* Total badge */}
+              <div style={{
+                background: el.total >= 5 ? '#fef2f2' : '#f0df4',
+                border: `1px solid ${el.total >= 5 ? '#fca5a5' : '#86efac'}`,
+                borderRadius: '6px',
+                padding: '4px 10px', // Badge plus discret
+                textAlign: 'center',
+                minWidth: '55px',
+                flexShrink: 0,
+              }}>
+                <div style={{
+                  fontSize: '16px', fontWeight: 600, // Chiffre un peu plus petit
+                  color: el.total >= 5 ? '#dc2626' : '#16a34a',
+                  lineHeight: 1.1,
+                }}>
+                  {el.total}
+                </div>
+                <div style={{ fontSize: '10px', color: '#64748b' }}>
+                  total
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* Barre de Pagination */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '10px 20px',
+            background: '#fff',
+            borderTop: '1px solid #e2e8f0',
+            fontSize: '12.5px',
+            color: '#64748b'
+          }}>
+            <div>
+              Affichage de {indexOfFirstItem + 1} à {Math.min(indexOfLastItem, filteredData.length)} sur {filteredData.length} élèves
+            </div>
+            
+            <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+              <button
+                disabled={currentPage2 === 1}
+                onClick={() => setCurrentPage2(prev => prev - 1)}
+                style={{
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid #e2e8f0',
+                  background: currentPage2 === 1 ? '#f1f5f9' : '#fff',
+                  color: currentPage2 === 1 ? '#94a3b8' : '#1e293b',
+                  cursor: currentPage2 === 1 ? 'not-allowed' : 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 500
+                }}
+              >
+                Précédent
+              </button>
+              
+              <span style={{ padding: '0 8px', color: '#1e293b', fontWeight: 500 }}>
+                {currentPage2} / {totalPages}
+              </span>
+
+              <button
+                disabled={currentPage2 === totalPages}
+                onClick={() => setCurrentPage2(prev => prev + 1)}
+                style={{
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid #e2e8f0',
+                  background: currentPage2 === totalPages ? '#f1f5f9' : '#fff',
+                  color: currentPage2 === totalPages ? '#94a3b8' : '#1e293b',
+                  cursor: currentPage2 === totalPages ? 'not-allowed' : 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 500
+                }}
+              >
+                Suivant
+              </button>
+            </div>
+          </div>
+        </>
+      );
+    })()}
+  </div>
+</div>
 
 
                           {/* FIN SPA*/}

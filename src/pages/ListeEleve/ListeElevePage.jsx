@@ -65,7 +65,7 @@ const [sanctionEditingId, setSanctionEditingId] = useState(null);
   // Droit d'édition
 const canEditSanctions = ["admin", "superadmin"].includes(user?.type);
 const [notesByEleve, setNotesByEleve] = React.useState({});
-  const [filter, setFilter] = useState({ escadron: '', peloton: '' ,search:'' ,cour:'', centreConcours: "" , lieuNaissance: "",  fady: "",  famille: '' });
+const [filter, setFilter] = useState({ escadron: '', peloton: '' ,search:'' ,cour:'', centreConcours: "" , lieuNaissance: "",  fady: "",  famille: '',  profession: '' });
   //maka centre de concours 
   const centreConcoursList = [...new Set(eleves.map(e => e.centreConcours).filter(Boolean))].sort((a, b) =>
   a.localeCompare(b, 'fr', { sensitivity: 'base' })
@@ -3415,16 +3415,24 @@ const fetchAllData = async () => {
   );
 
   // ← NOUVEAU : recherche famille
-  const familleSearch = filter.famille.toLowerCase().trim();
-  const familleMatch = !familleSearch || (
-    (eleve.Pere?.nom    ?? '').toLowerCase().includes(familleSearch) ||
-    (eleve.Mere?.nom    ?? '').toLowerCase().includes(familleSearch) ||
-    (eleve.Tuteur?.nom  ?? '').toLowerCase().includes(familleSearch)
-  );
+const familleSearch = filter.famille.toLowerCase().trim();
+const familleMatch = !familleSearch || (
+  (eleve.Pere?.nom    ?? '').toLowerCase().includes(familleSearch) ||
+  (eleve.Mere?.nom    ?? '').toLowerCase().includes(familleSearch) ||
+  (eleve.Tuteur?.nom  ?? '').toLowerCase().includes(familleSearch)
+);
+
+const professionSearch = filter.profession.toLowerCase().trim();
+const professionMatch = !professionSearch || (
+  (eleve.Pere?.profession    ?? '').toLowerCase().includes(professionSearch) ||
+  (eleve.Mere?.profession    ?? '').toLowerCase().includes(professionSearch) ||
+  (eleve.Tuteur?.profession  ?? '').toLowerCase().includes(professionSearch) ||
+  (eleve.Accident?.profession ?? '').toLowerCase().includes(professionSearch)
+);
 
   if (filter.peloton !== '' && filter.escadron === '' && filter.search) return true;
 
-  return (
+ return (
     escadronMatch &&
     pelotonMatch  &&
     courMatch     &&
@@ -3433,7 +3441,8 @@ const fetchAllData = async () => {
     centreConcoursMatch &&
     lieuNaissanceMatch  &&
     fadyMatch     &&
-    familleMatch        // ← NOUVEAU
+    familleMatch  &&
+    professionMatch     // ← NOUVEAU
   );
 });
   
@@ -3506,6 +3515,38 @@ const sexToMF = (v) => {
               display:'flex', alignItems:'center', gap:4
             }}>
               {r.label} : {row[r.key].nom}
+            </span>
+          ))
+        }
+      </div>
+    );
+  }
+},
+{
+  name: 'Profession parent',
+  width: '200px',
+  omit: !filter.profession,
+  cell: row => {
+    const q = filter.profession.toLowerCase().trim();
+    if (!q) return null;
+    const roles = [
+      { key: 'Pere',    label: 'Père',   style: { background:'#E6F1FB', color:'#0C447C', border:'0.5px solid #85B7EB' } },
+      { key: 'Mere',    label: 'Mère',   style: { background:'#FBEAF0', color:'#72243E', border:'0.5px solid #ED93B1' } },
+      { key: 'Tuteur',  label: 'Tuteur', style: { background:'#E1F5EE', color:'#085041', border:'0.5px solid #5DCAA5' } },
+      { key: 'Accident',label: 'Contact',style: { background:'#FFF8E1', color:'#7B5800', border:'0.5px solid #FFD54F' } },
+    ];
+    return (
+      <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+        {roles
+          .filter(r => (row[r.key]?.profession ?? '').toLowerCase().includes(q))
+          .map(r => (
+            <span key={r.key} style={{
+              ...r.style,
+              padding:'2px 8px', borderRadius:999,
+              fontSize:11, fontWeight:500,
+              display:'flex', alignItems:'center', gap:4
+            }}>
+              {r.label} : {row[r.key].profession}
             </span>
           ))
         }
@@ -4368,7 +4409,7 @@ async function exportRepartitionEquitableExcel(elevesModifies, cases, resume) {
             type="button"
             className="btn btn-sm btn-outline-secondary"
             onClick={() =>
-              setFilter({ escadron: "", peloton: "", search: "", cour: "", sexe: "" ,famille: '' })
+              setFilter({ escadron: "", peloton: "", search: "", cour: "", sexe: "" ,famille: '', profession: ''  })
             }
           >
             <i className="fa fa-refresh me-1"></i> Réinitialiser
@@ -4379,7 +4420,8 @@ async function exportRepartitionEquitableExcel(elevesModifies, cases, resume) {
                   Number(Boolean(filter.escadron)) +
                   Number(Boolean(filter.peloton)) +
                   Number(Boolean(filter.sexe)) +
-                  Number(Boolean(filter.famille)) 
+                  Number(Boolean(filter.famille)+
+                  Number(Boolean(filter.profession))) 
 
                   } +
                   
@@ -4452,6 +4494,35 @@ async function exportRepartitionEquitableExcel(elevesModifies, cases, resume) {
         type="button"
         className="btn btn-sm btn-link text-decoration-none position-absolute top-50 end-0 translate-middle-y me-2"
         onClick={() => setFilter(prev => ({ ...prev, famille: '' }))}
+        title="Effacer"
+      >
+        <i className="fa fa-times-circle"></i>
+      </button>
+    )}
+  </div>
+</div>
+<div className="col-12">
+  <label className="form-label fw-semibold" htmlFor="profession">
+    Recherche par profession (père / mère / tuteur)
+  </label>
+  <div className="position-relative">
+    <span className="position-absolute top-50 translate-middle-y ms-3">
+      <i className="fa fa-briefcase text-muted"></i>
+    </span>
+    <input
+      id="profession"
+      type="text"
+      className="form-control ps-5"
+      placeholder="Ex: gendarme, médecin, commerçant..."
+      name="profession"
+      value={filter.profession}
+      onChange={handleFilterChange}
+    />
+    {filter.profession && (
+      <button
+        type="button"
+        className="btn btn-sm btn-link text-decoration-none position-absolute top-50 end-0 translate-middle-y me-2"
+        onClick={() => setFilter(prev => ({ ...prev, profession: '' }))}
         title="Effacer"
       >
         <i className="fa fa-times-circle"></i>
