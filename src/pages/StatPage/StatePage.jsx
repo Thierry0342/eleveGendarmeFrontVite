@@ -13,6 +13,8 @@ import dateService from'../../services/dateservice';
 import patcService from '../../services/patc-service';
 import Swal from 'sweetalert2';
 import jsPDF from "jspdf";
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 
 import autoTable from 'jspdf-autotable';
 const StatePage = () => {
@@ -287,8 +289,104 @@ useEffect(() => {
 
     XLSX.writeFile(workbook, `Eleves_${motifData.motif}.xlsx`);
   };
-  
+  ///
+const exportAllElevesToExcel = async () => {
+  const workbook = new ExcelJS.Workbook();
+  const ws = workbook.addWorksheet('Récapitulatif');
 
+  // Colonnes
+  ws.columns = [
+  { header: 'Nom',            key: 'nom',           width: 20 },
+  { header: 'Prénom',         key: 'prenom',        width: 20 },  // ← ajout
+  { header: 'Escadron',       key: 'escadron',      width: 10 },  // ← ajout
+  { header: 'Peloton',        key: 'peloton',       width: 10 },  // ← ajout
+  { header: 'Incorporation',  key: 'incorp',        width: 15 },
+  { header: 'Motif',          key: 'motif',         width: 30 },
+  { header: 'Date',           key: 'date',          width: 15 },
+  { header: 'Total motif',    key: 'totalMotif',    width: 12 },
+  { header: 'Total absences', key: 'totalAbsences', width: 16 },
+];
+
+  // Style en-tête du tableau
+  ws.getRow(1).eachCell(cell => {
+    cell.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
+    cell.font   = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.border = {
+      bottom: { style: 'medium', color: { argb: 'FF93C5FD' } },
+    };
+  });
+
+  recapParEleveTotal.forEach(el => {
+    // ── Ligne élève (en-tête bleu) ──────────────────────────────
+ const eleveRow = ws.addRow({
+  nom:           el.nom,
+  prenom:        el.prenom,        // ← ajout
+  escadron:      el.escadron,      // ← ajout
+  peloton:       el.peloton,       // ← ajout
+  incorp:        el.incorp,
+  motif:         '',
+  date:          '',
+  totalMotif:    '',
+  totalAbsences: el.total,
+});
+
+    eleveRow.eachCell({ includeEmpty: true }, cell => {
+      cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } };
+      cell.font      = { bold: true, color: { argb: 'FF1E40AF' }, size: 11 };
+      cell.alignment = { vertical: 'middle' };
+      cell.border    = {
+        top:    { style: 'thin', color: { argb: 'FF93C5FD' } },
+        bottom: { style: 'thin', color: { argb: 'FF93C5FD' } },
+      };
+    });
+
+    // ── Lignes dates ────────────────────────────────────────────
+    el.motifs.forEach(m => {
+      m.dates.forEach((rawDate, i) => {
+        const d      = new Date(rawDate);
+        const jour   = d.getDay(); // 0=dim, 6=sam
+        const isWeekend = jour === 0 || jour === 6;
+
+        const dateRow = ws.addRow({
+          nom:           '',
+          incorp:        '',
+          motif:         i === 0 ? m.motif : '',
+          date:          d.toLocaleDateString('fr-FR'),
+          totalMotif:    i === 0 ? m.count : '',
+          totalAbsences: '',
+        });
+
+        // Colorer toute la ligne si weekend
+        if (isWeekend) {
+          dateRow.eachCell({ includeEmpty: true }, cell => {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+          });
+          // Texte date en rouge
+          dateRow.getCell('date').font = { color: { argb: 'FFDC2626' }, bold: true };
+          dateRow.getCell('date').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFECACA' } };
+        } else {
+          // Texte date en vert sur fond vert clair
+          dateRow.getCell('date').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0FDF4' } };
+          dateRow.getCell('date').font = { color: { argb: 'FF166534' } };
+        }
+      });
+    });
+
+    // ── Ligne de séparation vide ────────────────────────────────
+    const sepRow = ws.addRow({});
+    sepRow.eachCell({ includeEmpty: true }, cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+    });
+  });
+
+  // Générer et télécharger
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob   = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  saveAs(blob, `Recapitulatif_absences_cours${cour}.xlsx`);
+};
   const calculerJoursEscadron = (data, dateServeur) => {
     const jours = data
       .filter(c => (c.status === "Escadron" || c.status === "EVASAN") && c.dateDepart)
@@ -484,31 +582,30 @@ useEffect(() => {
   });
   
   
-  const recapParEleve = {};
+const recapParEleve = {};
 
-  filteredAbsences.forEach(abs => {
-    const eleveId = abs.eleveId;
-    const nom = abs.Eleve?.nom || 'Inconnu';
-    const motif = abs.motif || 'Inconnu';
-    const date = abs.date;
-    const incorp =abs.Eleve?.numeroIncorporation
-  
-    if (!recapParEleve[eleveId]) {
-      recapParEleve[eleveId] = {
-        nom,
-        numeroIncorporation: incorp,
-        motifs: {},
-      };
-    }
-  
-    // Initialiser une liste de dates uniques par motif
-    if (!recapParEleve[eleveId].motifs[motif]) {
-      recapParEleve[eleveId].motifs[motif] = new Set();
-    }
-  
-    // Ajouter la date au set
-    recapParEleve[eleveId].motifs[motif].add(date);
-  });
+filteredAbsences.forEach(abs => {
+  const eleveId = abs.eleveId;
+  const nom = abs.Eleve?.nom || 'Inconnu';
+  const prenom = abs.Eleve?.prenom || '';        // ← ajout
+  const escadron = abs.Eleve?.escadron || '';    // ← ajout
+  const peloton = abs.Eleve?.peloton || '';      // ← ajout
+  const motif = abs.motif || 'Inconnu';
+  const date = abs.date;
+  const incorp = abs.Eleve?.numeroIncorporation;
+
+  if (!recapParEleve[eleveId]) {
+    recapParEleve[eleveId] = {
+      nom, prenom, escadron, peloton,            // ← ajout
+      numeroIncorporation: incorp, motifs: {}
+    };
+  }
+
+  if (!recapParEleve[eleveId].motifs[motif]) {
+    recapParEleve[eleveId].motifs[motif] = new Set();
+  }
+  recapParEleve[eleveId].motifs[motif].add(date);
+});
   const motifData = [];
 
   Object.entries(recapParEleve).forEach(([eleveId, data]) => {
@@ -529,19 +626,46 @@ const recapParEleveTotal = React.useMemo(() => {
   motifData.forEach(row => {
     const key = row.eleveId;
     if (!map[key]) {
+      const src = recapParEleve[row.eleveId];
       map[key] = {
-        eleveId: row.eleveId,
-        nom: row.nom,
-        incorp: row.incorp,
-        motifs: [],
-        total: 0,
+        eleveId:  row.eleveId,
+        nom:      row.nom,
+        prenom:   src?.prenom   || '',    // ← ajout
+        escadron: src?.escadron || '',    // ← ajout
+        peloton:  src?.peloton  || '',    // ← ajout
+        incorp:   row.incorp,
+        motifs:   [],
+        total:    0,
       };
     }
-    map[key].motifs.push({ motif: row.motif, count: row.count });
+    const datesSet = recapParEleve[row.eleveId]?.motifs[row.motif];
+    const dates = datesSet ? Array.from(datesSet).sort() : [];
+    map[key].motifs.push({ motif: row.motif, count: row.count, dates });
     map[key].total += row.count;
   });
   return Object.values(map).sort((a, b) => b.total - a.total);
 }, [motifData]);
+//export eleve motif am droit
+const exportEleveToExcel = (el) => {
+  const rows = [];
+  el.motifs.forEach(m => {
+    m.dates.forEach((date, i) => {
+      rows.push({
+        'Nom': i === 0 ? el.nom : '',
+        'Incorporation': i === 0 ? el.incorp : '',
+        'Motif': i === 0 ? m.motif : '',
+        'Date': new Date(date).toLocaleDateString('fr-FR'),
+        'Total motif': i === 0 ? m.count : '',
+      });
+    });
+  });
+  rows.push({ 'Nom': '', 'Incorporation': '', 'Motif': 'TOTAL', 'Date': '', 'Total motif': el.total });
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Absences');
+  XLSX.writeFile(wb, `Absences_${el.nom}_${el.incorp}.xlsx`);
+};
   
   const columns2 = [
     {
@@ -1773,73 +1897,95 @@ const handleExportConsultationsPDF = (joursParEleve, dateServeur, joursSup = 0) 
 
                       </div>
 
-{/* ─── Récapitulatif par élève ─── */}
-<div style={{ marginTop: '2rem' }}>
-  {/* En-tête */}
-  <div style={{
-    background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-    borderRadius: '12px 12px 0 0',
-    padding: '14px 20px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-      <i className="ti ti-list-details" style={{ fontSize: '18px', color: '#60a5fa' }} aria-hidden="true"></i>
-      <span style={{ color: '#f1f5f9', fontWeight: 500, fontSize: '15px', letterSpacing: '0.3px' }}>
-        Récapitulatif par élève
-      </span>
-    </div>
-    <input
-      type="text"
-      placeholder="Rechercher un élève..."
-      value={searchRecap}
-      onChange={e => {
-        setSearchRecap(e.target.value);
-        setCurrentPage2(1); // Réinitialise à la page 1 lors d'une recherche
-      }}
-      style={{
-        padding: '6px 12px',
-        borderRadius: '8px',
-        border: '1px solid rgba(255,255,255,0.15)',
-        background: 'rgba(255,255,255,0.08)',
-        color: '#f1f5f9',
-        fontSize: '13px',
-        width: '210px',
-        outline: 'none',
-      }}
-    />
-  </div>
+            {/* ─── Récapitulatif par élève ─── */}
+            <div style={{ marginTop: '2rem' }}>
+              {/* En-tête */}
+              <div style={{
+                background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+                borderRadius: '12px 12px 0 0',
+                padding: '14px 20px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <i className="ti ti-list-details" style={{ fontSize: '18px', color: '#60a5fa' }} aria-hidden="true"></i>
+                  <span style={{ color: '#f1f5f9', fontWeight: 500, fontSize: '15px', letterSpacing: '0.3px' }}>
+                    Récapitulatif par élève
+                  </span>
+                </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+  <input
+    type="text"
+    placeholder="Rechercher un élève..."
+    value={searchRecap}
+    onChange={e => { setSearchRecap(e.target.value); setCurrentPage2(1); }}
+    style={{
+      padding: '6px 12px',
+      borderRadius: '8px',
+      border: '1px solid rgba(255,255,255,0.15)',
+      background: 'rgba(255,255,255,0.08)',
+      color: '#f1f5f9',
+      fontSize: '13px',
+      width: '210px',
+      outline: 'none',
+    }}
+  />
+  {/* Bouton export global */}
+  <button
+    onClick={exportAllElevesToExcel}
+    title="Exporter tous les élèves"
+    style={{
+      background: '#16a34a',
+      border: 'none',
+      borderRadius: '8px',
+      padding: '6px 12px',
+      cursor: 'pointer',
+      color: '#fff',
+      fontSize: '12px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+      whiteSpace: 'nowrap',
+    }}
+  >
+    <i className="ti ti-table-export" aria-hidden="true" style={{ fontSize: '15px' }} />
+    Tout exporter
+  </button>
+</div>
+                
+              </div>
+              
 
-  {/* Corps */}
-  <div style={{
-    border: '1px solid #e2e8f0',
-    borderTop: 'none',
-    borderRadius: '0 0 12px 12px',
-    overflow: 'hidden',
-    background: '#fff',
-  }}>
-    {(() => {
-      // 1. Filtrage des données
-      const filteredData = recapParEleveTotal.filter(el =>
-        el.nom.toLowerCase().includes(searchRecap.toLowerCase()) ||
-        String(el.incorp).includes(searchRecap)
-      );
+              {/* Corps */}
+              <div style={{
+                border: '1px solid #e2e8f0',
+                borderTop: 'none',
+                borderRadius: '0 0 12px 12px',
+                overflow: 'hidden',
+                background: '#fff',
+              }}>
+                {(() => {
+                  // 1. Filtrage des données
+                  const filteredData = recapParEleveTotal.filter(el =>
+                    el.nom.toLowerCase().includes(searchRecap.toLowerCase()) ||
+                    String(el.incorp).includes(searchRecap)
+                  );
 
-      // 2. Calcul des index pour la pagination
-      const totalPages = Math.ceil(filteredData.length / itemsPerPage2) || 1;
-      const indexOfLastItem = currentPage2 * itemsPerPage2;
-      const indexOfFirstItem = indexOfLastItem - itemsPerPage2;
-      const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
+                  // 2. Calcul des index pour la pagination
+                  const totalPages = Math.ceil(filteredData.length / itemsPerPage2) || 1;
+                  const indexOfLastItem = currentPage2 * itemsPerPage2;
+                  const indexOfFirstItem = indexOfLastItem - itemsPerPage2;
+                  const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
 
-      if (filteredData.length === 0) {
-        return (
-          <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
-            <i className="ti ti-mood-empty" style={{ fontSize: '24px', display: 'block', marginBottom: '8px' }} aria-hidden="true"></i>
-            Aucun résultat
-          </div>
-        );
-      }
+                  if (filteredData.length === 0) {
+                    return (
+                      <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+                        <i className="ti ti-mood-empty" style={{ fontSize: '24px', display: 'block', marginBottom: '8px' }} aria-hidden="true"></i>
+                        Aucun résultat
+                      </div>
+                    );
+                  }
 
       return (
         <>
@@ -1859,78 +2005,103 @@ const handleExportConsultationsPDF = (joursParEleve, dateServeur, joursSup = 0) 
               }}
             >
               {/* Identité */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '180px' }}>
-                <div style={{
-                  width: '30px', height: '30px', borderRadius: '50%', // Avatar plus petit (réduit de 36px à 30px)
-                  background: '#dbeafe', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', fontWeight: 500, fontSize: '12px', color: '#1d4ed8',
-                  flexShrink: 0,
-                }}>
-                  {el.nom.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                </div>
-                <div>
-                  <div style={{ fontWeight: 500, fontSize: '12.5px', color: '#1e293b' }}>
-                    EG {el.nom}
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#64748b', marginTop: '-2px' }}>Inc. {el.incorp}</div>
-                </div>
-              </div>
-
-              {/* Motifs pills */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', flex: 1 }}>
-                {el.motifs.map((m, i) => (
-                  <span
-                    key={i}
-                    title={m.motif}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '4px',
-                      background: '#f0f9ff', border: '1px solid #bae6fd',
-                      borderRadius: '20px', padding: '2px 8px', // Pills légèrement plus compactes
-                      fontSize: '11px', color: '#0369a1', maxWidth: '220px',
-                      overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
-                    }}
-                  >
-                    <span style={{
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      textTransform: 'capitalize',
-                    }}>
-                      {m.motif.toLowerCase()}
-                    </span>
-                    <span style={{
-                      background: '#0284c7', color: '#fff', borderRadius: '50%',
-                      width: '16px', height: '16px', display: 'inline-flex',
-                      alignItems: 'center', justifyContent: 'center',
-                      fontSize: '10px', flexShrink: 0, fontWeight: 500,
-                    }}>
-                      {m.count}
-                    </span>
-                  </span>
-                ))}
-              </div>
-
-              {/* Total badge */}
+     {/* Identité */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '200px' }}>
               <div style={{
-                background: el.total >= 5 ? '#fef2f2' : '#f0df4',
-                border: `1px solid ${el.total >= 5 ? '#fca5a5' : '#86efac'}`,
-                borderRadius: '6px',
-                padding: '4px 10px', // Badge plus discret
-                textAlign: 'center',
-                minWidth: '55px',
+                width: '30px', height: '30px', borderRadius: '50%',
+                background: '#dbeafe', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', fontWeight: 500, fontSize: '12px', color: '#1d4ed8',
                 flexShrink: 0,
               }}>
-                <div style={{
-                  fontSize: '16px', fontWeight: 600, // Chiffre un peu plus petit
-                  color: el.total >= 5 ? '#dc2626' : '#16a34a',
-                  lineHeight: 1.1,
-                }}>
-                  {el.total}
+                {el.nom.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+              </div>
+              <div>
+                <div style={{ fontWeight: 500, fontSize: '12.5px', color: '#1e293b' }}>
+                  {el.nom}                       
                 </div>
-                <div style={{ fontSize: '10px', color: '#64748b' }}>
-                  total
+                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '-2px' }}>
+                  Inc. {el.incorp} · Esc. {el.escadron} / Pon. {el.peloton}  {/* ← esc/pon */}
                 </div>
               </div>
             </div>
-          ))}
+
+              {/* Motifs pills */}
+            {/* Motifs pills avec dates au survol */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', flex: 1 }}>
+                      {el.motifs.map((m, i) => (
+                        <span
+                          key={i}
+                          title={`Dates : ${m.dates?.map(d => new Date(d).toLocaleDateString('fr-FR')).join(', ') || '-'}`}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '4px',
+                            background: '#f0f9ff', border: '1px solid #bae6fd',
+                            borderRadius: '20px', padding: '2px 8px',
+                            fontSize: '11px', color: '#0369a1', maxWidth: '220px',
+                            overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+                            cursor: 'help',
+                          }}
+                        >
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'capitalize' }}>
+                            {m.motif.toLowerCase()}
+                          </span>
+                          <span style={{
+                            background: '#0284c7', color: '#fff', borderRadius: '50%',
+                            width: '16px', height: '16px', display: 'inline-flex',
+                            alignItems: 'center', justifyContent: 'center',
+                            fontSize: '10px', flexShrink: 0, fontWeight: 500,
+                          }}>
+                            {m.count}
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+
+              {/* Total badge */}
+              
+              {/* Total badge + export */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+            <div style={{
+              background: el.total >= 5 ? '#fef2f2' : '#f0fdf4',
+              border: `1px solid ${el.total >= 5 ? '#fca5a5' : '#86efac'}`,
+              borderRadius: '6px',
+              padding: '4px 10px',
+              textAlign: 'center',
+              minWidth: '55px',
+            }}>
+              <div style={{
+                fontSize: '16px', fontWeight: 600,
+                color: el.total >= 5 ? '#dc2626' : '#16a34a',
+                lineHeight: 1.1,
+              }}>
+                {el.total}
+              </div>
+              <div style={{ fontSize: '10px', color: '#64748b' }}>total</div>
+            </div>
+
+            {/* Bouton export Excel — ICI dans le .map, el est bien défini */}
+            <button
+              onClick={() => exportEleveToExcel(el)}
+              title={`Exporter ${el.nom}`}
+              style={{
+                background: 'none',
+                border: '1px solid #16a34a',
+                borderRadius: '6px',
+                padding: '4px 8px',
+                cursor: 'pointer',
+                color: '#16a34a',
+                fontSize: '11px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <i className="ti ti-file-spreadsheet" aria-hidden="true" style={{ fontSize: '14px' }} />
+              XLS
+            </button>
+          </div>
+                      </div>
+                    ))}
+                    
 
           {/* Barre de Pagination */}
           <div style={{
@@ -1985,8 +2156,11 @@ const handleExportConsultationsPDF = (joursParEleve, dateServeur, joursSup = 0) 
               >
                 Suivant
               </button>
+              
             </div>
+            
           </div>
+          
         </>
       );
     })()}
