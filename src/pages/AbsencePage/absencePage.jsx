@@ -979,7 +979,7 @@ useEffect(() => {
   }, {});
   //ppour SPA 
   const handleAfficherIndispo = () => {
-    const motifsI =["ADMIS IG","IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG","A REVOIR CHRR","ADMIS CHRR","A REVOIR CLINIC MANIA","ADMIS CLINIC MANIA","CHAMBRE DE SURETE"];
+    const motifsI =["MISE EN OBSERVATIONS A L IG","ADMIS IG","IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG","A REVOIR CHRR","ADMIS CHRR","A REVOIR CLINIC MANIA","ADMIS CLINIC MANIA","CHAMBRE DE SURETE"];
     // ISO pour comparaison de dates
   const spaDateISO = new Date(spaDate).toISOString().slice(0, 10);
 
@@ -1126,7 +1126,7 @@ const handleMotifChange = (e) => {
   
       // Préparation du tableau détaillé des absences
       const absencesDuJour = absenceafficher.filter(abs => abs.date === spaDate);
-      const specificMotifs = ["IG","ADMIS IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG","A REVOIR CHRR","ADMIS CHRR","ADMIS CLINIC MANIA","A REVOIR CLINIC MANIA","CHAMBRE DE SURETE"];
+      const specificMotifs = ["MISE EN OBSERVATIONS A L IG","IG","ADMIS IG", "CONSULTATION", "A REVOIR IG", "REPOS SANITAIRE","CONFINES EN CHAMBRE","GARDE MALADE IG","DONNEUR DE SANG","A REVOIR CHRR","ADMIS CHRR","ADMIS CLINIC MANIA","A REVOIR CLINIC MANIA","CHAMBRE DE SURETE"];
      // Fonction pour identifier un motif "indisponible"
       const isIndisponible = (motif) => {
         if (!motif) return false;
@@ -1325,6 +1325,7 @@ spaSpecialesDuJour.forEach(spa => {
     
     // Fonctions d'aide
     const specificMotifs = [
+      'MISE EN OBSERVATIONS A L IG',
       'IG',
       "ADMIS IG",
       'CONSULTATION',
@@ -1521,6 +1522,8 @@ content += 'FIN RASOLOFONIARY';
     );
   
     const specificMotifs = [
+
+      "MISE EN OBSERVATIONS A L IG",
       "IG",
       "ADMIS IG",
       "CONSULTATION",
@@ -1800,6 +1803,7 @@ content += 'FIN RASOLOFONIARY';
                             <option value="DONNEUR DE SANG">DONNEUR DE SANG</option>
                             <option value="EVASAN">EVASAN</option>
                             <option value="GARDE MALADE IG">GARDE MALADE IG</option>
+                            <option value="MISE EN OBSERVATIONS A L IG">MISE EN OBSERVATIONS A L IG</option>
                             <option value="MISSION">MISSION</option>
                             <option value="MISSION TANA">MISSION TANA</option>
                             <option value="PERMISSIONAIRE">PERMISSION</option>
