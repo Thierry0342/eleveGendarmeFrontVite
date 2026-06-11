@@ -47,6 +47,8 @@ const DiverPage = () => {
     setSpecialiteSearch('');
     setSearchQuery('');
   };
+  const [detailSearch, setDetailSearch] = useState('');
+  const [detailOnlySearch, setDetailOnlySearch] = useState('');
 
   const isFilterEmpty =
     !filter.diplome && !filter.religion && !filter.fady &&
@@ -109,12 +111,14 @@ const DiverPage = () => {
     setFilteredPointures(result);
   }, [pointures, filter.cour]);
 
-  const handleFilterClick = (nouveauFiltre) => {
-    setFilter(nouveauFiltre);
-    setTimeout(() => {
-      tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
-  };
+ const handleFilterClick = (nouveauFiltre) => {
+  setFilter(nouveauFiltre);
+  setDetailSearch('');
+  setDetailOnlySearch(''); // ← ajout
+  setTimeout(() => {
+    tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
+};
 
   // ==========================================
   // FILTRE ÉLÈVES
@@ -699,6 +703,29 @@ const DiverPage = () => {
             onChange={e => setSpecialiteSearch(e.target.value)}
           />
         </div>
+        {/* Recherche sur le champ Détail uniquement */}
+<div className="mb-3 d-flex align-items-center gap-2" style={{ maxWidth: '400px' }}>
+  <div className="input-group">
+    <span className="input-group-text bg-white border-end-0"
+      style={{ fontSize: '0.8rem', color: '#6c757d' }}>
+      Détail
+    </span>
+    <input
+      type="text"
+      className="form-control border-start-0"
+      placeholder="Filtrer par détail..."
+      value={detailOnlySearch}
+      onChange={e => setDetailOnlySearch(e.target.value)}
+    />
+    {detailOnlySearch && (
+      <button
+        className="btn btn-outline-secondary"
+        onClick={() => setDetailOnlySearch('')}
+        title="Effacer"
+      >✕</button>
+    )}
+  </div>
+</div>
 
         {/* Tableau compact des spécialités */}
         <div className="card border-0 shadow-sm" style={{ maxHeight: '400px', overflowY: 'auto' }}>
@@ -787,78 +814,158 @@ const DiverPage = () => {
       </div>
 
       {/* ======= DÉTAILS SPÉCIALITÉ SÉLECTIONNÉE ======= */}
-      {filter.specialiteCategorie && (
-        <div className="mt-4 p-3 border rounded bg-white shadow-sm">
-          <h6 className="fw-bold text-primary mb-3">📊 Détails — {filter.specialiteCategorie}</h6>
-          <div className="d-flex flex-wrap gap-2 mb-3">
-            {['Licencié', 'En cours de licence', 'Autodidacte'].map(niveau => {
-              const count = filteredEleves.filter(e =>
-                e.specialites?.some(sp =>
-                  sp.categorie?.toUpperCase() === filter.specialiteCategorie.toUpperCase() &&
-                  sp.niveauQualification === niveau
-                )
-              ).length;
-              const colors = { 'Licencié': 'success', 'En cours de licence': 'warning', 'Autodidacte': 'info' };
-              return (
-                <span key={niveau} className={`badge bg-${colors[niveau]} text-dark p-2`} style={{ fontSize: '0.85rem' }}>
-                  {niveau} : {count}
-                </span>
-              );
-            })}
-          </div>
-          <table className="table table-sm table-striped table-bordered">
-            <thead className="table-primary">
-              <tr>
-                <th>Nom et Prénom</th>
-                <th>Escadron</th>
-                <th>Peloton</th>
-                <th>Spécialité</th>
-                <th>Détail</th>
-                <th>Niveau</th>
+      {/* ======= DÉTAILS SPÉCIALITÉ SÉLECTIONNÉE ======= */}
+{filter.specialiteCategorie && (
+  <div className="mt-4 p-3 border rounded bg-white shadow-sm">
+    <h6 className="fw-bold text-primary mb-3">📊 Détails — {filter.specialiteCategorie}</h6>
+
+    {/* Badges niveaux */}
+    <div className="d-flex flex-wrap gap-2 mb-3">
+      {['Licencié', 'En cours de licence', 'Autodidacte'].map(niveau => {
+        const count = filteredEleves.filter(e =>
+          e.specialites?.some(sp =>
+            sp.categorie?.toUpperCase() === filter.specialiteCategorie.toUpperCase() &&
+            sp.niveauQualification === niveau
+          )
+        ).length;
+        const colors = { 'Licencié': 'success', 'En cours de licence': 'warning', 'Autodidacte': 'info' };
+        return (
+          <span key={niveau} className={`badge bg-${colors[niveau]} text-dark p-2`} style={{ fontSize: '0.85rem' }}>
+            {niveau} : {count}
+          </span>
+        );
+      })}
+    </div>
+
+    {/* Barre de recherche */}
+    <div className="mb-3 d-flex align-items-center gap-2" style={{ maxWidth: '400px' }}>
+      <div className="input-group">
+        <span className="input-group-text bg-white border-end-0">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+        </span>
+        <input
+          type="text"
+          className="form-control border-start-0"
+          placeholder="Nom, prénom, escadron, peloton,details..."
+          value={detailSearch}
+          onChange={e => setDetailSearch(e.target.value)}
+        />
+        {detailSearch && (
+          <button
+            className="btn btn-outline-secondary"
+            onClick={() => setDetailSearch('')}
+            title="Effacer"
+          >✕</button>
+        )}
+      </div>
+    </div>
+
+    {/* Tableau */}
+  
+
+   {(() => {
+  const q = detailSearch.toLowerCase().trim();
+
+  const rows = [];
+  filteredEleves.forEach((e, i) => {
+    const searchTerm = filter.specialiteCategorie.toUpperCase();
+    const sps = e.specialites?.filter(sp =>
+      sp.categorie?.toUpperCase().includes(searchTerm)
+    );
+    if (sps && sps.length > 0) {
+      sps.forEach((sp, j) => {
+        rows.push({ eleve: e, sp, key: `${i}-${j}`, type: 'specialite' });
+      });
+    } else if (e.SpecialisteAptitude?.toUpperCase().includes(searchTerm)) {
+      rows.push({ eleve: e, sp: null, key: `old-${i}`, type: 'ancien' });
+    }
+  });
+
+  const filtered = q
+    ? rows.filter(({ eleve, sp }) =>
+        [
+          eleve.nom, eleve.prenom,
+          eleve.escadron?.toString(), eleve.peloton?.toString(),
+          sp?.detail, eleve.SpecialisteAptitude,
+        ].some(val => val?.toLowerCase().includes(q))
+      )
+    : rows;
+
+  const filteredByDetail = detailOnlySearch.trim()
+    ? filtered.filter(({ sp }) =>
+        sp?.detail?.toLowerCase().includes(detailOnlySearch.toLowerCase().trim())
+      )
+    : filtered;
+
+  return (
+    <>
+      <table className="table table-sm table-striped table-bordered">
+        <thead className="table-primary">
+          <tr>
+            <th>Nom et Prénom</th>
+            <th>Escadron</th>
+            <th>Peloton</th>
+            <th>Spécialité</th>
+            <th>Détail</th>
+            <th>Niveau</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredByDetail.length === 0 ? (
+            <tr>
+              <td colSpan="6" className="text-center text-muted fst-italic py-3">
+                Aucun résultat
+                {detailSearch && ` pour "${detailSearch}"`}
+                {detailOnlySearch && ` · détail "${detailOnlySearch}"`}
+              </td>
+            </tr>
+          ) : (
+            filteredByDetail.map(({ eleve, sp, key, type }) => (
+              <tr key={key} style={{ cursor: 'pointer' }}
+                onClick={() => { setSelectedEleve(eleve); setShowDetailModal(true); }}>
+                <td className="text-primary fw-semibold">{eleve.nom} {eleve.prenom}</td>
+                <td>{eleve.escadron}</td>
+                <td>{eleve.peloton}</td>
+                <td>
+                  <span className={`badge ${type === 'ancien' ? 'bg-secondary' : 'bg-primary'}`}>
+                    {type === 'ancien' ? eleve.SpecialisteAptitude : sp.categorie}
+                  </span>
+                </td>
+                <td>{type === 'ancien' ? '—' : (sp.detail || '—')}</td>
+                <td>
+                  {type === 'ancien' ? (
+                    <span className="badge bg-secondary">Ancien</span>
+                  ) : (
+                    <span className={`badge ${
+                      sp.niveauQualification === 'Licencié' ? 'bg-success' :
+                      sp.niveauQualification === 'En cours de licence' ? 'bg-warning text-dark' :
+                      'bg-info text-dark'
+                    }`}>
+                      {sp.niveauQualification || '—'}
+                    </span>
+                  )}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {filteredEleves.map((e, i) => {
-                const searchTerm = filter.specialiteCategorie.toUpperCase();
-                const sps = e.specialites?.filter(sp =>
-                  sp.categorie?.toUpperCase().includes(searchTerm)
-                );
-                if (sps && sps.length > 0) {
-                  return sps.map((sp, j) => (
-                    <tr key={`${i}-${j}`} style={{ cursor: 'pointer' }}
-                      onClick={() => { setSelectedEleve(e); setShowDetailModal(true); }}>
-                      <td className="text-primary fw-semibold">{e.nom} {e.prenom}</td>
-                      <td>{e.escadron}</td>
-                      <td>{e.peloton}</td>
-                      <td><span className="badge bg-primary">{sp.categorie}</span></td>
-                      <td>{sp.detail || '—'}</td>
-                      <td>
-                        <span className={`badge ${sp.niveauQualification === 'Licencié' ? 'bg-success' : sp.niveauQualification === 'En cours de licence' ? 'bg-warning text-dark' : 'bg-info text-dark'}`}>
-                          {sp.niveauQualification || '—'}
-                        </span>
-                      </td>
-                    </tr>
-                  ));
-                }
-                if (e.SpecialisteAptitude?.toUpperCase().includes(filter.specialiteCategorie.toUpperCase())) {
-                  return (
-                    <tr key={i} style={{ cursor: 'pointer' }}
-                      onClick={() => { setSelectedEleve(e); setShowDetailModal(true); }}>
-                      <td className="text-primary fw-semibold">{e.nom} {e.prenom}</td>
-                      <td>{e.escadron}</td>
-                      <td>{e.peloton}</td>
-                      <td><span className="badge bg-secondary">{e.SpecialisteAptitude}</span></td>
-                      <td>—</td>
-                      <td><span className="badge bg-secondary">Ancien</span></td>
-                    </tr>
-                  );
-                }
-                return null;
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+            ))
+          )}
+        </tbody>
+      </table>
+
+      <small className="text-muted">
+        {(detailSearch || detailOnlySearch)
+          ? `${filteredByDetail.length} résultat(s) sur ${rows.length}`
+          : `${rows.length} élève(s) au total`
+        }
+      </small>
+    </>
+  );
+})()}
+      
+          </div>
+        )}
 
       {/* ======= TRANCHE D'ÂGE ======= */}
       <h5 className="mt-5 fw-bold text-primary text-uppercase">🎯 Filtrer par tranche d'âge</h5>
