@@ -1471,7 +1471,7 @@ content += 'FIN RASOLOFONIARY';
       doc.text(line, margin, y);
       y += lineHeight;
     });
-    doc.save(`MESSAGE RADIO SPA DU_${spaDate}.pdf`);
+    doc.save(`MESSAGE RADIO SPA DU ${spaDate}.pdf`);
     
   };
   //en excel 
