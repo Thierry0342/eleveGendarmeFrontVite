@@ -42,7 +42,7 @@ import Select from 'react-select';
   const [spaDate, setSpaDate] = useState('');
   const [totalI, setTotalI] = useState(0);
   const [totalA,setTotalA] = useState(0);
-  const [spaNumber, setSpaNumber] = useState(1499); // Valeur par défaut
+  const [spaNumber, setSpaNumber] = useState(1503); // Valeur par défaut
   const [showSpaSpecialeModal, setShowSpaSpecialeModal] = useState(false);
   const [newSpaSpeciale, setNewSpaSpeciale] = useState({ motif: '', nombre: '', date:'',cour:'',type: ''});
   //motif autre 
