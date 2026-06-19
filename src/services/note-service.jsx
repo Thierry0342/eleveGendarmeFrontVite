@@ -5,7 +5,7 @@ import axiosInstance from "./axios-instance";
 const NoteService = {
   // Récupérer toutes les notes
   getAll() {
-    return axiosInstance.get(`${API_URL}/api/note`);
+    return axios.get(`${API_URL}/api/note`);
   },
 
   // Créer une nouvelle note
@@ -20,7 +20,7 @@ const NoteService = {
 
   // Récupérer une note spécifique par ID
   getById(id) {
-    return axiosInstance.get(`${API_URL}/api/note/${id}`);
+    return axios.get(`${API_URL}/api/note/${id}`);
   },
 
   // Mettre à jour une note existante
@@ -28,7 +28,7 @@ const NoteService = {
     return axiosInstance.put(`${API_URL}/api/note/${id}`, data);
   },
   getbyEleveId(id){
-    return axiosInstance.get(`${API_URL}/api/note/eleve/${id}`);
+    return axios.get(`${API_URL}/api/note/eleve/${id}`);
 
   }
 };

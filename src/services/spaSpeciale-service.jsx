@@ -4,7 +4,7 @@ import axiosInstance from './axios-instance';
 const absenceService = {
   // Obtenir 
   getAll() {
-    return axiosInstance.get(API_URL + "/api/spaSpeciale");
+    return axios.get(API_URL + "/api/spaSpeciale");
   },
 
   // Créer un 

@@ -3,9 +3,6 @@ import { API_URL } from "../config/root/modules";
 
 const axiosInstance = axios.create({
   baseURL: API_URL,
-  headers: {
-    'ngrok-skip-browser-warning': 'true',  // ← ajouter
-  }
 });
 
 // Intercepteur pour ajouter l'userId à toutes les requêtes
