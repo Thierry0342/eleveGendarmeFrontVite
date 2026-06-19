@@ -6,7 +6,7 @@ class SpecialiteService {
 
   // Récupérer toutes les spécialités d'un élève
   getByEleve(eleveId) {
-    return axios.get(API_URL + `/api/specialites/eleve/${eleveId}`);
+    return axiosInstance.get(API_URL + `/api/specialites/eleve/${eleveId}`);
   }
 
   // Ajouter une seule spécialité

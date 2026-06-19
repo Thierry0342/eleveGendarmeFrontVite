@@ -5,7 +5,7 @@ import axiosInstance from './axios-instance';
 const consultationService = {
   // Obtenir toutes les consultations
   getAll() {
-    return axios.get(API_URL+`/api/consultation`);
+    return axiosInstance.get(API_URL+`/api/consultation`);
   },
 
   // Créer une nouvelle consultation
@@ -19,17 +19,17 @@ const consultationService = {
   },
   // Obtenir les consultations par élève
 getByEleveId(eleveId) {
-  return axios.get(`${API_URL}/api/consultation/eleve/${eleveId}`);
+  return axiosInstance.get(`${API_URL}/api/consultation/eleve/${eleveId}`);
 },
 
 
   // Obtenir une consultation par ID
   getById(id) {
-    return axios.get(`${API_URL}/api/consultation/${id}`);
+    return axiosInstance.get(`${API_URL}/api/consultation/${id}`);
   },
   //ghet by cour
   getByCour(cour) {
-    return axios.get(`${API_URL}/api/consultation/cour/${cour}`);
+    return axiosInstance.get(`${API_URL}/api/consultation/cour/${cour}`);
   },
 
 

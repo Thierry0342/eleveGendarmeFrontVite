@@ -6,7 +6,7 @@ const PatcService = {
 
   // Récupérer tous les PATC
   getAll(includeEleve = false) {
-    return axios.get(`${API_URL}/api/patc${includeEleve ? '?includeEleve=true' : ''}`);
+    return axiosInstance.get(`${API_URL}/api/patc${includeEleve ? '?includeEleve=true' : ''}`);
   },
 
   // Créer un PATC
@@ -21,12 +21,12 @@ const PatcService = {
 
   // Récupérer un PATC par ID
   getById(id, includeEleve = false) {
-    return axios.get(`${API_URL}/api/patc/${id}${includeEleve ? '?includeEleve=true' : ''}`);
+    return axiosInstance.get(`${API_URL}/api/patc/${id}${includeEleve ? '?includeEleve=true' : ''}`);
   },
 
   // Récupérer les PATC par cours
   getByCour(cour, includeEleve = false) {
-    return axios.get(`${API_URL}/api/patc/cour/${cour}${includeEleve ? '?includeEleve=true' : ''}`);
+    return axiosInstance.get(`${API_URL}/api/patc/cour/${cour}${includeEleve ? '?includeEleve=true' : ''}`);
   },
 
   // Mettre à jour un PATC
@@ -35,11 +35,11 @@ const PatcService = {
   },
   // Récupérer PATC par eleveId
 getByEleveId(eleveId, includeEleve = false) {
-    return axios.get(`${API_URL}/api/patc/eleve/${eleveId}${includeEleve ? '?includeEleve=true' : ''}`);
+    return axiosInstance.get(`${API_URL}/api/patc/eleve/${eleveId}${includeEleve ? '?includeEleve=true' : ''}`);
   },
   // patc-service.js
   getByEleves: (eleveIds) => {
-    return axios.post(`${API_URL}/eleves`, { eleveIds });
+    return axiosInstance.post(`${API_URL}/eleves`, { eleveIds });
   },
   
   

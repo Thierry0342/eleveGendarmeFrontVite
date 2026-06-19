@@ -4,7 +4,7 @@ import axiosInstance from './axios-instance';
 const cadreService = {
   // Obtenir tous les cours
   getAll() {
-    return axios.get(API_URL + "/api/cadre");
+    return axiosInstance.get(API_URL + "/api/cadre");
   },
 
   // Créer un nouveau cours
@@ -21,7 +21,7 @@ const cadreService = {
     return axiosInstance.put(`${API_URL}/api/cadre/${id}`, cadreData);
   },
   getbyMat(mat){
-    return axios.get(API_URL + `/api/cadre/${mat}`);
+    return axiosInstance.get(API_URL + `/api/cadre/${mat}`);
   }
   
 };

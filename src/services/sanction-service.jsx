@@ -1,7 +1,6 @@
 import axios from "axios";
 import axiosInstance from "./axios-instance";
 import { API_URL } from "../config/root/modules";
-
 const sanctionService = {
   getByEleveId(eleveId) {
     return axios.get(`${API_URL}/api/sanctions/eleve/${eleveId}`);

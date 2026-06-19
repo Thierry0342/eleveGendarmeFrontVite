@@ -4,7 +4,7 @@ import axiosInstance from './axios-instance';
 const userService = {
   // Obtenir tous les user
   getAll() {
-    return axios.get(API_URL + "/api/user");
+    return axiosInstance.get(API_URL + "/api/user");
   },
 
   // Créer un nouveau user
@@ -39,7 +39,7 @@ const userService = {
   },
   
   authUser(credentials) {
-    return axios.post(`${API_URL}/api/user/auth`, credentials);
+    return axiosInstance.post(`${API_URL}/api/user/auth`, credentials);
   }
   
   

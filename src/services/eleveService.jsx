@@ -4,10 +4,10 @@ import axiosInstance from './axios-instance';
 //import { header } from "./Auth.services";
 class EleveService  {
     get(){
-        return axios.get(API_URL + "/api/eleve");
+        return axiosInstance.get(API_URL + "/api/eleve");
     }
     getPaginated(limit = 500, offset = 0){
-        return axios.get(`${API_URL}/api/eleve?limit=${limit}&offset=${offset}`);
+        return axiosInstance.get(`${API_URL}/api/eleve?limit=${limit}&offset=${offset}`);
     }
    
     post(data){
@@ -27,7 +27,7 @@ class EleveService  {
         return axiosInstance.delete(`${API_URL}/api/eleve/${id}`);
       }
      getByInc(inc,cour){
-        return axios.get(API_URL + `/api/eleve/incorporation/${inc}?cour=${cour}`);
+        return axiosInstance.get(API_URL + `/api/eleve/incorporation/${inc}?cour=${cour}`);
 
 
       }

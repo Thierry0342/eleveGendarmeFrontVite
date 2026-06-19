@@ -6,7 +6,7 @@ const GardeMaladeService = {
 
   // Obtenir tous les garde-malades
   getAll() {
-    return axios.get(`${API_URL}/api/gardeMalade`);
+    return axiosInstance.get(`${API_URL}/api/gardeMalade`);
   },
 
   // Créer un garde-malade
@@ -21,7 +21,7 @@ const GardeMaladeService = {
 
   // Obtenir un garde-malade par ID
   getById(id) {
-    return axios.get(`${API_URL}/api/gardeMalade/${id}`);
+    return axiosInstance.get(`${API_URL}/api/gardeMalade/${id}`);
   },
 
   // Mettre à jour un garde-malade

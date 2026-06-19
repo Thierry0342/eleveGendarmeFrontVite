@@ -5,7 +5,7 @@ import axiosInstance from './axios-instance';
 const PermissionService = {
 
   getAll() {
-    return axios.get(API_URL+`/api/permission`);
+    return axiosInstance.get(API_URL+`/api/permission`);
   },
 
   post(permissionData) {
@@ -19,11 +19,11 @@ const PermissionService = {
 
 
   getById(id) {
-    return axios.get(`${API_URL}/api/permission/${id}`);
+    return axiosInstance.get(`${API_URL}/api/permission/${id}`);
   },
 
   getByCour(cour) {
-    return axios.get(`${API_URL}/api/permission/cour/${cour}`);
+    return axiosInstance.get(`${API_URL}/api/permission/cour/${cour}`);
   },
 
 
