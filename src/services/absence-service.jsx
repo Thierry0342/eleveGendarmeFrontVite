@@ -5,12 +5,12 @@ import axiosInstance from './axios-instance';
 const absenceService = {
   // Obtenir
   getAll() {
-    return axios.get(API_URL + "/api/absence");
+    return axiosInstance.get(API_URL + "/api/absence");
   },
 
   // 🔹 Obtenir par élève
   getByEleveId(eleveId) {
-    return axios.get(API_URL + `/api/absence/eleve/${eleveId}`);
+    return axiosInstance.get(API_URL + `/api/absence/eleve/${eleveId}`);
   },
 
   // Créer

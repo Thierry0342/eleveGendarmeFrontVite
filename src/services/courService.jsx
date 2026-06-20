@@ -4,7 +4,7 @@ import axiosInstance from './axios-instance';
 const courService = {
   // Obtenir tous les cours
   getAll() {
-    return axios.get(API_URL + "/api/cour");
+    return axiosInstance.get(API_URL + "/api/cour");
   },
 
   // Créer un nouveau cours
