@@ -6,30 +6,28 @@ import 'react-toastify/dist/ReactToastify.css';
 import userService from '../../services/userService'; // adapte selon ton chemin
 import './index.css';
 
+const UPDATE_FLAG_KEY = 'update_2026_07_seen'; // change cette clé à chaque nouvelle mise à jour
+
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [motDePasse, setMotDePasse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  // ⚠️ Si l'utilisateur était déjà connecté (session/token en cache),
-  // on l'informe qu'une mise à jour a été déployée et on nettoie sa session.
+  // ✅ Si l'utilisateur est connecté (token présent) et n'a pas encore vu
+  // le message de mise à jour, on l'affiche une seule fois.
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const user = localStorage.getItem('user');
+    const alreadySeen = localStorage.getItem(UPDATE_FLAG_KEY);
 
-    if (token || user) {
+    if (token && !alreadySeen) {
       Swal.fire({
         icon: 'info',
         title: 'Mise à jour effectuée',
-        html: 'Une nouvelle mise à jour de l\'application a été mise en place.<br/>Veuillez vous reconnecter pour continuer.',
+        html: 'Une nouvelle mise à jour de l\'application a été mise en place.',
         confirmButtonText: 'OK',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
       }).then(() => {
-        // Nettoyage de l'ancienne session pour forcer une reconnexion propre
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        localStorage.setItem(UPDATE_FLAG_KEY, 'true');
       });
     }
   }, []);
@@ -71,8 +69,8 @@ const LoginPage = () => {
           <h3 className="text-center mb-4">Connexion</h3>
           <form
             onSubmit={(e) => {
-              e.preventDefault(); // Empêche le rechargement de la page
-              handleLogin();      // Lance la connexion
+              e.preventDefault();
+              handleLogin();
             }}
           >
             <div className="mb-3">
@@ -99,7 +97,7 @@ const LoginPage = () => {
             </div>
 
             <button
-              type="submit" // Déclenche le submit du formulaire (y compris via "Entrée")
+              type="submit"
               className="btn btn-primary w-100"
               disabled={isLoading}
             >
