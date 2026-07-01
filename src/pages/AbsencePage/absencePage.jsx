@@ -705,16 +705,17 @@ useEffect(() => {
   //inserer dans un tableau react
  //console.log("absence veee",absences)
   const columns = [
-    { name: 'Nom', selector: row => row.Eleve.nom, sortable: true },
-    { name: 'Prénom', selector: row => row.Eleve.prenom,  sortable: true },
-    { name: 'Escadron', selector: row => row.Eleve.escadron, maxwidth: '2px',sortable :true},
-    { name: 'Peloton', selector: row => row.Eleve.peloton,maxwidth: '100px',},
-    { name: 'Incorporation', selector: row => row.Eleve.numeroIncorporation },
+    { name: 'Nom', selector: row => row.Eleve.nom + " " + row.Eleve.prenom , sortable: true , width:'300px'},
+   
+    { name: 'Esc', selector: row => row.Eleve.escadron, width: '70px',sortable :true},
+    { name: 'Pon', selector: row => row.Eleve.peloton,width: '70px',},
+    { name: 'Inc', selector: row => row.Eleve.numeroIncorporation , width: '70px'},
     { name: 'Date', selector: row => row.date },
     {
       name: 'Motifs',
       selector: row => row.motif,
       sortable: true,
+      
       cell: row => (
         <span style={{ color: 'goldenrod', fontWeight: 'bold' }}>
           {row.motif}
