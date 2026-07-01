@@ -332,7 +332,8 @@ const [dateFin, setDateFin] = useState("");     // idem
 
 
   const columns = [
-    { name: "Nom et prénom de l'élève", selector: row => row.Eleve?.nom +" "+ row.Eleve.prenom, sortable: true },
+    { name: "Nom et prénom de l'élève", selector: row => row.Eleve?.nom +" "+ row.Eleve.prenom, sortable: true , width:"300px" },
+     { name: "Esc", selector: row => row.Eleve?.numeroIncorporation, sortable: true  ,width: "70px"},
     { name: "Esc", selector: row => row.Eleve?.escadron, sortable: true  ,width: "70px"},
     { name: "Pon", selector: row => row.Eleve?.peloton, width: "70px"},
     { name: "Nom Cadre", selector: row => row.Cadre?.nom },
@@ -419,6 +420,7 @@ const filteredConsultations = consultations.filter((item) => {
     // Mapper les données vers un format plat
     const dataToExport = filteredConsultations.map(item => ({
       "Nom Élève": `${item.Eleve?.nom || ""} ${item.Eleve?.prenom || ""}`,
+      "Numero inc": `${item.Eleve?.numeroIncorporation || ""} `,
       "Esc": item.Eleve?.escadron || "",
       "Pon": item.Eleve?.peloton || "",
       "Nom Cadre": item.Cadre?.nom || "",
