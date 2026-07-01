@@ -5,7 +5,7 @@ import Swal from 'sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
 import './styles.scss';
 
-const APP_VERSION = '2.1.2';
+const APP_VERSION = '2.1.1.0';
 const UPDATE_FLAG_KEY = `update_seen_${APP_VERSION}`; // change dès que APP_VERSION change
 
 // (Optionnel) lit l'utilisateur depuis le localStorage si besoin
