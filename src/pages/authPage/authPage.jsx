@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
+import Swal from 'sweetalert2';
 import 'react-toastify/dist/ReactToastify.css';
 import userService from '../../services/userService'; // adapte selon ton chemin
 import './index.css';
@@ -10,6 +11,28 @@ const LoginPage = () => {
   const [motDePasse, setMotDePasse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+
+  // ⚠️ Si l'utilisateur était déjà connecté (session/token en cache),
+  // on l'informe qu'une mise à jour a été déployée et on nettoie sa session.
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+
+    if (token || user) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Mise à jour effectuée',
+        html: 'Une nouvelle mise à jour de l\'application a été mise en place.<br/>Veuillez vous reconnecter pour continuer.',
+        confirmButtonText: 'OK',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      }).then(() => {
+        // Nettoyage de l'ancienne session pour forcer une reconnexion propre
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      });
+    }
+  }, []);
 
   const handleLogin = async () => {
     setIsLoading(true);
