@@ -5,7 +5,8 @@ import Swal from 'sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
 import './styles.scss';
 
-const APP_VERSION = '2.1.1';
+const APP_VERSION = '2.1.2';
+const UPDATE_FLAG_KEY = `update_seen_${APP_VERSION}`; // change dès que APP_VERSION change
 
 // (Optionnel) lit l'utilisateur depuis le localStorage si besoin
 const readUserFromLocalStorage = () => {
@@ -32,7 +33,26 @@ const HomePage = ({ user: propUser }) => {
     else setUser((u) => u ?? readUserFromLocalStorage());
   }, [propUser]);
 
- 
+  // ✅ Affiche le message de mise à jour une seule fois par version,
+  // uniquement si l'utilisateur est connecté (token présent).
+  useEffect(() => {
+    if (shownRef.current) return;
+
+    const token = localStorage.getItem('token');
+    const alreadySeen = localStorage.getItem(UPDATE_FLAG_KEY);
+
+    if (token && !alreadySeen) {
+      shownRef.current = true;
+      Swal.fire({
+        icon: 'info',
+        title: 'Mise à jour effectuée',
+        html: `Une nouvelle mise à jour de l'application a été mise en place.<br/><b>Version ${APP_VERSION}</b>`,
+        confirmButtonText: 'OK',
+      }).then(() => {
+        localStorage.setItem(UPDATE_FLAG_KEY, 'true');
+      });
+    }
+  }, []);
 
   return (
     <div style={{ marginLeft: '50px', marginTop: '100px' }}>
