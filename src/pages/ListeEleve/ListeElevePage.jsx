@@ -4711,7 +4711,7 @@ async function exportRepartitionEquitableExcel(elevesModifies, cases, resume) {
           👥 Liste des élèves Gendarme
         </h5>
         <span className="badge text-bg-primary rounded-pill">
-          {eleves?.length ?? 0}
+           {elevesAAfficher?.length ?? 0}
         </span>
       </div>
 
