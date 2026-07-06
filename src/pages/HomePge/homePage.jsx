@@ -5,7 +5,7 @@ import Swal from 'sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
 import './styles.scss';
 
-const APP_VERSION = '2.1.1.1';
+const APP_VERSION = '2.2.0.1';
 const UPDATE_FLAG_KEY = `update_seen_${APP_VERSION}`; // change dès que APP_VERSION change
 
 // (Optionnel) lit l'utilisateur depuis le localStorage si besoin
@@ -46,7 +46,7 @@ const HomePage = ({ user: propUser }) => {
       Swal.fire({
         icon: 'info',
         title: 'Mise à jour effectuée',
-        html: `Une nouvelle mise à jour de l'application a été mise en place.<br/><b>Version ${APP_VERSION}</b>`,
+        html: `Une nouvelle mise à jour de l'application a été mise en place (POUR AJOUTER DES OBSERVATION ).<br/><b>Version ${APP_VERSION}</b>`,
         confirmButtonText: 'OK',
       }).then(() => {
         localStorage.setItem(UPDATE_FLAG_KEY, 'true');

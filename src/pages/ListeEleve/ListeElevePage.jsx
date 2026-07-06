@@ -19,6 +19,7 @@ import { saveAs } from "file-saver";
 import { Modal, Button } from 'react-bootstrap'; 
 import RepartitionModal from './RepartitionModal';
 import sanctionService from "../../services/sanction-service";
+import observationService from "../../services/observation-service";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import autoTable from 'jspdf-autotable';
@@ -57,6 +58,13 @@ const tableRows = React.useMemo(() => (eleves ?? []), [eleves]);
 const [sanctions, setSanctions] = useState([]);
 const [loadingSanctions, setLoadingSanctions] = useState(false);
 const [errorSanctions, setErrorSanctions] = useState(null);
+//obs eta
+const [observations, setObservations] = useState([]);
+const [loadingObservations, setLoadingObservations] = useState(false);
+const [errorObservations, setErrorObservations] = useState(null);
+const [observationForm, setObservationForm] = useState({ contenu: "" });
+const [observationEditingId, setObservationEditingId] = useState(null);
+
 // juste avant le JSX :
 const canEdit = ['peda', 'admin', 'superadmin'].includes(String(user?.type).toLowerCase());
 // Formulaire (seulement pour admin/superadmin)
@@ -455,6 +463,31 @@ React.useEffect(() => {
 
   return () => { cancelled = true; };
 }, [noteModalOpen, selectedEleve?.Id, selectedEleve?.id]);
+//les obs 
+React.useEffect(() => {
+  const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
+  if (!noteModalOpen || !eleveId) return;
+
+  let off = false;
+  (async () => {
+    setLoadingObservations(true);
+    setErrorObservations(null);
+    try {
+      const { data } = await observationService.getByEleveId(eleveId);
+      if (!off) setObservations(Array.isArray(data) ? data : (data ? [data] : []));
+    } catch (e) {
+      if (!off) {
+        setObservations([]);
+        setErrorObservations("Impossible de charger les observations.");
+      }
+    } finally {
+      if (!off) setLoadingObservations(false);
+    }
+  })();
+
+  return () => { off = true; };
+}, [noteModalOpen, selectedEleve?.Id, selectedEleve?.id]);
+
 // Parse très permissif (YYYY-MM-DD, DD/MM/YYYY, ISO, timestamp)
 const parseDateFlexible = (v) => {
   if (!v && v !== 0) return null;
@@ -658,7 +691,55 @@ async function handleDeleteSanction(id) {
     alert("Erreur lors de la suppression.");
   }
 }
+async function handleSaveObservation() {
+  const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
+  if (!eleveId) return;
 
+  const contenu = (observationForm.contenu || "").trim();
+  if (!contenu) return;
+
+  const payload = {
+    eleveId,
+    contenu,
+    date: new Date().toISOString().slice(0, 10),
+    auteur: user?.nom || user?.username || user?.type || ""
+  };
+
+  try {
+    if (observationEditingId) {
+      await observationService.update(observationEditingId, payload);
+    } else {
+      await observationService.post(payload);
+    }
+    const { data } = await observationService.getByEleveId(eleveId);
+    setObservations(Array.isArray(data) ? data : (data ? [data] : []));
+    setObservationEditingId(null);
+    setObservationForm({ contenu: "" });
+  } catch (err) {
+    console.error(err);
+    alert("Erreur lors de l'enregistrement de l'observation.");
+  }
+}
+
+function handleEditObservation(o) {
+  setObservationEditingId(o.id);
+  setObservationForm({ contenu: o.contenu || "" });
+}
+
+async function handleDeleteObservation(id) {
+  if (!id) return;
+  if (!confirm("Supprimer cette observation ?")) return;
+
+  try {
+    await observationService.delete(id);
+    const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
+    const { data } = await observationService.getByEleveId(eleveId);
+    setObservations(Array.isArray(data) ? data : (data ? [data] : []));
+  } catch (err) {
+    console.error(err);
+    alert("Erreur lors de la suppression.");
+  }
+}
   /******************************************************
    * 0) PERSISTENCE (localStorage)
    ******************************************************/
@@ -5318,6 +5399,106 @@ async function exportRepartitionEquitableExcel(elevesModifies, cases, resume) {
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  </div>
+</div>
+{/* ================= OBSERVATION ================= */}
+<div className="col-12 d-flex">
+  <div className="card shadow-sm border-0 w-100 d-flex flex-column h-100">
+    <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+      <span>Observations</span>
+      <span className="badge bg-secondary">{observations?.length || 0}</span>
+    </div>
+
+    <div className="card-body p-2" style={{ overflowY: "auto" }}>
+      {loadingObservations && <div className="alert alert-info py-2 mb-2">Chargement…</div>}
+      {errorObservations && <div className="alert alert-danger py-2 mb-2">{errorObservations}</div>}
+      {!loadingObservations && !errorObservations && (!observations || observations.length === 0) && (
+        <div className="text-muted">Aucune observation.</div>
+      )}
+
+      {/* Formulaire d'ajout/édition — visible pour tous */}
+      <div className="mb-2 border rounded p-2">
+        <div className="row g-2 align-items-end">
+          <div className="col-10">
+            <label className="form-label mb-1">Observation</label>
+            <textarea
+              className="form-control form-control-sm"
+              rows={2}
+              placeholder="Saisir une observation…"
+              value={observationForm.contenu}
+              onChange={(e) => setObservationForm({ ...observationForm, contenu: e.target.value })}
+            />
+          </div>
+          <div className="col-12 d-flex gap-2">
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              onClick={handleSaveObservation}
+              disabled={!observationForm.contenu || observationForm.contenu.trim().length === 0}
+            >
+              {observationEditingId ? "Mettre à jour" : "Ajouter"}
+            </button>
+            {observationEditingId && (
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() => {
+                  setObservationEditingId(null);
+                  setObservationForm({ contenu: "" });
+                }}
+              >
+                Annuler
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Tableau observations */}
+      {observations && observations.length > 0 && (
+        <div className="table-responsive" style={{ maxHeight: "300px", overflowY: "auto" }}>
+          <table className="table table-sm table-bordered align-middle mb-0">
+            <thead>
+              <tr>
+                <th style={{ position: "sticky", top: 0, background: "#f8f9fa" }}>Date</th>
+                <th style={{ position: "sticky", top: 0, background: "#f8f9fa" }}>Observation</th>
+                <th style={{ position: "sticky", top: 0, background: "#f8f9fa" }}>Auteur</th>
+                <th style={{ position: "sticky", top: 0, background: "#f8f9fa" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {observations.map((o, idx) => (
+                <tr key={o.id || idx}>
+                  <td style={{ whiteSpace: "nowrap" }}>{formatDate(o.date)}</td>
+                  <td style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", minWidth: "250px" }}>
+                    {o.contenu || "-"}
+                  </td>
+                  <td>{o.auteur || "-"}</td>
+                  <td>
+                    <div className="d-flex gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={() => handleEditObservation(o)}
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => handleDeleteObservation(o.id)}
+                      >
+                        Supprimer
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
