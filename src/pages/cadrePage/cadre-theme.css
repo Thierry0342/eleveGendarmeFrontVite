@@ -1,0 +1,413 @@
+/* ===========================================================================
+   cadre-theme.css
+   Système de design partagé pour le module "Cadre" (fiche individuelle
+   Gendarmerie). Importé par CadreFormBootstrap.jsx, CadreListPage.jsx et
+   CadreDetailPage.jsx pour garder une identité visuelle cohérente.
+   =========================================================================== */
+
+:root {
+  /* Palette — inspirée de l'identité gendarmerie (marine + laiton), sobre et
+     professionnelle, adaptée à un outil de gestion de dossiers officiels. */
+  --cadre-navy: #10243e;
+  --cadre-navy-light: #1b3a5f;
+  --cadre-gold: #b8912f;
+  --cadre-gold-soft: #f2e4bd;
+  --cadre-bg: #f4f5f7;
+  --cadre-surface: #ffffff;
+  --cadre-border: #e2e5ea;
+  --cadre-text: #1f2937;
+  --cadre-text-muted: #6b7280;
+  --cadre-success: #2e7d5b;
+  --cadre-danger: #b3261e;
+  --cadre-radius: 10px;
+  --cadre-shadow: 0 1px 2px rgba(16, 36, 62, 0.06), 0 4px 16px rgba(16, 36, 62, 0.06);
+}
+
+.cadre-app {
+  background: var(--cadre-bg);
+  color: var(--cadre-text);
+  min-height: 100vh;
+}
+
+/* ---------------------------------------------------------------------
+   En-tête de page générique (utilisé sur la liste et le détail)
+--------------------------------------------------------------------- */
+.cadre-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.cadre-page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--cadre-navy);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.cadre-page-subtitle {
+  color: var(--cadre-text-muted);
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+}
+
+/* ---------------------------------------------------------------------
+   Stepper (formulaire) — navigation par sections numérotées I à XIV,
+   la numérotation est signifiante ici : elle reprend celle du document
+   officiel, donc on la garde et on l'affiche explicitement.
+--------------------------------------------------------------------- */
+.stepper-nav {
+  position: sticky;
+  top: 1rem;
+  background: var(--cadre-surface);
+  border: 1px solid var(--cadre-border);
+  border-radius: var(--cadre-radius);
+  overflow: hidden;
+  box-shadow: var(--cadre-shadow);
+}
+
+.stepper-progress-track {
+  height: 4px;
+  background: var(--cadre-border);
+}
+.stepper-progress-fill {
+  height: 100%;
+  background: var(--cadre-gold);
+  transition: width 0.25s ease;
+}
+
+.stepper-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.stepper-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--cadre-text);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.stepper-item:hover {
+  background: var(--cadre-bg);
+}
+.stepper-item.active {
+  background: var(--cadre-navy);
+  color: #fff;
+}
+.stepper-item .step-badge {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border: 1.5px solid var(--cadre-border);
+  color: var(--cadre-text-muted);
+}
+.stepper-item.active .step-badge {
+  border-color: #fff;
+  color: #fff;
+}
+.stepper-item.filled .step-badge {
+  background: var(--cadre-gold-soft);
+  border-color: var(--cadre-gold);
+  color: var(--cadre-gold);
+}
+.stepper-item.active.filled .step-badge {
+  background: var(--cadre-gold);
+  border-color: var(--cadre-gold);
+  color: var(--cadre-navy);
+}
+.stepper-item .step-label {
+  flex: 1;
+  line-height: 1.2;
+}
+
+/* ---------------------------------------------------------------------
+   Panneau de section active
+--------------------------------------------------------------------- */
+.cadre-section-panel {
+  background: var(--cadre-surface);
+  border: 1px solid var(--cadre-border);
+  border-radius: var(--cadre-radius);
+  box-shadow: var(--cadre-shadow);
+  padding: 1.5rem;
+}
+
+.section-eyebrow {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 2px solid var(--cadre-gold-soft);
+}
+.section-eyebrow .numeral {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.15rem;
+  color: var(--cadre-gold);
+  font-weight: 700;
+}
+.section-eyebrow .title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--cadre-navy);
+}
+.section-eyebrow .hint {
+  margin-left: auto;
+  font-size: 0.78rem;
+  color: var(--cadre-text-muted);
+}
+
+.subgroup-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cadre-text-muted);
+  margin: 1.25rem 0 0.75rem;
+}
+.subgroup-label:first-child {
+  margin-top: 0;
+}
+
+/* Barre d'actions collante en bas du formulaire, toujours accessible */
+.cadre-form-actions {
+  position: sticky;
+  bottom: 0;
+  background: var(--cadre-surface);
+  border-top: 1px solid var(--cadre-border);
+  padding: 0.85rem 1.25rem;
+  border-radius: 0 0 var(--cadre-radius) var(--cadre-radius);
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  box-shadow: 0 -4px 12px rgba(16, 36, 62, 0.05);
+}
+
+/* ---------------------------------------------------------------------
+   Avatar / photo
+--------------------------------------------------------------------- */
+.cadre-avatar {
+  width: 96px;
+  height: 112px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--cadre-border);
+  background: var(--cadre-bg);
+}
+.cadre-avatar-placeholder {
+  width: 96px;
+  height: 112px;
+  border-radius: 8px;
+  border: 1px dashed var(--cadre-border);
+  background: var(--cadre-bg);
+  color: var(--cadre-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------------------------------------------------------------------
+   Répertoire (liste en cartes)
+--------------------------------------------------------------------- */
+.directory-toolbar {
+  background: var(--cadre-surface);
+  border: 1px solid var(--cadre-border);
+  border-radius: var(--cadre-radius);
+  box-shadow: var(--cadre-shadow);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.directory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 1rem;
+}
+
+.directory-card {
+  background: var(--cadre-surface);
+  border: 1px solid var(--cadre-border);
+  border-radius: var(--cadre-radius);
+  box-shadow: var(--cadre-shadow);
+  padding: 1rem;
+  display: flex;
+  gap: 0.85rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  text-align: left;
+}
+.directory-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--cadre-gold);
+}
+.directory-card .name {
+  font-weight: 700;
+  color: var(--cadre-navy);
+  line-height: 1.25;
+}
+.directory-card .meta {
+  font-size: 0.8rem;
+  color: var(--cadre-text-muted);
+}
+
+.badge-grade {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--cadre-navy);
+  background: var(--cadre-gold-soft);
+  border: 1px solid var(--cadre-gold);
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  margin-top: 0.35rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--cadre-text-muted);
+}
+.empty-state i {
+  font-size: 2rem;
+  color: var(--cadre-border);
+  margin-bottom: 0.75rem;
+  display: block;
+}
+
+/* ---------------------------------------------------------------------
+   Page de détail (fiche en lecture seule)
+--------------------------------------------------------------------- */
+.detail-hero {
+  background: linear-gradient(135deg, var(--cadre-navy) 0%, var(--cadre-navy-light) 100%);
+  border-radius: var(--cadre-radius);
+  padding: 1.75rem;
+  color: #fff;
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+.detail-hero .cadre-avatar,
+.detail-hero .cadre-avatar-placeholder {
+  width: 100px;
+  height: 118px;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.detail-hero .cadre-avatar-placeholder {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.6);
+}
+.detail-hero h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+}
+.detail-hero .matricule {
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.05em;
+  color: var(--cadre-gold-soft);
+  font-size: 0.85rem;
+}
+.detail-hero .badge-grade {
+  background: rgba(184, 145, 47, 0.2);
+  border-color: var(--cadre-gold);
+  color: #fff;
+}
+
+.detail-nav {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+.detail-nav a {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--cadre-navy);
+  background: var(--cadre-surface);
+  border: 1px solid var(--cadre-border);
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+.detail-nav a:hover {
+  background: var(--cadre-gold-soft);
+  border-color: var(--cadre-gold);
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem 1.5rem;
+}
+.info-row .info-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--cadre-text-muted);
+  margin-bottom: 0.15rem;
+}
+.info-row .info-value {
+  font-size: 0.92rem;
+  color: var(--cadre-text);
+  font-weight: 500;
+}
+.info-row .info-value.empty {
+  color: var(--cadre-text-muted);
+  font-weight: 400;
+  font-style: italic;
+}
+
+.detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.detail-table th {
+  text-align: left;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cadre-text-muted);
+  border-bottom: 1px solid var(--cadre-border);
+  padding: 0.5rem 0.6rem;
+}
+.detail-table td {
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid var(--cadre-border);
+}
+.detail-table tr:last-child td {
+  border-bottom: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .directory-card,
+  .stepper-progress-fill,
+  .stepper-item {
+    transition: none !important;
+  }
+}

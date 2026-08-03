@@ -15,6 +15,8 @@ import DiverPage from './pages/DiverPage/DiverPage';
 import ParametreIpPage from './pages/ParametreIpPage/ParametreIpPage';
 import PermissionPage from './pages/permissioPage/permissionPage';
 import PrivateRoute from '../PrivateRoute'; 
+import CadreListPage from './pages/cadrePage/CadreListPage';
+import CadreDetailPage from './pages/cadrePage/CadreDetailPage';
 
 
 import '@fortawesome/fontawesome-free/css/all.min.css';
@@ -43,6 +45,8 @@ function AppRoutes() {
           <Route path="/eleves/diplome"  element={<PrivateRoute allowedRoles={['admin','user','superadmin']}><DiverPage /></PrivateRoute>} />
           <Route path="/parametres-ip" element={<ParametreIpPage />} />
           <Route path="/eleve/permission" element={<PrivateRoute allowedRoles={['admin','superadmin','user']}><PermissionPage /></PrivateRoute>} />
+          <Route path="/cadre/:matricule" element={<PrivateRoute allowedRoles={['admin']} ><CadreDetailPage /></PrivateRoute>} />
+         <Route path="/cadre-form" element={<PrivateRoute allowedRoles={['admin']} ><CadreListPage /></PrivateRoute>} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
