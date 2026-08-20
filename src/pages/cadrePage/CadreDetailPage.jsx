@@ -40,7 +40,8 @@ const SectionCard = ({ id, numeral, title, children }) => (
 );
 
 const DataTableView = ({ columns, rows, emptyLabel }) => {
-  if (!rows || rows.length === 0) {
+  const safeRows = Array.isArray(rows) ? rows : [];
+  if (safeRows.length === 0) {
     return <div className="empty-state" style={{ padding: '1.5rem' }}><i className="fa fa-inbox"></i>{emptyLabel}</div>;
   }
   return (
@@ -50,7 +51,7 @@ const DataTableView = ({ columns, rows, emptyLabel }) => {
           <tr>{columns.map((c) => <th key={c.key}>{c.label}</th>)}</tr>
         </thead>
         <tbody>
-          {rows.map((row, i) => (
+          {safeRows.map((row, i) => (
             <tr key={i}>
               {columns.map((c) => <td key={c.key}>{row[c.key] || '—'}</td>)}
             </tr>

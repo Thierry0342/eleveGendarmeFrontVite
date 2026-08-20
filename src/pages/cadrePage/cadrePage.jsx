@@ -142,65 +142,67 @@ const Field = ({ label, name, value, onChange, type = "text", options = null, co
     )}
   </div>
 );
-
-const RepeatableTable = ({ title, hint, field, columns, emptyRow, rows, onAddRow, onRemoveRow, onRowChange }) => (
-  <div className="mb-2">
-    <div className="d-flex justify-content-between align-items-center mb-2">
-      <div>
-        <h6 className="text-secondary mb-0">{title}</h6>
-        {hint && <div className="text-muted" style={{ fontSize: '0.78rem' }}>{hint}</div>}
+const RepeatableTable = ({ title, hint, field, columns, emptyRow, rows, onAddRow, onRemoveRow, onRowChange }) => {
+  const safeRows = Array.isArray(rows) ? rows : [];
+  return (
+    <div className="mb-2">
+      <div className="d-flex justify-content-between align-items-center mb-2">
+        <div>
+          <h6 className="text-secondary mb-0">{title}</h6>
+          {hint && <div className="text-muted" style={{ fontSize: '0.78rem' }}>{hint}</div>}
+        </div>
+        <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => onAddRow(field, emptyRow)}>
+          <i className="fa fa-plus me-1"></i> Ajouter une ligne
+        </button>
       </div>
-      <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => onAddRow(field, emptyRow)}>
-        <i className="fa fa-plus me-1"></i> Ajouter une ligne
-      </button>
-    </div>
-    {rows.length === 0 && (
-      <div className="empty-state border rounded" style={{ padding: '1.5rem' }}>
-        <i className="fa fa-inbox"></i>
-        Aucune ligne pour l'instant — clique sur « Ajouter une ligne » pour commencer.
-      </div>
-    )}
-    {rows.map((row, index) => (
-      <div key={index} className="border rounded p-2 mb-2 bg-light-subtle position-relative">
-        <div className="row">
-          {columns.map((col) => (
-            <div className={col.colClass || "col-md-3"} key={col.key}>
-              <label className="form-label small">{col.label}</label>
-              {col.options ? (
-                <select
-                  className="form-select form-select-sm"
-                  value={row[col.key] || ""}
-                  onChange={(e) => onRowChange(field, index, col.key, e.target.value)}
-                >
-                  <option value="">--</option>
-                  {col.options.map((opt) =>
-                    typeof opt === "string" ? (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ) : (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    )
-                  )}
-                </select>
-              ) : (
-                <input
-                  type={col.type || "text"}
-                  className="form-control form-control-sm"
-                  value={row[col.key] || ""}
-                  onChange={(e) => onRowChange(field, index, col.key, e.target.value)}
-                />
-              )}
+      {safeRows.length === 0 && (
+        <div className="empty-state border rounded" style={{ padding: '1.5rem' }}>
+          <i className="fa fa-inbox"></i>
+          Aucune ligne pour l'instant — clique sur « Ajouter une ligne » pour commencer.
+        </div>
+      )}
+      {safeRows.map((row, index) => (
+        <div key={index} className="border rounded p-2 mb-2 bg-light-subtle position-relative">
+          <div className="row">
+            {columns.map((col) => (
+              <div className={col.colClass || "col-md-3"} key={col.key}>
+                <label className="form-label small">{col.label}</label>
+                {col.options ? (
+                  <select
+                    className="form-select form-select-sm"
+                    value={row[col.key] || ""}
+                    onChange={(e) => onRowChange(field, index, col.key, e.target.value)}
+                  >
+                    <option value="">--</option>
+                    {col.options.map((opt) =>
+                      typeof opt === "string" ? (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ) : (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      )
+                    )}
+                  </select>
+                ) : (
+                  <input
+                    type={col.type || "text"}
+                    className="form-control form-control-sm"
+                    value={row[col.key] || ""}
+                    onChange={(e) => onRowChange(field, index, col.key, e.target.value)}
+                  />
+                )}
+              </div>
+            ))}
+            <div className="col-md-1 d-flex align-items-end mb-2">
+              <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => onRemoveRow(field, index)} title="Supprimer la ligne">
+                <i className="fa fa-trash"></i>
+              </button>
             </div>
-          ))}
-          <div className="col-md-1 d-flex align-items-end mb-2">
-            <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => onRemoveRow(field, index)} title="Supprimer la ligne">
-              <i className="fa fa-trash"></i>
-            </button>
           </div>
         </div>
-      </div>
-    ))}
-  </div>
-);
+      ))}
+    </div>
+  );
+};
 
 // ===================== COMPOSANT PRINCIPAL =====================
 
@@ -292,24 +294,24 @@ const CadreFormBootstrap = () => {
       Swal.fire('Erreur', "L'ajout a échoué.", 'error');
     }
   };
-
-  const handleEdit = (cadre) => {
-    setFormData({
-      ...INITIAL_FORM,
-      ...cadre,
-      enfants: cadre.enfants || [],
-      servicesMilitaires: cadre.servicesMilitaires || [],
-      gradesSuccessifs: cadre.gradesSuccessifs || [],
-      decorations: cadre.decorations || [],
-      felicitations: cadre.felicitations || [],
-      punitions: cadre.punitions || [],
-      diplomes: cadre.diplomes || [],
-      serments: cadre.serments || [],
-      affectations: cadre.affectations || [],
-      relationsInterets: cadre.relationsInterets || [],
-      sanitairePATC: cadre.sanitairePATC || INITIAL_FORM.sanitairePATC,
-      sanitaireCREFA: cadre.sanitaireCREFA || INITIAL_FORM.sanitaireCREFA,
-    });
+const asArray = (v) => (Array.isArray(v) ? v : []);
+ const handleEdit = (cadre) => {
+  setFormData({
+    ...INITIAL_FORM,
+    ...cadre,
+    enfants: asArray(cadre.enfants),
+    servicesMilitaires: asArray(cadre.servicesMilitaires),
+    gradesSuccessifs: asArray(cadre.gradesSuccessifs),
+    decorations: asArray(cadre.decorations),
+    felicitations: asArray(cadre.felicitations),
+    punitions: asArray(cadre.punitions),
+    diplomes: asArray(cadre.diplomes),
+    serments: asArray(cadre.serments),
+    affectations: asArray(cadre.affectations),
+    relationsInterets: asArray(cadre.relationsInterets),
+    sanitairePATC: cadre.sanitairePATC && typeof cadre.sanitairePATC === 'object' ? cadre.sanitairePATC : INITIAL_FORM.sanitairePATC,
+    sanitaireCREFA: cadre.sanitaireCREFA && typeof cadre.sanitaireCREFA === 'object' ? cadre.sanitaireCREFA : INITIAL_FORM.sanitaireCREFA,
+  });
     setEditingId(cadre.id);
     setActiveStep('identification');
     if (photoPreview) URL.revokeObjectURL(photoPreview);
@@ -428,7 +430,7 @@ const CadreFormBootstrap = () => {
             </div>
           </div>
           <div className="d-flex gap-2">
-            <button className="btn btn-outline-secondary btn-sm" onClick={() => navigate('/cadre')}>
+            <button className="btn btn-outline-secondary btn-sm" onClick={() => navigate('/cadre-form')}>
               <i className="fa fa-list me-1"></i> Voir le répertoire
             </button>
             {editingId && (
