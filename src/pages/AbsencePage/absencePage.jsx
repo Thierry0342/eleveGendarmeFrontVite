@@ -1793,6 +1793,7 @@ content += 'FIN RASOLOFONIARY';
                             <option value="AD CEGN">AD CEGN</option>
                             <option value="AD COM DLI">AD COM DLI</option>
                             <option value="AD COM DQG SPORT">AD COM DQG SPORT</option>
+                            <option value="AD DE LEUR FAMILLE">AD DE LEUR FAMILLE</option>
                             <option value="AD MDG">AD MDG</option>
                             <option value="ADMIS CENHOSOA">ADMIS CENHOSOA</option>
                             <option value="ADMIS CHRR">ADMIS CHRR</option>
@@ -1802,7 +1803,6 @@ content += 'FIN RASOLOFONIARY';
                             <option value="ANM">ANM</option>
                             <option value="ARTS MARTIAUX">ARTS MARTIAUX</option>
                             <option value="CHAMBRE DE SURETE">CHAMBRE DE SURETE</option>
-                
                             <option value="CONCOURS ACMIL">CONCOURS ACMIL</option>
                             <option value="CONFINES EN CHAMBRE">CONFINES EN CHAMBRE</option>
                             <option value="CONSULTATION">CONSULTATION</option>
