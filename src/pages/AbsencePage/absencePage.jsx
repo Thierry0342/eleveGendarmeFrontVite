@@ -1066,6 +1066,15 @@ const handleMotifChange = (e) => {
     setAutreMotif("");
   }
 }
+
+// Nettoie le motif pour l'affichage/export : enlève le suffixe " (ABSENT)" / " (INDISPONIBLE)"
+// ajouté automatiquement quand l'utilisateur choisit le motif "AUTRE".
+// La logique de classification (isIndisponible) continue d'utiliser le motif original.
+const nettoyerMotif = (motif) => {
+  if (!motif) return motif;
+  return motif.replace(/\s*\((ABSENT|INDISPONIBLE)\)\s*$/i, '').trim();
+};
+
   // -----------------------------------------------
   ///En pdf 
 
@@ -1156,7 +1165,7 @@ const handleMotifChange = (e) => {
      // Ajout des motifs "absents" (non indisponibles)
       Object.entries(groupedMotifs).forEach(([motif, absences]) => {
         if (!isIndisponible(motif)) {
-          bodyDetails.push([`${motif} : ${absences.length}`, '', '', '', '', '']);
+          bodyDetails.push([`${nettoyerMotif(motif)} : ${absences.length}`, '', '', '', '', '']);
           absences.forEach(abs => {
             bodyDetails.push([
               '',
@@ -1177,17 +1186,17 @@ const handleMotifChange = (e) => {
 spaSpecialesDuJour.forEach(spa => {
   if (spa.type?.toUpperCase() === "ABSENT") {
     // mettre avec les absents
-    bodyDetails.splice(1, 0, [`${spa.motif.toUpperCase()} : ${spa.nombre}`, '', '', '', '', '']);
+    bodyDetails.splice(1, 0, [`${nettoyerMotif(spa.motif.toUpperCase())} : ${spa.nombre}`, '', '', '', '', '']);
   } else if (spa.type?.toUpperCase() === "INDISPONIBLE") {
     // mettre avec les indisponibles
-    bodyDetails.push([`${spa.motif.toUpperCase()} : ${spa.nombre}`, '', '', '', '', '']);
+    bodyDetails.push([`${nettoyerMotif(spa.motif.toUpperCase())} : ${spa.nombre}`, '', '', '', '', '']);
   }
 });
 
      // Ajout des motifs "indisponibles"
     Object.entries(groupedMotifs).forEach(([motif, absences]) => {
       if (isIndisponible(motif)) {
-        bodyDetails.push([`${motif} : ${absences.length}`, '', '', '', '', '']);
+        bodyDetails.push([`${nettoyerMotif(motif)} : ${absences.length}`, '', '', '', '', '']);
         absences.forEach(abs => {
           bodyDetails.push([
             '',
@@ -1398,7 +1407,7 @@ content += 'MOTIFS DES ABSENTS X ';
 for (const [motif, absences] of Object.entries(groupedMotifs)) {
   if (!isIndisponible(motif)) {
     const section = sectionsAbsents[indexSectionAbsent % sectionsAbsents.length];
-    content += `${section} X ${absences.length} ${motif} X `;
+    content += `${section} X ${absences.length} ${nettoyerMotif(motif)} X `;
     absences.forEach((abs, i) => {
       const eleve = abs.Eleve;
       const nom = eleve?.nom?.toUpperCase() || 'INCONNU';
@@ -1414,7 +1423,7 @@ for (const [motif, absences] of Object.entries(groupedMotifs)) {
 spaSpecialesDuJour.forEach(spa => {
   if (spa.type?.toUpperCase() === 'ABSENT') {
     const section = sectionsAbsents[indexSectionAbsent % sectionsAbsents.length];
-    const motif = spa.motif?.toUpperCase() || 'SPA SPECIALE';
+    const motif = nettoyerMotif(spa.motif?.toUpperCase() || 'SPA SPECIALE');
     content += `${section} X ${spa.nombre} ${motif} X `;
     indexSectionAbsent++;
   }
@@ -1427,7 +1436,7 @@ content += 'MOTIFS DES INDISPONIBLES X ';
 spaSpecialesDuJour.forEach(spa => {
   if (spa.type?.toUpperCase() === 'INDISPONIBLE') {
     const section = sectionsIndispo[indexSectionIndispo % sectionsIndispo.length];
-    const motif = spa.motif?.toUpperCase() || 'SPA SPECIALE';
+    const motif = nettoyerMotif(spa.motif?.toUpperCase() || 'SPA SPECIALE');
     content += `${section} X ${spa.nombre} ${motif} X `;
     indexSectionIndispo++;
   }
@@ -1437,7 +1446,7 @@ spaSpecialesDuJour.forEach(spa => {
 for (const [motif, absences] of Object.entries(groupedMotifs)) {
   if (isIndisponible(motif)) {
     const section = sectionsIndispo[indexSectionIndispo % sectionsIndispo.length];
-    content += `${section} X ${absences.length} ${motif} X `;
+    content += `${section} X ${absences.length} ${nettoyerMotif(motif)} X `;
     absences.forEach((abs, i) => {
       const eleve = abs.Eleve;
       const nom = eleve?.nom?.toUpperCase() || 'INCONNU';
@@ -1565,12 +1574,12 @@ content += 'FIN RASOLOFONIARY';
       // EXPORT COMPLET
       detailsData.push(["MOTIFS DES ABSENTS"]);
       spaSpecialesDuJour.forEach((spa) => {
-        detailsData.push([`${spa.motif.toUpperCase()} : ${spa.nombre}`]);
+        detailsData.push([`${nettoyerMotif(spa.motif.toUpperCase())} : ${spa.nombre}`]);
       });
   
       Object.entries(groupedMotifs).forEach(([motif, absences]) => {
         if (!isIndisponible(motif)) {
-          detailsData.push([`${motif} : ${absences.length}`]);
+          detailsData.push([`${nettoyerMotif(motif)} : ${absences.length}`]);
           detailsData.push(["", "Nom", "Prénom", "Incorporation", "Escadron", "Peloton"]);
           absences.forEach((abs) => {
             detailsData.push([
@@ -1590,7 +1599,7 @@ content += 'FIN RASOLOFONIARY';
   
       Object.entries(groupedMotifs).forEach(([motif, absences]) => {
         if (isIndisponible(motif)) {
-          detailsData.push([`${motif} : ${absences.length}`]);
+          detailsData.push([`${nettoyerMotif(motif)} : ${absences.length}`]);
           detailsData.push(["", "Nom", "Prénom", "Incorporation", "Escadron", "Peloton"]);
           absences.forEach((abs) => {
             detailsData.push([
@@ -1608,12 +1617,12 @@ content += 'FIN RASOLOFONIARY';
       // EXPORT SIMPLIFIÉ
       detailsData.push(["MOTIFS DES ABSENTS"]);
       spaSpecialesDuJour.forEach((spa) => {
-        detailsData.push([`${spa.motif.toUpperCase()} : ${spa.nombre}`]);
+        detailsData.push([`${nettoyerMotif(spa.motif.toUpperCase())} : ${spa.nombre}`]);
       });
   
       Object.entries(groupedMotifs).forEach(([motif, absences]) => {
         if (!isIndisponible(motif)) {
-          detailsData.push([`${motif} : ${absences.length}`]);
+          detailsData.push([`${nettoyerMotif(motif)} : ${absences.length}`]);
         }
       });
   
@@ -1622,7 +1631,7 @@ content += 'FIN RASOLOFONIARY';
   
       Object.entries(groupedMotifs).forEach(([motif, absences]) => {
         if (isIndisponible(motif)) {
-          detailsData.push([`${motif} : ${absences.length}`]);
+          detailsData.push([`${nettoyerMotif(motif)} : ${absences.length}`]);
         }
       });
     }
@@ -2426,7 +2435,7 @@ content += 'FIN RASOLOFONIARY';
                                               <tbody>
                                                 {paginatedAbsences.map((entry, index) => (
                                                   <tr key={index}>
-                                                    <td>{entry.motif}</td>
+                                                    <td>{nettoyerMotif(entry.motif)}</td>
                                                     <td><span className="badge bg-primary">{entry.count}</span></td>
                                                   </tr>
                                                 ))}
@@ -2477,7 +2486,7 @@ content += 'FIN RASOLOFONIARY';
                                                 paginatedSpa.map((spa, index) => (
                                                   <tr key={index}>
                                                     <td>
-                                                      {spa.motif} <span className="badge bg-info">[Spécial]</span>
+                                                      {nettoyerMotif(spa.motif)} <span className="badge bg-info">[Spécial]</span>
                                                     </td>
                                                     <td>
                                                       <span className="badge bg-warning">{spa.nombre}</span>
@@ -2809,12 +2818,12 @@ content += 'FIN RASOLOFONIARY';
                                           >
                                             <div className="d-flex justify-content-between align-items-center mb-2" style={{ borderBottom: '1px solid #ccc', paddingBottom: '5px' }}>
                                               <h5 style={{ margin: 0 }}>
-                                                {motif} ({absences.length})
+                                                {nettoyerMotif(motif)} ({absences.length})
                                               </h5>
                                               <button 
                                                 className="btn btn-sm btn-danger"
                                                 onClick={() => handleSupprimerMotif(motif)}
-                                                title={`Supprimer le motif "${motif}" et toutes ses absences`}
+                                                title={`Supprimer le motif "${nettoyerMotif(motif)}" et toutes ses absences`}
                                                 style={{ height: '30px', padding: '0 8px' }}
                                               >
                                                 ×
