@@ -359,29 +359,28 @@ const asArray = (v) => (Array.isArray(v) ? v : []);
   };
 
   const handleDelete = async (id) => {
-  if (!canManage) return;
-  // TODO: réactiver la confirmation de suppression plus tard
-  // const result = await Swal.fire({
-  //   title: 'Êtes-vous sûr ?',
-  //   text: "Cette action est irréversible !",
-  //   icon: 'warning',
-  //   showCancelButton: true,
-  //   confirmButtonColor: '#d33',
-  //   cancelButtonColor: '#3085d6',
-  //   confirmButtonText: 'Oui, supprimer',
-  //   cancelButtonText: 'Annuler',
-  // });
-  // if (result.isConfirmed) {
-    try {
-      await cadreService.delete(id);
-      await fetchCadre();
-      // Swal.fire('Supprimé !', 'Le cadre a été supprimé.', 'success');
-    } catch (error) {
-      console.error("Erreur lors de la suppression :", error);
-      Swal.fire('Erreur', "La suppression a échoué.", 'error');
+    if (!canManage) return;
+    const result = await Swal.fire({
+      title: 'Êtes-vous sûr ?',
+      text: "Cette action est irréversible !",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Oui, supprimer',
+      cancelButtonText: 'Annuler',
+    });
+    if (result.isConfirmed) {
+      try {
+        await cadreService.delete(id);
+        await fetchCadre();
+        Swal.fire('Supprimé !', 'Le cadre a été supprimé.', 'success');
+      } catch (error) {
+        console.error("Erreur lors de la suppression :", error);
+        Swal.fire('Erreur', "La suppression a échoué.", 'error');
+      }
     }
-  // }
-};
+  };
 
   const columns = [
     {
