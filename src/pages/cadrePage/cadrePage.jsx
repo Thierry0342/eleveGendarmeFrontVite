@@ -5,6 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import cadreService from '../../services/cadre-service';
 import DataTable from 'react-data-table-component';
 import Swal from 'sweetalert2';
+import { getCurrentUserType } from '../../utils/auth';
 
 // ===================== CONSTANTES =====================
 
@@ -216,6 +217,8 @@ const CadreFormBootstrap = () => {
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [activeStep, setActiveStep] = useState(STEP_DEFS[0].id);
+  const userType = getCurrentUserType();
+  const canManage = userType !== 'user';
 
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
@@ -296,6 +299,7 @@ const CadreFormBootstrap = () => {
   };
 const asArray = (v) => (Array.isArray(v) ? v : []);
  const handleEdit = (cadre) => {
+ if (!canManage) return;
   setFormData({
     ...INITIAL_FORM,
     ...cadre,
@@ -355,27 +359,29 @@ const asArray = (v) => (Array.isArray(v) ? v : []);
   };
 
   const handleDelete = async (id) => {
-    const result = await Swal.fire({
-      title: 'Êtes-vous sûr ?',
-      text: "Cette action est irréversible !",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Oui, supprimer',
-      cancelButtonText: 'Annuler',
-    });
-    if (result.isConfirmed) {
-      try {
-        await cadreService.delete(id);
-        await fetchCadre();
-        Swal.fire('Supprimé !', 'Le cadre a été supprimé.', 'success');
-      } catch (error) {
-        console.error("Erreur lors de la suppression :", error);
-        Swal.fire('Erreur', "La suppression a échoué.", 'error');
-      }
+  if (!canManage) return;
+  // TODO: réactiver la confirmation de suppression plus tard
+  // const result = await Swal.fire({
+  //   title: 'Êtes-vous sûr ?',
+  //   text: "Cette action est irréversible !",
+  //   icon: 'warning',
+  //   showCancelButton: true,
+  //   confirmButtonColor: '#d33',
+  //   cancelButtonColor: '#3085d6',
+  //   confirmButtonText: 'Oui, supprimer',
+  //   cancelButtonText: 'Annuler',
+  // });
+  // if (result.isConfirmed) {
+    try {
+      await cadreService.delete(id);
+      await fetchCadre();
+      // Swal.fire('Supprimé !', 'Le cadre a été supprimé.', 'success');
+    } catch (error) {
+      console.error("Erreur lors de la suppression :", error);
+      Swal.fire('Erreur', "La suppression a échoué.", 'error');
     }
-  };
+  // }
+};
 
   const columns = [
     {
@@ -388,17 +394,20 @@ const asArray = (v) => (Array.isArray(v) ? v : []);
         </div>
       ),
     },
-    { name: 'Nom', selector: row => row.nom, sortable: true },
-    { name: 'Prénom', selector: row => row.prenom, sortable: true },
-    { name: 'Grade', selector: row => row.grade, sortable: true },
-    { name: 'Matricule', selector: row => row.matricule, sortable: true },
-    {
-      name: 'Actions', width: '150px',
-      cell: row => (
+    
+    { name: 'Nom', selector: row => row.grade+" "+row.nom, sortable: true },
+    
+    
+    { name: 'MLE', selector: row => row.matricule, sortable: true ,width: '70px'},
+   {
+  name: 'Actions', width: '150px',
+  cell: row => (
+    <>
+      <button className="btn btn-outline-secondary btn-sm me-1" title="Voir la fiche complète" onClick={() => navigate(`/cadre/${row.matricule}`)}>
+        <i className="fa fa-eye"></i>
+      </button>
+      {canManage && (
         <>
-          <button className="btn btn-outline-secondary btn-sm me-1" title="Voir la fiche complète" onClick={() => navigate(`/cadre/${row.matricule}`)}>
-            <i className="fa fa-eye"></i>
-          </button>
           <button className="btn btn-warning btn-sm me-1" title="Modifier ici" onClick={() => handleEdit(row)}>
             <i className="fa fa-edit"></i>
           </button>
@@ -406,8 +415,10 @@ const asArray = (v) => (Array.isArray(v) ? v : []);
             <i className="fa fa-trash"></i>
           </button>
         </>
-      ),
-    },
+      )}
+    </>
+  ),
+},
   ];
 
   const stepIndex = STEP_DEFS.findIndex((s) => s.id === activeStep);

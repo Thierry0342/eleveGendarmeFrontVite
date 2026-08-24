@@ -17,8 +17,9 @@ import PermissionPage from './pages/permissioPage/permissionPage';
 import PrivateRoute from '../PrivateRoute'; 
 import CadreListPage from './pages/cadrePage/CadreListPage';
 import CadreDetailPage from './pages/cadrePage/CadreDetailPage';
+import CadreEntry from './pages/cadrePage/CadreEntry';
 
-
+const CADRE_ALLOWED_ROLES = ['superadmin', 'admin', 'user', 'peda'];
 import '@fortawesome/fontawesome-free/css/all.min.css';
 
 import './index.css';
@@ -39,14 +40,14 @@ function AppRoutes() {
           <Route path="/eleve/listeEleveGendarme"element={<PrivateRoute allowedRoles={['superadmin','admin','user','saisie','peda']}> <ListeElevePge /></PrivateRoute>} />
           <Route path="/admin/" element={<PrivateRoute allowedRoles={['superadmin']}><CourPage /></PrivateRoute>} />
           <Route path="/eleve/absence" element={<PrivateRoute allowedRoles={['user','saisie','superadmin','spa']}><AbsencePage /></PrivateRoute>} />
-          <Route path="/cadre" element={<PrivateRoute allowedRoles={['admin']} ><CadrePage /></PrivateRoute>} />
+        <Route path="/cadre"element={<PrivateRoute allowedRoles={CADRE_ALLOWED_ROLES}><CadreEntry /></PrivateRoute> }/>
           <Route path="/eleve/consultation" element={<PrivateRoute allowedRoles={['superadmin','admin','user']}><ConsultationPage /></PrivateRoute>} />
           <Route path="/Statistique"  element={<PrivateRoute allowedRoles={['user','superadmin']}><StatePage /></PrivateRoute>} />
           <Route path="/eleves/diplome"  element={<PrivateRoute allowedRoles={['admin','user','superadmin']}><DiverPage /></PrivateRoute>} />
           <Route path="/parametres-ip" element={<ParametreIpPage />} />
           <Route path="/eleve/permission" element={<PrivateRoute allowedRoles={['admin','superadmin','user']}><PermissionPage /></PrivateRoute>} />
-          <Route path="/cadre/:matricule" element={<PrivateRoute allowedRoles={['admin']} ><CadreDetailPage /></PrivateRoute>} />
-         <Route path="/cadre-form" element={<PrivateRoute allowedRoles={['admin']} ><CadreListPage /></PrivateRoute>} />
+          <Route path="/cadre/:matricule" element={ <PrivateRoute allowedRoles={CADRE_ALLOWED_ROLES}><CadreDetailPage /></PrivateRoute> }/>
+         <Route path="/cadre-form"element={<PrivateRoute allowedRoles={CADRE_ALLOWED_ROLES}><CadreListPage /></PrivateRoute>}/>
           <Route path="/auth" element={<AuthPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

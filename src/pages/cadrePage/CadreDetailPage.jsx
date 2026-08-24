@@ -5,6 +5,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import cadreService from '../../services/cadre-service';
 
+import { getCurrentUserType } from '../../utils/auth';
+
 // Ajuste selon la route réelle de ta page de création/édition.
 const CADRE_FORM_ROUTE = '/cadre-form';
 
@@ -68,6 +70,8 @@ const CadreDetailPage = () => {
   const [cadre, setCadre] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+   const userType = getCurrentUserType();
+  const canManage = userType === 'admin' || userType === 'superadmin';
 
   useEffect(() => {
     let mounted = true;
@@ -91,7 +95,7 @@ const CadreDetailPage = () => {
   }, [matricule]);
 
   const handleDelete = async () => {
-    if (!cadre) return;
+      if (!cadre || !canManage) return;
     const result = await Swal.fire({
       title: 'Êtes-vous sûr ?',
       text: `Supprimer définitivement la fiche de ${cadre.nom} ${cadre.prenom} ?`,
@@ -115,8 +119,7 @@ const CadreDetailPage = () => {
   };
 
   const handleEdit = () => {
-    // Transmet la fiche au formulaire via l'état de navigation, pour
-    // pré-remplir directement le mode édition (voir CadreFormBootstrap).
+    if (!canManage) return;
     navigate(CADRE_FORM_ROUTE, { state: { editCadre: cadre } });
   };
 
@@ -152,18 +155,20 @@ const CadreDetailPage = () => {
     <div className="cadre-app py-4">
       <div className="container-fluid px-4">
         <div className="cadre-page-header">
-          <button className="btn btn-outline-secondary btn-sm" onClick={() => navigate('/cadre-form')}>
-            <i className="fa fa-arrow-left me-1"></i> Retour au répertoire
-          </button>
-          <div className="d-flex gap-2">
-            <button className="btn btn-warning btn-sm" onClick={handleEdit}>
-              <i className="fa fa-edit me-1"></i> Modifier
-            </button>
-            <button className="btn btn-outline-danger btn-sm" onClick={handleDelete}>
-              <i className="fa fa-trash me-1"></i> Supprimer
-            </button>
-          </div>
-        </div>
+  <button className="btn btn-outline-secondary btn-sm" onClick={() => navigate('/cadre-form')}>
+    <i className="fa fa-arrow-left me-1"></i> Retour au répertoire
+  </button>
+  {canManage && (
+    <div className="d-flex gap-2">
+      <button className="btn btn-warning btn-sm" onClick={handleEdit}>
+        <i className="fa fa-edit me-1"></i> Modifier
+      </button>
+      <button className="btn btn-outline-danger btn-sm" onClick={handleDelete}>
+        <i className="fa fa-trash me-1"></i> Supprimer
+      </button>
+    </div>
+  )}
+</div>
 
         {/* ----- En-tête profil ----- */}
         <div className="detail-hero">
