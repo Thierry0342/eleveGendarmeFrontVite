@@ -22,6 +22,60 @@ const SECTION_ANCHORS = [
   { id: 'divers', label: 'Divers' },
 ];
 
+// ----- Helpers de parsing -----
+
+// Certains champs reviennent de l'API comme des chaînes JSON stringifiées
+// (ex: "enfants": "[{...}]" au lieu de "enfants": [{...}]).
+// Ces helpers normalisent le champ, qu'il soit déjà un objet/tableau ou une string.
+const safeParseArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.warn('Impossible de parser un champ tableau JSON :', e, value);
+      return [];
+    }
+  }
+  return [];
+};
+
+const safeParseObject = (value) => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (e) {
+      console.warn('Impossible de parser un champ objet JSON :', e, value);
+      return {};
+    }
+  }
+  return {};
+};
+
+// Normalise un objet "cadre" brut venant de l'API : parse tous les champs
+// qui sont stockés en base sous forme de JSON stringifié.
+const normalizeCadre = (raw) => {
+  if (!raw) return raw;
+  return {
+    ...raw,
+    enfants: safeParseArray(raw.enfants),
+    servicesMilitaires: safeParseArray(raw.servicesMilitaires),
+    gradesSuccessifs: safeParseArray(raw.gradesSuccessifs),
+    decorations: safeParseArray(raw.decorations),
+    felicitations: safeParseArray(raw.felicitations),
+    punitions: safeParseArray(raw.punitions),
+    diplomes: safeParseArray(raw.diplomes),
+    serments: safeParseArray(raw.serments),
+    affectations: safeParseArray(raw.affectations),
+    relationsInterets: safeParseArray(raw.relationsInterets),
+    sanitairePATC: safeParseObject(raw.sanitairePATC),
+    sanitaireCREFA: safeParseObject(raw.sanitaireCREFA),
+  };
+};
+
 // ----- Petits composants d'affichage -----
 
 const InfoRow = ({ label, value, colClass = "col-md-4" }) => (
@@ -70,7 +124,7 @@ const CadreDetailPage = () => {
   const [cadre, setCadre] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-   const userType = getCurrentUserType();
+  const userType = getCurrentUserType();
   const canManage = userType === 'admin' || userType === 'superadmin';
 
   useEffect(() => {
@@ -83,7 +137,7 @@ const CadreDetailPage = () => {
         if (!response.data) {
           setNotFound(true);
         } else {
-          setCadre(response.data);
+          setCadre(normalizeCadre(response.data));
         }
       })
       .catch((error) => {
@@ -95,7 +149,7 @@ const CadreDetailPage = () => {
   }, [matricule]);
 
   const handleDelete = async () => {
-      if (!cadre || !canManage) return;
+    if (!cadre || !canManage) return;
     const result = await Swal.fire({
       title: 'Êtes-vous sûr ?',
       text: `Supprimer définitivement la fiche de ${cadre.nom} ${cadre.prenom} ?`,
@@ -155,20 +209,20 @@ const CadreDetailPage = () => {
     <div className="cadre-app py-4">
       <div className="container-fluid px-4">
         <div className="cadre-page-header">
-  <button className="btn btn-outline-secondary btn-sm" onClick={() => navigate('/cadre-form')}>
-    <i className="fa fa-arrow-left me-1"></i> Retour au répertoire
-  </button>
-  {canManage && (
-    <div className="d-flex gap-2">
-      <button className="btn btn-warning btn-sm" onClick={handleEdit}>
-        <i className="fa fa-edit me-1"></i> Modifier
-      </button>
-      <button className="btn btn-outline-danger btn-sm" onClick={handleDelete}>
-        <i className="fa fa-trash me-1"></i> Supprimer
-      </button>
-    </div>
-  )}
-</div>
+          <button className="btn btn-outline-secondary btn-sm" onClick={() => navigate('/cadre-form')}>
+            <i className="fa fa-arrow-left me-1"></i> Retour au répertoire
+          </button>
+          {canManage && (
+            <div className="d-flex gap-2">
+              <button className="btn btn-warning btn-sm" onClick={handleEdit}>
+                <i className="fa fa-edit me-1"></i> Modifier
+              </button>
+              <button className="btn btn-outline-danger btn-sm" onClick={handleDelete}>
+                <i className="fa fa-trash me-1"></i> Supprimer
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* ----- En-tête profil ----- */}
         <div className="detail-hero">
@@ -224,7 +278,7 @@ const CadreDetailPage = () => {
             <InfoRow label="Lieu de naissance" value={cadre.lieuNaissance} />
             <InfoRow label="Sexe" value={cadre.sexe} />
             <InfoRow label="Groupe sanguin" value={cadre.groupeSanguin} />
-            <InfoRow label="Taille" value={cadre.taille ? `${cadre.taille} m` : ''} />
+            <InfoRow label="Taille" value={cadre.taille ? `${cadre.taille}` : ''} />
             <InfoRow label="Groupe ethnique" value={cadre.groupeEthnique} />
             <InfoRow label="Religion" value={cadre.religion} />
             <InfoRow label="Fils/Fille de (père)" value={cadre.pereNomPrenom} />
