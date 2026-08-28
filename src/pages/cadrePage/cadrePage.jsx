@@ -11,8 +11,8 @@ import { getCurrentUserType } from '../../utils/auth';
 
 const GRADES = [
   "GST", "G2C", "G1C", "GHC", "GP2C", "GP1C", "GPHC", "GPCE",
-  "SOUS-LIEUTENANT","LIEUTENANT", "CAPITAINE", "CHEF D'ESCADRON", "LIEUTENANT-COLONEL",
-  "COLONEL", "GÉNÉRAL DE BRIGADE", "GÉNÉRAL DE DIVISION",
+  "SLT","LTN", "CNE", "CEN", "LCL",
+  "COL"
 ];
 
 const SERVICES = [
