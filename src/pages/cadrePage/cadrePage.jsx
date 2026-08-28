@@ -120,6 +120,58 @@ const STEP_DEFS = [
     check: (f) => f.nombrePiecesJointes || f.nombreFeuillesSupplementaires },
 ];
 
+// ===================== HELPERS DE NORMALISATION =====================
+// L'API renvoie certains champs comme des chaînes JSON stringifiées
+// (ex: "enfants": "[{...}]" au lieu de "enfants": [{...}]).
+// Ces helpers normalisent le champ, qu'il soit déjà un objet/tableau ou une string.
+
+const safeParseArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.warn('Impossible de parser un champ tableau JSON :', e, value);
+      return [];
+    }
+  }
+  return [];
+};
+
+const safeParseObject = (value, fallback) => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === 'object' ? parsed : fallback;
+    } catch (e) {
+      console.warn('Impossible de parser un champ objet JSON :', e, value);
+      return fallback;
+    }
+  }
+  return fallback;
+};
+
+// Normalise un cadre brut venant de l'API : parse tous les champs stockés
+// en base sous forme de JSON stringifié, pour qu'ils soient exploitables
+// à la fois dans le tableau et dans le formulaire d'édition.
+const normalizeCadre = (raw) => ({
+  ...raw,
+  enfants: safeParseArray(raw.enfants),
+  servicesMilitaires: safeParseArray(raw.servicesMilitaires),
+  gradesSuccessifs: safeParseArray(raw.gradesSuccessifs),
+  decorations: safeParseArray(raw.decorations),
+  felicitations: safeParseArray(raw.felicitations),
+  punitions: safeParseArray(raw.punitions),
+  diplomes: safeParseArray(raw.diplomes),
+  serments: safeParseArray(raw.serments),
+  affectations: safeParseArray(raw.affectations),
+  relationsInterets: safeParseArray(raw.relationsInterets),
+  sanitairePATC: safeParseObject(raw.sanitairePATC, INITIAL_FORM.sanitairePATC),
+  sanitaireCREFA: safeParseObject(raw.sanitaireCREFA, INITIAL_FORM.sanitaireCREFA),
+});
+
 // ===================== COMPOSANTS UTILITAIRES =====================
 
 const Field = ({ label, name, value, onChange, type = "text", options = null, colClass = "col-md-4", required = false }) => (
@@ -232,7 +284,12 @@ const CadreFormBootstrap = () => {
   const fetchCadre = async () => {
     try {
       const response = await cadreService.getAll();
-      setCadres(response.data);
+      // On normalise chaque cadre dès la récupération : les champs JSON
+      // stringifiés (enfants, grades, décorations...) sont parsés une seule
+      // fois ici, pour que le tableau ET le formulaire d'édition (handleEdit)
+      // travaillent tous les deux sur des données déjà propres.
+      const rawList = Array.isArray(response.data) ? response.data : [];
+      setCadres(rawList.map(normalizeCadre));
     } catch (error) {
       console.error('Erreur de chargement des cadres', error);
     }
@@ -297,26 +354,48 @@ const CadreFormBootstrap = () => {
       Swal.fire('Erreur', "L'ajout a échoué.", 'error');
     }
   };
-const asArray = (v) => (Array.isArray(v) ? v : []);
- const handleEdit = (cadre) => {
- if (!canManage) return;
-  setFormData({
-    ...INITIAL_FORM,
-    ...cadre,
-    enfants: asArray(cadre.enfants),
-    servicesMilitaires: asArray(cadre.servicesMilitaires),
-    gradesSuccessifs: asArray(cadre.gradesSuccessifs),
-    decorations: asArray(cadre.decorations),
-    felicitations: asArray(cadre.felicitations),
-    punitions: asArray(cadre.punitions),
-    diplomes: asArray(cadre.diplomes),
-    serments: asArray(cadre.serments),
-    affectations: asArray(cadre.affectations),
-    relationsInterets: asArray(cadre.relationsInterets),
-    sanitairePATC: cadre.sanitairePATC && typeof cadre.sanitairePATC === 'object' ? cadre.sanitairePATC : INITIAL_FORM.sanitairePATC,
-    sanitaireCREFA: cadre.sanitaireCREFA && typeof cadre.sanitaireCREFA === 'object' ? cadre.sanitaireCREFA : INITIAL_FORM.sanitaireCREFA,
-  });
-    setEditingId(cadre.id);
+
+  // IMPORTANT : le `row` qui vient du tableau (donc de cadreService.getAll())
+  // est parfois une version allégée de la fiche — certains backends ne
+  // renvoient pas les gros champs JSON (enfants, grades, décorations...)
+  // dans le listing pour ne pas alourdir la réponse. C'est pour ça que
+  // "voir la fiche complète" (qui utilise getbyMat) affichait tout, alors
+  // que "Modifier ici" affichait des onglets vides : on remplissait le
+  // formulaire avec des données potentiellement incomplètes.
+  //
+  // Pour être sûr d'avoir toutes les données, on va chercher la fiche
+  // complète par matricule (même endpoint que CadreDetailPage) avant de
+  // préremplir le formulaire. Si cet appel échoue pour une raison
+  // quelconque, on retombe sur le `row` du tableau en filet de sécurité.
+  const [editLoading, setEditLoading] = useState(false);
+
+  const handleEdit = async (cadre) => {
+    if (!canManage) return;
+   
+
+    setEditLoading(true);
+    let fullCadre = cadre;
+    try {
+      const response = await cadreService.getbyMat(cadre.matricule);
+
+      if (response && response.data) {
+        fullCadre = response.data;
+      
+      }
+    } catch (error) {
+     
+    } finally {
+      setEditLoading(false);
+    }
+
+    const normalized = normalizeCadre(fullCadre);
+   
+
+    setFormData({
+      ...INITIAL_FORM,
+      ...normalized,
+    });
+    setEditingId(normalized.id ?? cadre.id);
     setActiveStep('identification');
     if (photoPreview) URL.revokeObjectURL(photoPreview);
     setPhotoFile(null);
@@ -407,8 +486,8 @@ const asArray = (v) => (Array.isArray(v) ? v : []);
       </button>
       {canManage && (
         <>
-          <button className="btn btn-warning btn-sm me-1" title="Modifier ici" onClick={() => handleEdit(row)}>
-            <i className="fa fa-edit"></i>
+          <button className="btn btn-warning btn-sm me-1" title="Modifier ici" onClick={() => handleEdit(row)} disabled={editLoading}>
+            <i className={`fa ${editLoading ? 'fa-spinner fa-spin' : 'fa-edit'}`}></i>
           </button>
           <button className="btn btn-danger btn-sm" title="Supprimer" onClick={() => handleDelete(row.id)}>
             <i className="fa fa-trash"></i>
