@@ -1268,7 +1268,7 @@ spaSpecialesDuJour.forEach(spa => {
       doc.text("-AMBOSITRA-", 70, finalY + 18);
       doc.text("(EGNA/CAB)", 45, finalY + 22);
   
-      doc.text("- A Monsieur LE LIEUTENANT-COLONEL,", 7, finalY + 30);
+      doc.text("- A Monsieur LE COLONEL,", 7, finalY + 30);
       doc.text("Directeur de l'instruction a l'Ecole de la Gendarmerie nationale", 7, finalY + 35);
       doc.text("-AMBOSITRA-", 70, finalY + 41);
       doc.text("(EGNA/DI)", 45, finalY + 45);
