@@ -1790,6 +1790,7 @@ content += 'FIN RASOLOFONIARY';
                             <option value="A REVOIR CHRR">A REVOIR CHRR</option>
                             <option value="A REVOIR CLINIC MANIA">A REVOIR CLINIC MANIA</option>
                             <option value="A REVOIR IG">A REVOIR IG</option>
+                             <option value="A REVOIR TANA">A REVOIR TANA</option>
                             <option value="AD CEGN">AD CEGN</option>
                             <option value="AD COM DLI">AD COM DLI</option>
                             <option value="AD COM DQG SPORT">AD COM DQG SPORT</option>
