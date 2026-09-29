@@ -5020,22 +5020,24 @@ async function exportRepartitionEquitableExcel(elevesModifies, cases, resume) {
       alignItems: 'center',
     }}
   >
-    <div
-      className="modal-content"
-      style={{
-        maxWidth: '1200px',
-        width: '95%',
-        background: 'white',
-        borderRadius: '12px',
-        padding: '20px',
-        position: 'relative',
-        zIndex: 10000,
-        color: 'black',
-        maxHeight: '90vh',
-        overflow: 'hidden',
-        boxShadow: '0 10px 30px rgba(0,0,0,0.15)'
-      }}
-    >
+   <div
+  className="modal-content"
+  style={{
+    maxWidth: '1200px',
+    width: '95%',
+    background: 'white',
+    borderRadius: '12px',
+    padding: '20px',
+    position: 'relative',
+    zIndex: 10000,
+    color: 'black',
+    maxHeight: '90vh',
+    overflow: 'hidden',
+    display: 'flex',            // AJOUT
+    flexDirection: 'column',    // AJOUT
+    boxShadow: '0 10px 30px rgba(0,0,0,0.15)'
+  }}
+>
       <button
         style={{ position: 'absolute', top: 10, right: 10, fontSize: '24px', background: 'transparent', border: 'none', cursor: 'pointer' }}
         onClick={handleCloseNoteModal}
@@ -5048,11 +5050,20 @@ async function exportRepartitionEquitableExcel(elevesModifies, cases, resume) {
       </h5>
 
       {/* ======= 2 colonnes x 2 lignes ======= */}
-      <div className="row g-3" style={{height: 'calc(90vh - 90px)'}}>
+      <div
+  className="row g-3"
+  style={{
+    flex: 1,
+    minHeight: 0,
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    paddingBottom: '12px',
+  }}
+>
 
         {/* ================= COL 1 (ligne 1) : NOTES ================= */}
         <div className="col-12 col-lg-6 d-flex">
-          <div className="card shadow-sm border-0 w-100 d-flex flex-column h-100">
+          <div className="card shadow-sm border-0 w-100 d-flex flex-column">
             <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
               <span>Notes (aperçu)</span>
               {(user?.type !== 'saisie' && user?.type !== 'user') && (
@@ -5092,7 +5103,7 @@ async function exportRepartitionEquitableExcel(elevesModifies, cases, resume) {
 
         {/* ============ COL 2 (ligne 1) : CONSULTATIONS EXTERNES ============ */}
         <div className="col-12 col-lg-6 d-flex">
-          <div className="card shadow-sm border-0 w-100 d-flex flex-column h-100">
+          <div className="card shadow-sm border-0 w-100 d-flex flex-column">
             <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
               <span>Consultations externes</span>
               <span className="badge bg-secondary">{consultationsEleve?.length || 0}</span>
@@ -5175,7 +5186,7 @@ async function exportRepartitionEquitableExcel(elevesModifies, cases, resume) {
 
         {/* ================= COL 3 (ligne 2) : ABSENCES ================= */}
         <div className="col-12 col-lg-6 d-flex">
-          <div className="card shadow-sm border-0 w-100 d-flex flex-column h-100">
+         <div className="card shadow-sm border-0 w-100 d-flex flex-column">
             <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
               <span>Absences</span>
               <span className="badge bg-secondary">{absencesEleve?.length || 0}</span>
@@ -5297,7 +5308,7 @@ async function exportRepartitionEquitableExcel(elevesModifies, cases, resume) {
 
 {/* ================= COL 4 (ligne 2) : SANCTIONS ================= */}
 <div className="col-12 col-lg-6 d-flex">
-  <div className="card shadow-sm border-0 w-100 d-flex flex-column h-100">
+  <div className="card shadow-sm border-0 w-100 d-flex flex-column">
     <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
       <span>Sanctions</span>
       <div className="d-flex gap-2">
@@ -5470,7 +5481,7 @@ async function exportRepartitionEquitableExcel(elevesModifies, cases, resume) {
 </div>
 {/* ================= OBSERVATION ================= */}
 <div className="col-12 d-flex">
-  <div className="card shadow-sm border-0 w-100 d-flex flex-column h-100">
+ <div className="card shadow-sm border-0 w-100 d-flex flex-column">
     <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
       <span>Observations</span>
       <span className="badge bg-secondary">{observations?.length || 0}</span>

@@ -930,9 +930,10 @@ const handleExportConsultationsPDF = (joursParEleve, dateServeur, joursSup = 0) 
 };
 
 
-  return (
-    <div className="container mt-4">
-      <div className="row">
+ 
+   return (
+  <div className="container-fluid mt-4 px-4">
+    <div className="row">
         {/* Colonne gauche : statistiques */}
         
         <div className="col-md-6">
@@ -1859,8 +1860,8 @@ const handleExportConsultationsPDF = (joursParEleve, dateServeur, joursSup = 0) 
     </div>
                   
 
-                  <div className="container mt-4">
-                  <div className="bg-light p-3 rounded shadow-sm mb-4 text-center">
+                 <div className="container-fluid mt-4 px-0">
+  <div className="bg-light p-3 rounded shadow-sm mb-4 text-center">
                     <h5 className="fw-bold m-0">
                       <i className="fa fa-flag text-danger me-2"></i>
                       Situation de Prise d'Arme

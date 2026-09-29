@@ -33,3 +33,6 @@
 .datatable-fixed-header {
   overflow: visible !important;
 }
+.fiche-scroll::-webkit-scrollbar { width: 10px; }
+.fiche-scroll::-webkit-scrollbar-thumb { background: #b6c2d1; border-radius: 8px; }
+.fiche-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
