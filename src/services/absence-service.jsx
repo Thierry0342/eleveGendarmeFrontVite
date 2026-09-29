@@ -22,6 +22,10 @@ const absenceService = {
   delete(id) {
     return axiosInstance.delete(`${API_URL}/api/absence/${id}`);
   },
+  getHistorique(eleveId) {
+  return http.get(`/absence/historique/${eleveId}`);
+}
 };
+
 
 export default absenceService;

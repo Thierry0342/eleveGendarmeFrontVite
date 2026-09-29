@@ -49,6 +49,7 @@ const [errorConsultationsEleve, setErrorConsultationsEleve] = useState(null);
 const [absencesEleve, setAbsencesEleve] = useState([]);
 const [loadingAbsencesEleve, setLoadingAbsencesEleve] = useState(false);
 const [errorAbsencesEleve, setErrorAbsencesEleve] = useState(null);
+const [ancAbsences, setAncAbsences] = useState([]);
 const [absDaysMap, setAbsDaysMap] = React.useState({});        // { [eleveId]: number }
 const [consDaysMap, setConsDaysMap] = React.useState({});      // { [eleveId]: number }
 const [hasSanctionMap, setHasSanctionMap] = React.useState({});// { [eleveId]: boolean }
@@ -114,6 +115,7 @@ const fadyList = [...new Set(eleves.map(e => e.fady).filter(Boolean))].sort((a, 
   const handleCloseNoteModal = () => {
     setNoteModalOpen(false);
     setSelectedEleve(null);
+    setAncAbsences([]);
     setNotes({
       finfetta: '',
       mistage: '',
@@ -485,6 +487,16 @@ React.useEffect(() => {
     }
   })();
 
+  return () => { off = true; };
+}, [noteModalOpen, selectedEleve?.Id, selectedEleve?.id]);
+
+React.useEffect(() => {
+  const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
+  if (!noteModalOpen || !eleveId) return;
+  let off = false;
+  absenceService.getHistorique(eleveId)
+    .then(({ data }) => { if (!off) setAncAbsences(Array.isArray(data) ? data : []); })
+    .catch(() => { if (!off) setAncAbsences([]); });
   return () => { off = true; };
 }, [noteModalOpen, selectedEleve?.Id, selectedEleve?.id]);
 
@@ -5232,6 +5244,56 @@ async function exportRepartitionEquitableExcel(elevesModifies, cases, resume) {
             </div>
           </div>
         </div>
+        {/* ===== ABSENCES DES COURS PRÉCÉDENTS (redoublant) ===== */}
+{ancAbsences.map((h) => {
+  const groups = {};
+  h.absences.forEach((a) => {
+    const key = normalizeKey(getMotifAbs(a));
+    const label = String(getMotifAbs(a) || "Sans motif").trim();
+    const v = parseNumberFlexible(getNombreAbs(a)) ?? 1;
+    if (!groups[key]) groups[key] = { label, count: 0, sum: 0 };
+    groups[key].count += 1;
+    groups[key].sum += v;
+  });
+  const rows = Object.values(groups);
+  const total = rows.reduce((s, r) => s + r.sum, 0);
+
+  return (
+    <div className="col-12 col-lg-6 d-flex" key={`anc-${h.cour}`}>
+      <div className="card shadow-sm w-100 d-flex flex-column h-100"
+           style={{ border: "2px dashed #f0ad4e" }}>
+        <div className="card-header fw-semibold d-flex justify-content-between align-items-center"
+             style={{ background: "#fff3cd", color: "#8a6d3b" }}>
+          <span>Absences — Cours {h.cour} (redoublement)</span>
+          <span className="badge bg-warning text-dark">{total} j</span>
+        </div>
+        <div className="card-body p-2" style={{ overflowY: "auto" }}>
+          <small className="text-muted">
+            Ancien dossier : Inc. {h.numeroIncorporation} · Esc. {h.escadron}/{h.peloton}
+          </small>
+          <div className="table-responsive mt-2">
+            <table className="table table-sm table-bordered align-middle">
+              <thead>
+                <tr><th>#</th><th>Motif</th><th>Nombre</th><th>Total</th></tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i}><td>{i + 1}</td><td>{r.label}</td><td>{r.count}</td><td>{r.sum}</td></tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th colSpan={3} style={{ textAlign: "right" }}>Total cours {h.cour}</th>
+                  <th><span className="badge bg-warning text-dark">{total}</span></th>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+})}
 
 {/* ================= COL 4 (ligne 2) : SANCTIONS ================= */}
 <div className="col-12 col-lg-6 d-flex">
