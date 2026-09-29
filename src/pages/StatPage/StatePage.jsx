@@ -59,6 +59,8 @@ const StatePage = () => {
     const [patcsByEleve, setPatcsByEleve] = useState({});
     const [searchRecap, setSearchRecap] = useState('');
     const [currentPage2, setCurrentPage2] = useState(1);
+    const [ancRecap, setAncRecap] = useState([]);
+    const [searchAnc, setSearchAnc] = useState('');
     const itemsPerPage2 = 5; // Changez ce nombre pour afficher plus ou moins de lignes par page
 
   //paggination
@@ -531,6 +533,15 @@ useEffect(() => {
   }
 }, [cour, dateServeur]);
 
+useEffect(() => {
+  if (!cour) { setAncRecap([]); return; }
+  let off = false;
+  absenceService.getHistoriqueByCour(cour)
+    .then(({ data }) => { if (!off) setAncRecap(Array.isArray(data) ? data : []); })
+    .catch(() => { if (!off) setAncRecap([]); });
+  return () => { off = true; };
+}, [cour]);
+
   //get all absence 
   const fetchAbsence =()=> {
    
@@ -645,6 +656,26 @@ const recapParEleveTotal = React.useMemo(() => {
   });
   return Object.values(map).sort((a, b) => b.total - a.total);
 }, [motifData]);
+const ancRecapView = React.useMemo(() => {
+  return ancRecap.map(e => {
+    const blocs = e.anciens.map(b => {
+      const m = {};
+      b.absences.forEach(a => {
+        const k = (a.motif || 'Inconnu').trim();
+        if (!m[k]) m[k] = new Set();
+        m[k].add(a.date);
+      });
+      const motifs = Object.entries(m).map(([motif, set]) => ({
+        motif, count: set.size, dates: Array.from(set).sort(),
+      }));
+      return {
+        cour: b.cour, incorp: b.numeroIncorporation, motifs,
+        total: motifs.reduce((s, x) => s + x.count, 0),
+      };
+    });
+    return { ...e, blocs, total: blocs.reduce((s, b) => s + b.total, 0) };
+  }).sort((a, b) => b.total - a.total);
+}, [ancRecap]);
 //export eleve motif am droit
 const exportEleveToExcel = (el) => {
   const rows = [];
@@ -2166,6 +2197,71 @@ const handleExportConsultationsPDF = (joursParEleve, dateServeur, joursSup = 0) 
     })()}
   </div>
 </div>
+{ancRecapView.length > 0 && (
+  <div style={{ marginTop: '2rem' }}>
+    <div style={{
+      background: '#fff3cd', border: '2px dashed #f0ad4e',
+      borderRadius: '12px 12px 0 0', padding: '14px 20px',
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
+    }}>
+      <span style={{ color: '#8a6d3b', fontWeight: 600, fontSize: 15 }}>
+        <i className="fa fa-history me-2"></i>
+        Absences des cours précédents (redoublants) : {ancRecapView.length}
+      </span>
+      <input
+        type="text"
+        placeholder="Rechercher un redoublant..."
+        value={searchAnc}
+        onChange={e => setSearchAnc(e.target.value)}
+        style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #f0ad4e', width: 210, fontSize: 13 }}
+      />
+    </div>
+
+    <div style={{ border: '2px dashed #f0ad4e', borderTop: 'none', borderRadius: '0 0 12px 12px', background: '#fffaf0' }}>
+      {ancRecapView
+        .filter(e =>
+          `${e.nom} ${e.prenom}`.toLowerCase().includes(searchAnc.toLowerCase()) ||
+          String(e.numeroIncorporation).includes(searchAnc)
+        )
+        .map(e => (
+          <div key={e.eleveId} style={{ padding: '10px 20px', borderBottom: '1px solid #f5deb3' }}>
+            <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <div>
+                <strong style={{ fontSize: 13 }}>{e.nom} {e.prenom}</strong>
+                <div style={{ fontSize: 11, color: '#64748b' }}>
+                  Inc. {e.numeroIncorporation} · Esc. {e.escadron} / Pon. {e.peloton} (cours {cour})
+                </div>
+              </div>
+              <span className="badge bg-warning text-dark">{e.total} j (anciens cours)</span>
+            </div>
+
+            {e.blocs.map(b => (
+              <div key={b.cour} style={{ marginTop: 8, paddingLeft: 12, borderLeft: '3px solid #f0ad4e' }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#8a6d3b' }}>
+                  Cours {b.cour} · ancienne Inc. {b.incorp} · {b.total} jour(s)
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                  {b.motifs.map((m, i) => (
+                    <span
+                      key={i}
+                      title={`Dates : ${m.dates.map(d => new Date(d).toLocaleDateString('fr-FR')).join(', ')}`}
+                      style={{
+                        background: '#fff', border: '1px solid #f0ad4e', color: '#8a6d3b',
+                        borderRadius: 20, padding: '2px 8px', fontSize: 11, cursor: 'help',
+                        textTransform: 'capitalize',
+                      }}
+                    >
+                      {m.motif.toLowerCase()} <b>({m.count})</b>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+    </div>
+  </div>
+)}
 
 
                           {/* FIN SPA*/}
