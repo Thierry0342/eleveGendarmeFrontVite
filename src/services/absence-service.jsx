@@ -13,6 +13,11 @@ const absenceService = {
     return axiosInstance.get(API_URL + `/api/absence/eleve/${eleveId}`);
   },
 
+  // 🔹 Historique des cours précédents (redoublants)
+  getHistorique(eleveId) {
+    return axiosInstance.get(API_URL + `/api/absence/historique/${eleveId}`);
+  },
+
   // Créer
   post(data) {
     return axiosInstance.post(API_URL + "/api/absence", data);
@@ -22,10 +27,6 @@ const absenceService = {
   delete(id) {
     return axiosInstance.delete(`${API_URL}/api/absence/${id}`);
   },
-  getHistorique(eleveId) {
-  return http.get(`/absence/historique/${eleveId}`);
-}
 };
-
 
 export default absenceService;
