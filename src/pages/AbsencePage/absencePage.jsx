@@ -1272,9 +1272,14 @@ spaSpecialesDuJour.forEach(spa => {
       doc.text("Directeur de l'instruction a l'Ecole de la Gendarmerie nationale", 7, finalY + 35);
       doc.text("-AMBOSITRA-", 70, finalY + 41);
       doc.text("(EGNA/DI)", 45, finalY + 45);
+
+      doc.text("- A Monsieur LE CHEF D'ESCADRON,", 7, finalY + 53);
+      doc.text("Chef de Service Administratif et Financier", 7, finalY + 58);
+      doc.text("-AMBOSITRA-", 70, finalY + 64);
+      doc.text("(EGNA/SAF)", 45, finalY + 68);
   
   
-      doc.text("- Aux archives,", 7, finalY + 50);
+      doc.text("- Aux archives,", 7, finalY + 73);
      doc.text(footer.line1, 120, finalY + 7);
       doc.text(footer.line2, 130, finalY + 17);
       doc.text(footer.line3, 114, finalY + 23);
@@ -1794,7 +1799,7 @@ content += 'FIN RASOLOFONIARY';
                             <option value="AD CEGN">AD CEGN</option>
                             <option value="AD COM DLI">AD COM DLI</option>
                             <option value="AD COM DQG SPORT">AD COM DQG SPORT</option>
-                            <option value="AD FAMILLE">AD FAMILLE</option>
+                            <option value="AD DE SA FAMILLE">AD DE SA FAMILLE</option>
                              <option value="AD GNBC">AD GNBC</option>
                              <option value="AD GNFC">AD GNFC</option>
                              <option value="AD GNVB">AD GNVB</option>
