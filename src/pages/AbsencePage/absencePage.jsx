@@ -1823,6 +1823,7 @@ content += 'FIN RASOLOFONIARY';
                             <option value="DONNEUR DE SANG">DONNEUR DE SANG</option>
                             <option value="EVASAN">EVASAN</option>
                             <option value="GARDE MALADE IG">GARDE MALADE IG</option>
+                            <option value="GARDE MALADE FANDRIANA">GARDE MALADE FANDRIANA</option>
                             <option value="MIS EN OBSERVATION A L IG">MIS EN OBSERVATION A L IG</option>
                             <option value="MISSION">MISSION</option>
                             <option value="MISSION TANA">MISSION TANA</option>
