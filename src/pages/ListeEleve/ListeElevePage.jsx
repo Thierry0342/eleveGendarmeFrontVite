@@ -1,15 +1,15 @@
 import React, { useEffect, useState,useRef } from 'react';
-import EleveService from '../../services/eleveService'; // 
-import NoteService from '../../services/note-service'; // ajuste le chemin selon ton projet
+import EleveService from '../../services/eleveService';
+import NoteService from '../../services/note-service';
 
-import ModalModificationEleve from '../EleveModifPage/EleveModifPage'; // 
+import ModalModificationEleve from '../EleveModifPage/EleveModifPage';
 import Swal from 'sweetalert2';
 import DataTable from 'react-data-table-component';
 import { data } from 'react-router-dom';
 import courService from '../../services/courService';
 import NotefrancaisService from '../../services/notefrancais-service';
-import consultationService from "../../services/consultation-service"; // adapte le chemin
-import absenceService from "../../services/absence-service"; // adapte le chemin
+import consultationService from "../../services/consultation-service";
+import absenceService from "../../services/absence-service";
 import eleveDetailsService from "../../services/eleveDetailsService"
 const user = JSON.parse(localStorage.getItem('user'));
 import ExcelJS from 'exceljs';
@@ -18,14 +18,13 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { Modal, Button } from 'react-bootstrap'; 
 import RepartitionModal from './RepartitionModal';
+import { compareIncorporation, demanderExportWord, exporterRepartitionWord } from './repartitionWord';
 import sanctionService from "../../services/sanction-service";
 import observationService from "../../services/observation-service";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import autoTable from 'jspdf-autotable';
 import './style.css'
-
-//table 
 
 const ListeElevePge = () => {
   const [eleves, setEleves] = useState([]);
@@ -40,53 +39,56 @@ const ListeElevePge = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchText, setSearchText] = useState("");
   const [niveauFilter, setNiveauFilter] = useState("");
-  const [showRepModal, setShowRepModal] = useState(false);4
+  const [showRepModal, setShowRepModal] = useState(false);
   // --- ÉTATS consultation par élève ---
-const [consultationsEleve, setConsultationsEleve] = useState([]);
-const [loadingConsultationsEleve, setLoadingConsultationsEleve] = useState(false);
-const [errorConsultationsEleve, setErrorConsultationsEleve] = useState(null);
-// --- ÉTATS absences par élève ---
-const [absencesEleve, setAbsencesEleve] = useState([]);
-const [loadingAbsencesEleve, setLoadingAbsencesEleve] = useState(false);
-const [errorAbsencesEleve, setErrorAbsencesEleve] = useState(null);
-const [ancAbsences, setAncAbsences] = useState([]);
-const [absDaysMap, setAbsDaysMap] = React.useState({});        // { [eleveId]: number }
-const [consDaysMap, setConsDaysMap] = React.useState({});      // { [eleveId]: number }
-const [hasSanctionMap, setHasSanctionMap] = React.useState({});// { [eleveId]: boolean }
-const [loadingTotals, setLoadingTotals] = React.useState(false);
-const tableRows = React.useMemo(() => (eleves ?? []), [eleves]);
-// --- Sanctions: états ---
-const [sanctions, setSanctions] = useState([]);
-const [loadingSanctions, setLoadingSanctions] = useState(false);
-const [errorSanctions, setErrorSanctions] = useState(null);
-//obs eta
-const [observations, setObservations] = useState([]);
-const [loadingObservations, setLoadingObservations] = useState(false);
-const [errorObservations, setErrorObservations] = useState(null);
-const [observationForm, setObservationForm] = useState({ contenu: "" });
-const [observationEditingId, setObservationEditingId] = useState(null);
+  const [consultationsEleve, setConsultationsEleve] = useState([]);
+  const [loadingConsultationsEleve, setLoadingConsultationsEleve] = useState(false);
+  const [errorConsultationsEleve, setErrorConsultationsEleve] = useState(null);
+  // --- ÉTATS absences par élève ---
+  const [absencesEleve, setAbsencesEleve] = useState([]);
+  const [loadingAbsencesEleve, setLoadingAbsencesEleve] = useState(false);
+  const [errorAbsencesEleve, setErrorAbsencesEleve] = useState(null);
+  const [ancAbsences, setAncAbsences] = useState([]);
+  const [absDaysMap, setAbsDaysMap] = React.useState({});
+  const [consDaysMap, setConsDaysMap] = React.useState({});
+  const [hasSanctionMap, setHasSanctionMap] = React.useState({});
+  const [loadingTotals, setLoadingTotals] = React.useState(false);
+  const tableRows = React.useMemo(() => (eleves ?? []), [eleves]);
+  // --- Sanctions ---
+  const [sanctions, setSanctions] = useState([]);
+  const [loadingSanctions, setLoadingSanctions] = useState(false);
+  const [errorSanctions, setErrorSanctions] = useState(null);
+  // --- Observations ---
+  const [observations, setObservations] = useState([]);
+  const [loadingObservations, setLoadingObservations] = useState(false);
+  const [errorObservations, setErrorObservations] = useState(null);
+  const [observationForm, setObservationForm] = useState({ contenu: "" });
+  const [observationEditingId, setObservationEditingId] = useState(null);
 
-// juste avant le JSX :
-const canEdit = ['peda', 'admin', 'superadmin'].includes(String(user?.type).toLowerCase());
-// Formulaire (seulement pour admin/superadmin)
-const [sanctionForm, setSanctionForm] = useState({ type: "negative", motif: "" });
-const [sanctionEditingId, setSanctionEditingId] = useState(null);
-  // Droit d'édition
-const canEditSanctions = ["admin", "superadmin"].includes(user?.type);
-const [notesByEleve, setNotesByEleve] = React.useState({});
-const [filter, setFilter] = useState({ escadron: '', peloton: '' ,search:'' ,cour:'', centreConcours: "" , lieuNaissance: "",  fady: "",  famille: '',  profession: '' });
-  //maka centre de concours 
+  const canEdit = ['peda', 'admin', 'superadmin'].includes(String(user?.type).toLowerCase());
+  const [sanctionForm, setSanctionForm] = useState({ type: "negative", motif: "" });
+  const [sanctionEditingId, setSanctionEditingId] = useState(null);
+  const canEditSanctions = ["admin", "superadmin"].includes(user?.type);
+  const [notesByEleve, setNotesByEleve] = React.useState({});
+  const [filter, setFilter] = useState({ escadron: '', peloton: '' ,search:'' ,cour:'', centreConcours: "" , lieuNaissance: "",  fady: "",  famille: '',  profession: '' });
+
+  // ✅ NOUVEAU : élèves du cours sélectionné uniquement (base de la répartition par salle)
+  const elevesCour = React.useMemo(
+    () => (filter.cour === '' ? eleves : eleves.filter(e => Number(e.cour) === Number(filter.cour))),
+    [eleves, filter.cour]
+  );
+
   const centreConcoursList = [...new Set(eleves.map(e => e.centreConcours).filter(Boolean))].sort((a, b) =>
-  a.localeCompare(b, 'fr', { sensitivity: 'base' })
-);
+    a.localeCompare(b, 'fr', { sensitivity: 'base' })
+  );
 
-const lieuNaissanceList = [...new Set(eleves.map(e => e.lieuNaissance).filter(Boolean))].sort((a, b) =>
-  a.localeCompare(b, 'fr', { sensitivity: 'base' })
-);
+  const lieuNaissanceList = [...new Set(eleves.map(e => e.lieuNaissance).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, 'fr', { sensitivity: 'base' })
+  );
 
-const fadyList = [...new Set(eleves.map(e => e.fady).filter(Boolean))].sort((a, b) =>
-  a.localeCompare(b, 'fr', { sensitivity: 'base' })
-);
+  const fadyList = [...new Set(eleves.map(e => e.fady).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, 'fr', { sensitivity: 'base' })
+  );
 
   const [notes, setNotes] = useState({
     finfetta: '',
@@ -95,22 +97,18 @@ const fadyList = [...new Set(eleves.map(e => e.fady).filter(Boolean))].sort((a, 
     rangfinfetta:'',
     rangmistage:'',
     rangfinstage:'',
-
   });
 
-
-  
- const [isLoading, setIsLoading] = useState(true);
- const [progress, setProgress] = useState(0);
- const isFirstLoad = useRef(true)
- const handleOpen = () => setShowNoteModal(true);
- const handleClose = () => setShowModal(false);
- const [loading, setLoading] = useState(false);
- const handleOpenNoteModal = (eleve) => {
-  console.log("OUVERTURE MODAL NOTE POUR :", eleve);
-  setSelectedEleve(eleve);
-  setNoteModalOpen(true);
-};
+  const [isLoading, setIsLoading] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const isFirstLoad = useRef(true)
+  const handleOpen = () => setShowNoteModal(true);
+  const handleClose = () => setShowModal(false);
+  const [loading, setLoading] = useState(false);
+  const handleOpenNoteModal = (eleve) => {
+    setSelectedEleve(eleve);
+    setNoteModalOpen(true);
+  };
 
   const handleCloseNoteModal = () => {
     setNoteModalOpen(false);
@@ -149,17 +147,17 @@ const fadyList = [...new Set(eleves.map(e => e.fady).filter(Boolean))].sort((a, 
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '2rem',               // marge autour du modal
+      padding: '2rem',
     },
     modal: {
-      width: 'min(1400px, 98vw)',    // très large
-      height: 'min(92vh, 1000px)',   // très haut
+      width: 'min(1400px, 98vw)',
+      height: 'min(92vh, 1000px)',
       background: '#fff',
       borderRadius: '16px',
       boxShadow: '0 10px 40px rgba(0,0,0,.2)',
       display: 'flex',
       flexDirection: 'column',
-      overflow: 'hidden',            // cache débordement, le body va scroller
+      overflow: 'hidden',
     },
     header: {
       padding: '12px 16px',
@@ -185,55 +183,9 @@ const fadyList = [...new Set(eleves.map(e => e.fady).filter(Boolean))].sort((a, 
       cursor: 'pointer',
     },
   };
-  //note pour chaque eleve 
 
-  /*
-  React.useEffect(() => {
-    const idsInTable = Array.from(
-      new Set(tableRows.map(r => r?.Id ?? r?.id).filter(Boolean))
-    );
-  
-    // ne fetcher que ce qui manque dans le cache
-    const toFetch = idsInTable.filter((id) => !(id in notesByEleve));
-    if (toFetch.length === 0) return;
-  
-    let cancelled = false;
-    (async () => {
-      try {
-        const pairs = await Promise.all(
-          toFetch.map(async (id) => {
-            try {
-              const res = await NoteService.getbyEleveId(id);
-              const d = Array.isArray(res?.data) ? res.data[0] : res?.data;
-              const payload = d ? {
-                finfetta: d.finfetta ?? null,
-                mistage:  d.mistage  ?? null,
-                finstage: d.finstage ?? null,
-              } : null;
-              return [id, payload];
-            } catch {
-              return [id, null];
-            }
-          })
-        );
-        if (cancelled) return;
-        setNotesByEleve((prev) => {
-          const next = { ...prev };
-          pairs.forEach(([id, n]) => { next[id] = n; });
-          return next;
-        });
-      } catch {}
-    })();
-  
-    return () => { cancelled = true; };
-  }, [tableRows, notesByEleve]); 
-  */
-  
-  // ===== 3) HELPERS d'accès/formatage pour les colonnes =====
-  // Utilise ton parseNumberFlexible existant
+  // ===== HELPERS d'accès/formatage pour les colonnes =====
   const getRowNote = (row, field) => {
-    // priorité à row.notes.field si tu l’as déjà dans la ligne,
-    // sinon on prend depuis notesByEleve (fetché via getbyEleveId)
     const direct = row?.notes?.[field] ?? row?.[field];
     if (direct !== undefined && direct !== null && direct !== '') return direct;
     const id = row?.Id ?? row?.id;
@@ -243,7 +195,7 @@ const fadyList = [...new Set(eleves.map(e => e.fady).filter(Boolean))].sort((a, 
   const selectorNoteNumeric = (row, field) => {
     const v = getRowNote(row, field);
     const n = parseNumberFlexible(v);
-    return Number.isFinite(n) ? n : -Infinity; // tri numérique même si valeur absente
+    return Number.isFinite(n) ? n : -Infinity;
   };
   
   const renderNoteCell = (row, field) => {
@@ -291,479 +243,433 @@ const fadyList = [...new Set(eleves.map(e => e.fady).filter(Boolean))].sort((a, 
   
     return matchSearch && matchNiveau;
   });
-   // Filtrer les données selon recherche + filtre catégorie
-  
-  
 
-
-  //repartition 
   const handleUpdateSuccess = () => {
-    setRefreshKey(prev => prev + 1); // va relancer le useEffect
-    handleCloseModal(); // ferme le modal après succès
+    setRefreshKey(prev => prev + 1);
+    handleCloseModal();
   };
 
-  // Helpers
+  const safeSumAbsences = (absList = []) => {
+    return absList.reduce((acc, a) => {
+      let v = parseNumberFlexible(getNombreAbs(a));
+      return acc + (Number.isFinite(v) ? v : 1);
+    }, 0);
+  };
 
-// Helpers dates
-// === HELPERS DATES & KEYS ROBUSTES ===
-//helper note 
-// lit d’abord row.notes[field], puis row[field], puis notesByEleve
+  const safeSumConsultationsDays = (consList = []) => {
+    return consList.reduce((acc, c) => {
+      const start = getStartField(c);
+      const end   = getEndField(c);
+      const nb    = getNbJours(c);
+      const computed = (end && start) ? dayDiffInclusive(start, end) : null;
+      const days  = (nb != null && nb !== "") ? Number(nb) : computed;
+      return acc + (end && Number.isFinite(days) ? days : 0);
+    }, 0);
+  };
+  useEffect(() => {
+    if (!eleves || eleves.length === 0) return;
 
-//
+    const ids = eleves.map(e => e.Id ?? e.id).filter(Boolean);
+    const toFetch = ids.filter(id => 
+      !(id in absDaysMap) || 
+      !(id in consDaysMap) || 
+      !(id in hasSanctionMap) || 
+      !(id in notesByEleve)
+    );
 
+    if (toFetch.length === 0) return;
 
+    let cancelled = false;
+    setLoadingTotals(true);
 
-//les bacth
-const safeSumAbsences = (absList = []) => {
-  return absList.reduce((acc, a) => {
-    let v = parseNumberFlexible(getNombreAbs(a));
-    return acc + (Number.isFinite(v) ? v : 1);
-  }, 0);
-};
+    (async () => {
+      try {
+        const res = await eleveDetailsService.getBatchByIds(toFetch); 
+        if (cancelled) return;
 
-const safeSumConsultationsDays = (consList = []) => {
-  return consList.reduce((acc, c) => {
-    const start = getStartField(c);
-    const end   = getEndField(c);
-    const nb    = getNbJours(c);
-    const computed = (end && start) ? dayDiffInclusive(start, end) : null;
-    const days  = (nb != null && nb !== "") ? Number(nb) : computed;
-    return acc + (end && Number.isFinite(days) ? days : 0);
-  }, 0);
-};
-useEffect(() => {
-  if (!eleves || eleves.length === 0) return;
+        const { absences, consultations, sanctions, notes } = res.data;
 
-  const ids = eleves.map(e => e.Id ?? e.id).filter(Boolean);
-  const toFetch = ids.filter(id => 
-    !(id in absDaysMap) || 
-    !(id in consDaysMap) || 
-    !(id in hasSanctionMap) || 
-    !(id in notesByEleve)
-  );
-
-  if (toFetch.length === 0) return;
-
-  let cancelled = false;
-  setLoadingTotals(true);
-
-  (async () => {
-    try {
-      // API serveur: reçoit un tableau d'IDs et renvoie tout
-      const res = await eleveDetailsService.getBatchByIds(toFetch); 
-      if (cancelled) return;
-
-      const { absences, consultations, sanctions, notes } = res.data;
-
-      // -------------------------------
-      // Absences
-      const absMap = {};
-      absences.forEach(a => {
-        if (!absMap[a.eleveId]) absMap[a.eleveId] = [];
-        absMap[a.eleveId].push(a);
-      });
-
-      // Consultations
-      const consMap = {};
-      consultations.forEach(c => {
-        if (!consMap[c.eleveId]) consMap[c.eleveId] = [];
-        consMap[c.eleveId].push(c);
-      });
-
-      // Sanctions
-      const sancMap = {};
-      sanctions.forEach(s => { sancMap[s.eleveId] = true; });
-
-      // Notes
-      const notesMap = {};
-      notes.forEach(n => {
-        const d = Array.isArray(n) ? n[0] : n;
-        notesMap[d?.eleveId] = d ? {
-          finfetta: d.finfetta ?? null,
-          mistage:  d.mistage  ?? null,
-          finstage: d.finstage ?? null,
-        } : null;
-      });
-
-      // -------------------------------
-      // Mise à jour state en une seule fois par type
-      setAbsDaysMap(prev => {
-        const next = { ...prev };
-        Object.entries(absMap).forEach(([id, list]) => { next[id] = safeSumAbsences(list); });
-        return next;
-      });
-
-      setConsDaysMap(prev => {
-        const next = { ...prev };
-        Object.entries(consMap).forEach(([id, list]) => { next[id] = safeSumConsultationsDays(list); });
-        return next;
-      });
-
-      setHasSanctionMap(prev => ({ ...prev, ...sancMap }));
-      setNotesByEleve(prev => ({ ...prev, ...notesMap }));
-
-    } catch (err) {
-      console.error("Erreur récupération batch:", err);
-      // en cas d'erreur, on met des valeurs par défaut
-      if (!cancelled) {
-        toFetch.forEach(id => {
-          setAbsDaysMap(prev => ({ ...prev, [id]: 0 }));
-          setConsDaysMap(prev => ({ ...prev, [id]: 0 }));
-          setHasSanctionMap(prev => ({ ...prev, [id]: false }));
-          setNotesByEleve(prev => ({ ...prev, [id]: null }));
+        const absMap = {};
+        absences.forEach(a => {
+          if (!absMap[a.eleveId]) absMap[a.eleveId] = [];
+          absMap[a.eleveId].push(a);
         });
+
+        const consMap = {};
+        consultations.forEach(c => {
+          if (!consMap[c.eleveId]) consMap[c.eleveId] = [];
+          consMap[c.eleveId].push(c);
+        });
+
+        const sancMap = {};
+        sanctions.forEach(s => { sancMap[s.eleveId] = true; });
+
+        const notesMap = {};
+        notes.forEach(n => {
+          const d = Array.isArray(n) ? n[0] : n;
+          notesMap[d?.eleveId] = d ? {
+            finfetta: d.finfetta ?? null,
+            mistage:  d.mistage  ?? null,
+            finstage: d.finstage ?? null,
+          } : null;
+        });
+
+        setAbsDaysMap(prev => {
+          const next = { ...prev };
+          Object.entries(absMap).forEach(([id, list]) => { next[id] = safeSumAbsences(list); });
+          return next;
+        });
+
+        setConsDaysMap(prev => {
+          const next = { ...prev };
+          Object.entries(consMap).forEach(([id, list]) => { next[id] = safeSumConsultationsDays(list); });
+          return next;
+        });
+
+        setHasSanctionMap(prev => ({ ...prev, ...sancMap }));
+        setNotesByEleve(prev => ({ ...prev, ...notesMap }));
+
+      } catch (err) {
+        console.error("Erreur récupération batch:", err);
+        if (!cancelled) {
+          toFetch.forEach(id => {
+            setAbsDaysMap(prev => ({ ...prev, [id]: 0 }));
+            setConsDaysMap(prev => ({ ...prev, [id]: 0 }));
+            setHasSanctionMap(prev => ({ ...prev, [id]: false }));
+            setNotesByEleve(prev => ({ ...prev, [id]: null }));
+          });
+        }
+      } finally {
+        if (!cancelled) setLoadingTotals(false);
       }
-    } finally {
-      if (!cancelled) setLoadingTotals(false);
-    }
-  })();
+    })();
 
-  return () => { cancelled = true; };
-}, [eleves]);
+    return () => { cancelled = true; };
+  }, [eleves]);
 
+  // Helpers mapping robustes
+  const getMotifAbs = (a) =>
+    a?.motif ?? a?.raison ?? a?.reason ?? a?.cause ?? "-";
 
+  const getNombreAbs = (a) =>
+    a?.nbJours ?? a?.nombre ?? a?.nombreJours ?? a?.jours ?? a?.quantite ?? a?.duree ?? a?.count ?? a?.nb ?? null;
+  const normalizeKey = (s) => String(s ?? "").trim().toLowerCase();
 
-// Helpers mapping robustes
-const getMotifAbs = (a) =>
-  a?.motif ?? a?.raison ?? a?.reason ?? a?.cause ?? "-";
+  const parseNumberFlexible = (v) => {
+    if (v === null || v === undefined || v === "") return null;
+    if (typeof v === "number") return Number.isFinite(v) ? v : null;
+    const m = String(v).match(/-?\d+(\.\d+)?/);
+    return m ? Number(m[0]) : null;
+  };
 
-const getNombreAbs = (a) =>
-  a?.nbJours ?? a?.nombre ?? a?.nombreJours ?? a?.jours ?? a?.quantite ?? a?.duree ?? a?.count ?? a?.nb ?? null;
-// Normalise une clé de groupement
-const normalizeKey = (s) => String(s ?? "").trim().toLowerCase();
+  React.useEffect(() => {
+    const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
+    if (!noteModalOpen || !eleveId) return;
 
-// Parse un nombre même s'il est dans une string ("3", "3.0", "3 jours", etc.)
-const parseNumberFlexible = (v) => {
-  if (v === null || v === undefined || v === "") return null;
-  if (typeof v === "number") return Number.isFinite(v) ? v : null;
-  const m = String(v).match(/-?\d+(\.\d+)?/);
-  return m ? Number(m[0]) : null;
-};
-
-// Chargement quand le modal s’ouvre
-React.useEffect(() => {
-  const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
-  if (!noteModalOpen || !eleveId) return;
-
-  let cancelled = false;
-  (async () => {
-    setLoadingAbsencesEleve(true);
-    setErrorAbsencesEleve(null);
-    try {
-      const { data } = await absenceService.getByEleveId(eleveId);
-      const list = Array.isArray(data) ? data : (data ? [data] : []);
-      if (!cancelled) setAbsencesEleve(list);
-    } catch (e) {
-      if (!cancelled) {
-        setAbsencesEleve([]);
-        setErrorAbsencesEleve("Impossible de charger les absences de l'élève.");
+    let cancelled = false;
+    (async () => {
+      setLoadingAbsencesEleve(true);
+      setErrorAbsencesEleve(null);
+      try {
+        const { data } = await absenceService.getByEleveId(eleveId);
+        const list = Array.isArray(data) ? data : (data ? [data] : []);
+        if (!cancelled) setAbsencesEleve(list);
+      } catch (e) {
+        if (!cancelled) {
+          setAbsencesEleve([]);
+          setErrorAbsencesEleve("Impossible de charger les absences de l'élève.");
+        }
+      } finally {
+        if (!cancelled) setLoadingAbsencesEleve(false);
       }
-    } finally {
-      if (!cancelled) setLoadingAbsencesEleve(false);
-    }
-  })();
+    })();
 
-  return () => { cancelled = true; };
-}, [noteModalOpen, selectedEleve?.Id, selectedEleve?.id]);
-//les obs 
-React.useEffect(() => {
-  const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
-  if (!noteModalOpen || !eleveId) return;
+    return () => { cancelled = true; };
+  }, [noteModalOpen, selectedEleve?.Id, selectedEleve?.id]);
 
-  let off = false;
-  (async () => {
-    setLoadingObservations(true);
-    setErrorObservations(null);
-    try {
-      const { data } = await observationService.getByEleveId(eleveId);
-      if (!off) setObservations(Array.isArray(data) ? data : (data ? [data] : []));
-    } catch (e) {
-      if (!off) {
-        setObservations([]);
-        setErrorObservations("Impossible de charger les observations.");
+  React.useEffect(() => {
+    const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
+    if (!noteModalOpen || !eleveId) return;
+
+    let off = false;
+    (async () => {
+      setLoadingObservations(true);
+      setErrorObservations(null);
+      try {
+        const { data } = await observationService.getByEleveId(eleveId);
+        if (!off) setObservations(Array.isArray(data) ? data : (data ? [data] : []));
+      } catch (e) {
+        if (!off) {
+          setObservations([]);
+          setErrorObservations("Impossible de charger les observations.");
+        }
+      } finally {
+        if (!off) setLoadingObservations(false);
       }
-    } finally {
-      if (!off) setLoadingObservations(false);
+    })();
+
+    return () => { off = true; };
+  }, [noteModalOpen, selectedEleve?.Id, selectedEleve?.id]);
+
+  React.useEffect(() => {
+    const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
+    if (!noteModalOpen || !eleveId) return;
+    let off = false;
+    absenceService.getHistorique(eleveId)
+      .then(({ data }) => { if (!off) setAncAbsences(Array.isArray(data) ? data : []); })
+      .catch(() => { if (!off) setAncAbsences([]); });
+    return () => { off = true; };
+  }, [noteModalOpen, selectedEleve?.Id, selectedEleve?.id]);
+
+  const parseDateFlexible = (v) => {
+    if (!v && v !== 0) return null;
+    if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+    if (typeof v === "number") {
+      const dt = new Date(v);
+      return isNaN(dt.getTime()) ? null : dt;
     }
-  })();
+    const s = String(v).trim();
+    if (!s) return null;
 
-  return () => { off = true; };
-}, [noteModalOpen, selectedEleve?.Id, selectedEleve?.id]);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      const [y, m, d] = s.split("-").map(Number);
+      return new Date(y, m - 1, d);
+    }
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+      const [d, m, y] = s.split("/").map(Number);
+      return new Date(y, m - 1, d);
+    }
 
-React.useEffect(() => {
-  const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
-  if (!noteModalOpen || !eleveId) return;
-  let off = false;
-  absenceService.getHistorique(eleveId)
-    .then(({ data }) => { if (!off) setAncAbsences(Array.isArray(data) ? data : []); })
-    .catch(() => { if (!off) setAncAbsences([]); });
-  return () => { off = true; };
-}, [noteModalOpen, selectedEleve?.Id, selectedEleve?.id]);
-
-// Parse très permissif (YYYY-MM-DD, DD/MM/YYYY, ISO, timestamp)
-const parseDateFlexible = (v) => {
-  if (!v && v !== 0) return null;
-  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
-  if (typeof v === "number") {
-    const dt = new Date(v);
+    const dt = new Date(s);
     return isNaN(dt.getTime()) ? null : dt;
-  }
-  const s = String(v).trim();
-  if (!s) return null;
+  };
 
-  // YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-    const [y, m, d] = s.split("-").map(Number);
-    return new Date(y, m - 1, d);
-  }
-  // DD/MM/YYYY
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
-    const [d, m, y] = s.split("/").map(Number);
-    return new Date(y, m - 1, d);
-  }
+  const formatDate = React.useCallback((v) => {
+    const dt = parseDateFlexible(v);
+    return dt ? dt.toLocaleDateString() : "-";
+  }, []);
 
-  // ISO / autres acceptés par Date
-  const dt = new Date(s);
-  return isNaN(dt.getTime()) ? null : dt;
-};
+  const toLocalMidnight = (v) => {
+    const dt = parseDateFlexible(v);
+    if (!dt) return null;
+    return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+  };
 
-const formatDate = React.useCallback((v) => {
-  const dt = parseDateFlexible(v);
-  return dt ? dt.toLocaleDateString() : "-";
-}, []);
+  const dayDiffInclusive = (start, end) => {
+    const a = toLocalMidnight(start);
+    const b = toLocalMidnight(end);
+    if (!a || !b || b < a) return null;
+    const MS = 24 * 60 * 60 * 1000;
+    return Math.floor((b - a) / MS) + 1;
+  };
 
-const toLocalMidnight = (v) => {
-  const dt = parseDateFlexible(v);
-  if (!dt) return null;
-  return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
-};
+  const normalize = (s) => String(s).toLowerCase().replace(/[\s_]/g, "");
 
-const dayDiffInclusive = (start, end) => {
-  const a = toLocalMidnight(start);
-  const b = toLocalMidnight(end);
-  if (!a || !b || b < a) return null;
-  const MS = 24 * 60 * 60 * 1000;
-  return Math.floor((b - a) / MS) + 1;
-};
-
-// Normalisation simple pour matcher les clés indifféremment
-const normalize = (s) => String(s).toLowerCase().replace(/[\s_]/g, "");
-
-// Recherche d'une valeur dans l'objet en essayant plusieurs clés potent.
-const getFieldByKeys = (obj, keys) => {
-  for (const k of keys) if (obj?.[k] !== undefined && obj?.[k] !== null) return obj[k];
-  // tentative par normalisation
-  const map = Object.fromEntries(Object.keys(obj || {}).map((k) => [normalize(k), k]));
-  for (const k of keys) {
-    const nk = normalize(k);
-    if (map[nk] !== undefined) return obj[map[nk]];
-  }
-  return null;
-};
-
-// Variantes courantes pour départ / arrivée / nb jours (FR/camel/snake)
-const START_KEYS = [
-  "dateDepart","date_depart","depart","dateDebut","date_debut","debut",
-  "start","startDate","dateStart","sortie","date_sortie","date_start","date"
-];
-const END_KEYS = [
-  "dateArrive","date_arrivee","arrivee","retour","dateFin","date_fin","fin",
-  "end","endDate","dateEnd","date_retour","date_end"
-];
-const DAYS_KEYS = ["nbJours","nbJour","nombreJours","nombre_jours","jours","duree","days","totalDays"];
-
-const getStartField = (c) => getFieldByKeys(c, START_KEYS);
-const getEndField   = (c) => getFieldByKeys(c, END_KEYS);
-const getNbJours    = (c) => getFieldByKeys(c, DAYS_KEYS);
-
-// --- CHARGEMENT quand le modal s’ouvre ---
-React.useEffect(() => {
-  const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
-  if (!noteModalOpen || !eleveId) return;
-
-  let cancelled = false;
-  async function run() {
-    setLoadingConsultationsEleve(true);
-    setErrorConsultationsEleve(null);
-    try {
-      const { data } = await consultationService.getByEleveId(eleveId);
-      const list = Array.isArray(data) ? data : (data ? [data] : []);
-      if (!cancelled) setConsultationsEleve(list);
-    } catch (e) {
-      if (!cancelled) {
-        setConsultationsEleve([]);
-        setErrorConsultationsEleve("Impossible de charger les consultations de l'élève.");
-      }
-    } finally {
-      if (!cancelled) setLoadingConsultationsEleve(false);
+  const getFieldByKeys = (obj, keys) => {
+    for (const k of keys) if (obj?.[k] !== undefined && obj?.[k] !== null) return obj[k];
+    const map = Object.fromEntries(Object.keys(obj || {}).map((k) => [normalize(k), k]));
+    for (const k of keys) {
+      const nk = normalize(k);
+      if (map[nk] !== undefined) return obj[map[nk]];
     }
-  }
-  run();
-  return () => { cancelled = true; };
-}, [noteModalOpen, selectedEleve?.Id, selectedEleve?.id]);
-//
-//
-//sanctions
-// ===== SANCTIONS: mapping unique UI <-> backend =====
-// Si chez toi true = NÉGATIVE (et false = POSITIVE), inverse ces deux fonctions :
-const typeFromBool = (b) => (b ? "positive" : "negative"); // true -> positive
-const boolFromType = (t) => (t === "positive");            // "positive" -> true
+    return null;
+  };
 
-const getSanctionType = (s) => {
-  if (s?.type === "positive" || s?.type === "negative") return s.type;
-  if (typeof s?.sanction === "boolean") return typeFromBool(s.sanction);
-  return "negative"; // défaut
-};
+  const START_KEYS = [
+    "dateDepart","date_depart","depart","dateDebut","date_debut","debut",
+    "start","startDate","dateStart","sortie","date_sortie","date_start","date"
+  ];
+  const END_KEYS = [
+    "dateArrive","date_arrivee","arrivee","retour","dateFin","date_fin","fin",
+    "end","endDate","dateEnd","date_retour","date_end"
+  ];
+  const DAYS_KEYS = ["nbJours","nbJour","nombreJours","nombre_jours","jours","duree","days","totalDays"];
 
-const getSanctionMotif = (s) => s?.motif ?? s?.raison ?? s?.reason ?? "-";
+  const getStartField = (c) => getFieldByKeys(c, START_KEYS);
+  const getEndField   = (c) => getFieldByKeys(c, END_KEYS);
+  const getNbJours    = (c) => getFieldByKeys(c, DAYS_KEYS);
 
-const getSanctionTaux = (s) =>
-  s?.taux ?? s?.rate ?? s?.valeur ?? null;
+  React.useEffect(() => {
+    const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
+    if (!noteModalOpen || !eleveId) return;
 
-// ===== Chargement à l'ouverture du modal =====
-React.useEffect(() => {
-  const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
-  if (!noteModalOpen || !eleveId) return;
+    let cancelled = false;
+    async function run() {
+      setLoadingConsultationsEleve(true);
+      setErrorConsultationsEleve(null);
+      try {
+        const { data } = await consultationService.getByEleveId(eleveId);
+        const list = Array.isArray(data) ? data : (data ? [data] : []);
+        if (!cancelled) setConsultationsEleve(list);
+      } catch (e) {
+        if (!cancelled) {
+          setConsultationsEleve([]);
+          setErrorConsultationsEleve("Impossible de charger les consultations de l'élève.");
+        }
+      } finally {
+        if (!cancelled) setLoadingConsultationsEleve(false);
+      }
+    }
+    run();
+    return () => { cancelled = true; };
+  }, [noteModalOpen, selectedEleve?.Id, selectedEleve?.id]);
 
-  let off = false;
-  (async () => {
-    setLoadingSanctions(true);
-    setErrorSanctions(null);
+  // ===== SANCTIONS =====
+  const typeFromBool = (b) => (b ? "positive" : "negative");
+  const boolFromType = (t) => (t === "positive");
+
+  const getSanctionType = (s) => {
+    if (s?.type === "positive" || s?.type === "negative") return s.type;
+    if (typeof s?.sanction === "boolean") return typeFromBool(s.sanction);
+    return "negative";
+  };
+
+  const getSanctionMotif = (s) => s?.motif ?? s?.raison ?? s?.reason ?? "-";
+
+  const getSanctionTaux = (s) =>
+    s?.taux ?? s?.rate ?? s?.valeur ?? null;
+
+  React.useEffect(() => {
+    const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
+    if (!noteModalOpen || !eleveId) return;
+
+    let off = false;
+    (async () => {
+      setLoadingSanctions(true);
+      setErrorSanctions(null);
+      try {
+        const { data } = await sanctionService.getByEleveId(eleveId);
+        if (!off) setSanctions(Array.isArray(data) ? data : (data ? [data] : []));
+      } catch (e) {
+        if (!off) {
+          setSanctions([]);
+          setErrorSanctions("Impossible de charger les sanctions.");
+        }
+      } finally {
+        if (!off) setLoadingSanctions(false);
+      }
+    })();
+
+    return () => { off = true; };
+  }, [noteModalOpen, selectedEleve?.Id, selectedEleve?.id]);
+
+  async function handleSaveSanction() {
+    if (!canEditSanctions) return;
+    const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
+    if (!eleveId) return;
+
+    const motif = (sanctionForm.motif || "").trim();
+    if (!motif) return;
+
+    const payload = {
+      eleveId,
+      motif,
+      type: sanctionForm.type,
+      taux: sanctionForm.taux ?? null,  
+      sanction: boolFromType(sanctionForm.type)
+    };
+
     try {
+      if (sanctionEditingId) {
+        await sanctionService.update(sanctionEditingId, payload);
+      } else {
+        await sanctionService.post(payload);
+      }
       const { data } = await sanctionService.getByEleveId(eleveId);
-      if (!off) setSanctions(Array.isArray(data) ? data : (data ? [data] : []));
-    } catch (e) {
-      if (!off) {
-        setSanctions([]);
-        setErrorSanctions("Impossible de charger les sanctions.");
+      setSanctions(Array.isArray(data) ? data : (data ? [data] : []));
+      setSanctionEditingId(null);
+      setSanctionForm({ type: "negative", motif: "" });
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de l’enregistrement de la sanction.");
+    }
+  }
+
+  function handleEditSanction(s) {
+    if (!canEditSanctions) return;
+    setSanctionEditingId(s.id);
+    setSanctionForm({
+      type: getSanctionType(s),
+      taux: getSanctionTaux(s) || "",
+      motif: getSanctionMotif(s) || ""
+    });
+  }
+
+  async function handleDeleteSanction(id) {
+    if (!canEditSanctions || !id) return;
+    if (!confirm("Supprimer cette sanction ?")) return;
+
+    try {
+      await sanctionService.delete(id);
+      const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
+      const { data } = await sanctionService.getByEleveId(eleveId);
+      setSanctions(Array.isArray(data) ? data : (data ? [data] : []));
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de la suppression.");
+    }
+  }
+  async function handleSaveObservation() {
+    const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
+    if (!eleveId) return;
+
+    const contenu = (observationForm.contenu || "").trim();
+    if (!contenu) return;
+
+    const payload = {
+      eleveId,
+      contenu,
+      date: new Date().toISOString().slice(0, 10),
+      auteur: user?.nom || user?.username || user?.type || ""
+    };
+
+    try {
+      if (observationEditingId) {
+        await observationService.update(observationEditingId, payload);
+      } else {
+        await observationService.post(payload);
       }
-    } finally {
-      if (!off) setLoadingSanctions(false);
+      const { data } = await observationService.getByEleveId(eleveId);
+      setObservations(Array.isArray(data) ? data : (data ? [data] : []));
+      setObservationEditingId(null);
+      setObservationForm({ contenu: "" });
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de l'enregistrement de l'observation.");
     }
-  })();
+  }
 
-  return () => { off = true; };
-}, [noteModalOpen, selectedEleve?.Id, selectedEleve?.id]);
+  function handleEditObservation(o) {
+    setObservationEditingId(o.id);
+    setObservationForm({ contenu: o.contenu || "" });
+  }
 
-// ===== Handlers CRUD =====
-async function handleSaveSanction() {
-  if (!canEditSanctions) return;
-  const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
-  if (!eleveId) return;
+  async function handleDeleteObservation(id) {
+    if (!id) return;
+    if (!confirm("Supprimer cette observation ?")) return;
 
-  const motif = (sanctionForm.motif || "").trim();
-  if (!motif) return;
-
-  // On envoie TOUJOURS le booléen `sanction` pour matcher ton schéma actuel
-  const payload = {
-    eleveId,
-    motif,
-    type: sanctionForm.type,                  // pour compat future si tu ajoutes la colonne "type"
-    taux: sanctionForm.taux ?? null,  
-    sanction: boolFromType(sanctionForm.type) // booléen attendu par le back actuel
-  };
-
-  try {
-    if (sanctionEditingId) {
-      await sanctionService.update(sanctionEditingId, payload);
-    } else {
-      await sanctionService.post(payload);
+    try {
+      await observationService.delete(id);
+      const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
+      const { data } = await observationService.getByEleveId(eleveId);
+      setObservations(Array.isArray(data) ? data : (data ? [data] : []));
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de la suppression.");
     }
-    const { data } = await sanctionService.getByEleveId(eleveId);
-    setSanctions(Array.isArray(data) ? data : (data ? [data] : []));
-    setSanctionEditingId(null);
-    setSanctionForm({ type: "negative", motif: "" });
-  } catch (err) {
-    console.error(err);
-    alert("Erreur lors de l’enregistrement de la sanction.");
   }
-}
-
-function handleEditSanction(s) {
-  if (!canEditSanctions) return;
-  setSanctionEditingId(s.id);
-  setSanctionForm({
-    type: getSanctionType(s),
-    taux: getSanctionTaux(s) || "",
-    motif: getSanctionMotif(s) || ""
-  });
-}
-
-async function handleDeleteSanction(id) {
-  if (!canEditSanctions || !id) return;
-  if (!confirm("Supprimer cette sanction ?")) return;
-
-  try {
-    await sanctionService.delete(id);
-    const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
-    const { data } = await sanctionService.getByEleveId(eleveId);
-    setSanctions(Array.isArray(data) ? data : (data ? [data] : []));
-  } catch (err) {
-    console.error(err);
-    alert("Erreur lors de la suppression.");
-  }
-}
-async function handleSaveObservation() {
-  const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
-  if (!eleveId) return;
-
-  const contenu = (observationForm.contenu || "").trim();
-  if (!contenu) return;
-
-  const payload = {
-    eleveId,
-    contenu,
-    date: new Date().toISOString().slice(0, 10),
-    auteur: user?.nom || user?.username || user?.type || ""
-  };
-
-  try {
-    if (observationEditingId) {
-      await observationService.update(observationEditingId, payload);
-    } else {
-      await observationService.post(payload);
-    }
-    const { data } = await observationService.getByEleveId(eleveId);
-    setObservations(Array.isArray(data) ? data : (data ? [data] : []));
-    setObservationEditingId(null);
-    setObservationForm({ contenu: "" });
-  } catch (err) {
-    console.error(err);
-    alert("Erreur lors de l'enregistrement de l'observation.");
-  }
-}
-
-function handleEditObservation(o) {
-  setObservationEditingId(o.id);
-  setObservationForm({ contenu: o.contenu || "" });
-}
-
-async function handleDeleteObservation(id) {
-  if (!id) return;
-  if (!confirm("Supprimer cette observation ?")) return;
-
-  try {
-    await observationService.delete(id);
-    const eleveId = selectedEleve?.Id ?? selectedEleve?.id;
-    const { data } = await observationService.getByEleveId(eleveId);
-    setObservations(Array.isArray(data) ? data : (data ? [data] : []));
-  } catch (err) {
-    console.error(err);
-    alert("Erreur lors de la suppression.");
-  }
-}
   /******************************************************
    * 0) PERSISTENCE (localStorage)
    ******************************************************/
   const STORAGE_KEYS = {
     rooms: 'repartition_rooms_v1',
     exclusions: 'repartition_exclusions_v1',
-    staff: 'repartition_staff_v2',            // {surveillants:[], estafettes:[]}
+    staff: 'repartition_staff_v2',
     buildings: 'repartition_buildings_v1',
     estafettesPerBuilding: 'repartition_estafettes_per_building_v1',
-    estafettesCfg: 'repartition_estafettes_cfg_v1', // { minPerBuilding, useThreeWhenRoomsGte }
-    estafettesAssign: 'repartition_estafettes_assign_v1', // Map {batiment -> [labels]}
-    reprise: 'repartition_reprise_v1'   // <--- AJOUT
+    estafettesCfg: 'repartition_estafettes_cfg_v1',
+    estafettesAssign: 'repartition_estafettes_assign_v1',
+    reprise: 'repartition_reprise_v1'
   };
   function saveEstafettesPerBuilding(map) {
     try { localStorage.setItem(STORAGE_KEYS.estafettesPerBuilding, JSON.stringify(map || {})); } catch {}
@@ -773,107 +679,94 @@ async function handleDeleteObservation(id) {
   }
   function saveRooms(rooms){ try{ localStorage.setItem(STORAGE_KEYS.rooms, JSON.stringify(rooms||[])); }catch{} }
   function loadRooms(){ try{ const a=JSON.parse(localStorage.getItem(STORAGE_KEYS.rooms)||'[]'); return Array.isArray(a)?a:[]; }catch{ return []; } }
-  /* =========================
-   PERF HELPERS (NOUVEAU)
-   ========================= */
 
-// Cache mémoire pour écriture incrémentale
-let _roomsCache = Array.isArray(loadRooms()) ? loadRooms() : [];
+  // Cache mémoire pour écriture incrémentale
+  let _roomsCache = Array.isArray(loadRooms()) ? loadRooms() : [];
 
-// petit debounce
-function debounce(fn, wait = 200) {
-  let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(null, args), wait); };
-}
+  function debounce(fn, wait = 200) {
+    let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(null, args), wait); };
+  }
 
-// sauvegarde coalescée
-const saveRoomsDebounced = debounce(() => { try { saveRooms(_roomsCache); } catch {} }, 250);
+  const saveRoomsDebounced = debounce(() => { try { saveRooms(_roomsCache); } catch {} }, 250);
 
-// MàJ d’un seul champ de salle
-function updateRoomField(idx, field, value) {
-  if (!_roomsCache[idx]) _roomsCache[idx] = { numero: idx + 1, capacite: 0, description: "", batiment: "", surveillants: [] };
-  _roomsCache[idx][field] = value;
-  saveRoomsDebounced();
-}
+  function updateRoomField(idx, field, value) {
+    if (!_roomsCache[idx]) _roomsCache[idx] = { numero: idx + 1, capacite: 0, description: "", batiment: "", surveillants: [] };
+    _roomsCache[idx][field] = value;
+    saveRoomsDebounced();
+  }
 
-// (optionnel) MàJ d’un surveillant sans snapshot complet
-function updateRoomSurveillant(idx, pos /*1|2*/, label) {
-  if (!_roomsCache[idx]) _roomsCache[idx] = { numero: idx + 1, capacite: 0, description: "", batiment: "", surveillants: [] };
-  const arr = Array.isArray(_roomsCache[idx].surveillants) ? _roomsCache[idx].surveillants.slice(0, 2) : [];
-  arr[pos - 1] = label || "";
-  _roomsCache[idx].surveillants = arr.filter(Boolean);
-  saveRoomsDebounced();
-}
+  function updateRoomSurveillant(idx, pos /*1|2*/, label) {
+    if (!_roomsCache[idx]) _roomsCache[idx] = { numero: idx + 1, capacite: 0, description: "", batiment: "", surveillants: [] };
+    const arr = Array.isArray(_roomsCache[idx].surveillants) ? _roomsCache[idx].surveillants.slice(0, 2) : [];
+    arr[pos - 1] = label || "";
+    _roomsCache[idx].surveillants = arr.filter(Boolean);
+    saveRoomsDebounced();
+  }
 
-// repousse les gros rendus quand le thread est libre
-function idleDebounce(fn, timeout = 600) {
-  let pending = false, lastArgs = null;
-  const runner = () => { pending = false; const a = lastArgs; lastArgs = null; fn.apply(null, a || []); };
-  return (...args) => {
-    lastArgs = args;
-    if (pending) return;
-    pending = true;
-    if (window.requestIdleCallback) requestIdleCallback(runner, { timeout });
-    else setTimeout(runner, Math.min(timeout, 200));
-  };
-}
+  function idleDebounce(fn, timeout = 600) {
+    let pending = false, lastArgs = null;
+    const runner = () => { pending = false; const a = lastArgs; lastArgs = null; fn.apply(null, a || []); };
+    return (...args) => {
+      lastArgs = args;
+      if (pending) return;
+      pending = true;
+      if (window.requestIdleCallback) requestIdleCallback(runner, { timeout });
+      else setTimeout(runner, Math.min(timeout, 200));
+    };
+  }
 
   function clearRooms(){ try{ localStorage.removeItem(STORAGE_KEYS.rooms); }catch{} }
   function saveExclusions(excl){ try{ localStorage.setItem(STORAGE_KEYS.exclusions, JSON.stringify(excl||{})); }catch{} }
   function loadExclusions(){ try{ const a=JSON.parse(localStorage.getItem(STORAGE_KEYS.exclusions)||'{}'); return (a && typeof a==='object')?a:{}; }catch{ return {}; } }
   function clearExclusions(){ try{ localStorage.removeItem(STORAGE_KEYS.exclusions); }catch{} }
-// Remplace entièrement saveReprise / loadReprise par ceci :
 
-function saveReprise(data) {
-  try {
-    // Accepte l’objet {adjoints:[], seniors:[]} ou l’ancien tableau
-    const payload = (data && typeof data === 'object')
-      ? data
-      : (Array.isArray(data) ? data : { adjoints: [], seniors: [] });
-    localStorage.setItem(STORAGE_KEYS.reprise, JSON.stringify(payload));
-  } catch {}
-}
-
-function loadReprise() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.reprise);
-    if (!raw) return { adjoints: [], seniors: [] };     // par défaut: objet vide
-    const parsed = JSON.parse(raw);
-
-    // Migration douce : on supporte l’ancien tableau
-    if (Array.isArray(parsed)) return parsed;            // ancien format (fallback export simple)
-    if (parsed && typeof parsed === 'object') {
-      // normalise les champs
-      return {
-        adjoints: Array.isArray(parsed.adjoints) ? parsed.adjoints : [],
-        seniors : Array.isArray(parsed.seniors)  ? parsed.seniors  : []
-      };
-    }
-    return { adjoints: [], seniors: [] };
-  } catch {
-    return { adjoints: [], seniors: [] };
+  function saveReprise(data) {
+    try {
+      const payload = (data && typeof data === 'object')
+        ? data
+        : (Array.isArray(data) ? data : { adjoints: [], seniors: [] });
+      localStorage.setItem(STORAGE_KEYS.reprise, JSON.stringify(payload));
+    } catch {}
   }
-}
+
+  function loadReprise() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.reprise);
+      if (!raw) return { adjoints: [], seniors: [] };
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed && typeof parsed === 'object') {
+        return {
+          adjoints: Array.isArray(parsed.adjoints) ? parsed.adjoints : [],
+          seniors : Array.isArray(parsed.seniors)  ? parsed.seniors  : []
+        };
+      }
+      return { adjoints: [], seniors: [] };
+    } catch {
+      return { adjoints: [], seniors: [] };
+    }
+  }
 
   function saveStaff(staff) {
     try {
-        localStorage.setItem(STORAGE_KEYS.staff, JSON.stringify({
-            surveillants: Array.isArray(staff?.surveillants) ? staff.surveillants : [],
-            estafettes: Array.isArray(staff?.estafettes) ? staff.estafettes : []
-        }));
+      localStorage.setItem(STORAGE_KEYS.staff, JSON.stringify({
+        surveillants: Array.isArray(staff?.surveillants) ? staff.surveillants : [],
+        estafettes: Array.isArray(staff?.estafettes) ? staff.estafettes : []
+      }));
     } catch (e) {
-        console.error("Erreur lors de la sauvegarde du personnel:", e);
+      console.error("Erreur lors de la sauvegarde du personnel:", e);
     }
   }
   function loadStaff() {
     try {
-        const o = JSON.parse(localStorage.getItem(STORAGE_KEYS.staff) || '{}');
-        return {
-            surveillants: Array.isArray(o.surveillants) ? o.surveillants : [],
-            estafettes: Array.isArray(o.estafettes) ? o.estafettes : []
-        };
+      const o = JSON.parse(localStorage.getItem(STORAGE_KEYS.staff) || '{}');
+      return {
+        surveillants: Array.isArray(o.surveillants) ? o.surveillants : [],
+        estafettes: Array.isArray(o.estafettes) ? o.estafettes : []
+      };
     } catch (e) {
-        console.error("Erreur lors du chargement du personnel:", e);
-        return { surveillants: [], estafettes: [] };
+      console.error("Erreur lors du chargement du personnel:", e);
+      return { surveillants: [], estafettes: [] };
     }
   }
   function saveBuildings(arr){ try{ localStorage.setItem(STORAGE_KEYS.buildings, JSON.stringify(arr||[])); }catch{} }
@@ -897,16 +790,15 @@ function loadReprise() {
       return (o && typeof o==='object') ? o : {};
     }catch{ return {}; }
   }
-  
+
   /******************************************************
    * 1) UTILITAIRES texte / grades / personnes
    ******************************************************/
   const ALL_GRADES = new Set(["GPCE","GPHC","GHC","GP2C","GP1C","G2C","G1C","GST"]);
   const ONLY_ESTAFETTE_GRADES = new Set(["GST","G2C"]);
   const GRADE_ORDER = { GPCE:1, GPHC:2, GP1C:3, GP2C:4,GHC:5,G1C:6, G2C:7, GST:8 };
-  // Groupes pour la règle des 2 surveillants / salle
-  const GROUP_B = new Set(["GPCE","GPHC","GP1C","GP2C"]);         // « senior »
-  const GROUP_A = new Set(["GHC","G1C","G2C","GST"]);      // « adjoint »
+  const GROUP_B = new Set(["GPCE","GPHC","GP1C","GP2C"]);
+  const GROUP_A = new Set(["GHC","G1C","G2C","GST"]);
   function _clean(s){ return String(s||"").replace(/\u00A0/g," ").replace(/\s{2,}/g," ").trim(); }
   function cleanText(x){ return _clean(x); }
   function gradeRank(g){ return GRADE_ORDER[g] ?? 99; }
@@ -917,7 +809,6 @@ function loadReprise() {
     return String(str||"").toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu,"")
       .replace(/[^a-z'\- ]+/g,"").replace(/\s+/g," ").trim();
   }
-  // --- Surveillants toujours prioritaires (jamais estafette)
   const ALWAYS_SURVEILLANTS = [
     { name: "RASOLOFOHERY Jean Jacquis", mle: "22462" }
   ];
@@ -936,7 +827,6 @@ function loadReprise() {
     const g1 = gradeFromLabel(lab1), g2 = gradeFromLabel(lab2);
     return (GROUP_B.has(g1) && GROUP_A.has(g2)) || (GROUP_B.has(g2) && GROUP_A.has(g1));
   }
-  /** "GST Dupont Paul" ou "Dupont Paul -- GP2C" -> {name,grade,label} */
   function parseSurveillantLine(line){
     const raw = _clean(String(line||"").replace(/\t/g," "));
     if (!raw) return null;
@@ -950,7 +840,8 @@ function loadReprise() {
     if (!grade) grade="GST";
     return { name, grade, label:`${grade} — ${name}` };
   }
-  function shuffleInPlace(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j]]; } return arr; }
+  // ✅ corrigé : l'ancien swap `[arr[i], arr[j]]=[arr[j]]` écrasait des éléments par undefined
+  function shuffleInPlace(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
   function getAllSurveillantNames(salles){
     return new Set((salles||[]).flatMap(s=>s.surveillants||[])
       .map(nameFromLabel)
@@ -963,24 +854,23 @@ function loadReprise() {
       .map(normName)
       .filter(Boolean));
   }
-  /** Pools pour affichage + tirage aléatoire */
   function buildSurvPools(lines) {
     let peeps;
     if (lines.length > 0 && typeof lines[0] === 'object' && lines[0].grade) {
-        peeps = lines.map(p => ({
-            grade: p.grade,
-            name: p.name,
-            label: p.label || `${p.grade} — ${p.name}`,
-            mle: p.mle || "",
-            nrTph: p.nrTph || "",
-            unite: p.unite || ""
-        }));
+      peeps = lines.map(p => ({
+        grade: p.grade,
+        name: p.name,
+        label: p.label || `${p.grade} — ${p.name}`,
+        mle: p.mle || "",
+        nrTph: p.nrTph || "",
+        unite: p.unite || ""
+      }));
     } else {
-        peeps = (lines || []).map(parseSurveillantLine).filter(Boolean);
+      peeps = (lines || []).map(parseSurveillantLine).filter(Boolean);
     }
     const display = peeps.slice().sort((a, b) => {
-        const r = gradeRank(a.grade) - gradeRank(b.grade);
-        return r !== 0 ? r : a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' });
+      const r = gradeRank(a.grade) - gradeRank(b.grade);
+      return r !== 0 ? r : a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' });
     });
     const ALL = peeps.slice();
     const A = ALL.filter(p => GROUP_A.has(p.grade));
@@ -1025,22 +915,22 @@ function loadReprise() {
     const seen = new Set();
     const uniq = people.filter(p => !seen.has(p.label) && seen.add(p.label));
     const surveillants = uniq.map(p => ({
-        label: p.label,
-        grade: p.grade,
-        name: p.name,
-        mle: p.mle || "",
-        nrTph: p.nrTph || "",
-        unite: p.unite || ""
+      label: p.label,
+      grade: p.grade,
+      name: p.name,
+      mle: p.mle || "",
+      nrTph: p.nrTph || "",
+      unite: p.unite || ""
     }));
     const estafettes = [
-        ...uniq.filter(p => p.grade === "GST").map(p => ({
-            label: p.label, grade: p.grade, name: p.name,
-            mle: p.mle || "", nrTph: p.nrTph || "", unite: p.unite || ""
-        })),
-        ...uniq.filter(p => p.grade === "G2C").map(p => ({
-            label: p.label, grade: p.grade, name: p.name,
-            mle: p.mle || "", nrTph: p.nrTph || "", unite: p.unite || ""
-        }))
+      ...uniq.filter(p => p.grade === "GST").map(p => ({
+        label: p.label, grade: p.grade, name: p.name,
+        mle: p.mle || "", nrTph: p.nrTph || "", unite: p.unite || ""
+      })),
+      ...uniq.filter(p => p.grade === "G2C").map(p => ({
+        label: p.label, grade: p.grade, name: p.name,
+        mle: p.mle || "", nrTph: p.nrTph || "", unite: p.unite || ""
+      }))
     ];
     return { surveillants, estafettes, total: uniq.length };
   }
@@ -1085,18 +975,15 @@ function loadReprise() {
     const staff = loadStaff();
     console.log("Données personnel sauvegardées:", staff);
     if (staff.surveillants && staff.surveillants.length > 0) {
-        const sample = staff.surveillants[0];
-        console.log("Exemple de surveillant:", sample);
-        console.log("Champs MLE, NR TPH, UNITE:", { mle: sample.mle, nrTph: sample.nrTph, unite: sample.unite });
+      const sample = staff.surveillants[0];
+      console.log("Exemple de surveillant:", sample);
     }
     if (staff.estafettes && staff.estafettes.length > 0) {
-        const sample = staff.estafettes[0];
-        console.log("Exemple d'estafette:", sample);
-        console.log("Champs MLE, NR TPH, UNITE:", { mle: sample.mle, nrTph: sample.nrTph, unite: sample.unite });
+      const sample = staff.estafettes[0];
+      console.log("Exemple d'estafette:", sample);
     }
   }
   function parsePersonnelFromObjects(rows){
-    const looksLikeGrade = v => ALL_GRADES.has(String(v||"").replace(/\s+/g,"").toUpperCase());
     const looksLikePhone = v => typeof v==='string' && v.replace(/\D/g,'').length >= 8;
     const looksLikeMle   = v => /^\d{4,6}$/.test(String(v||"").trim());
     const looksLikeUnite = v => typeof v==='string' && /\b(ESC|SSL|SM|SAF|SRH|SED|MATR|PEDA|ARM|DI|CAB|COURS|DAG)\b/i.test(v);
@@ -1216,13 +1103,13 @@ function loadReprise() {
   async function editerStaff(){
     const prev=loadStaff(), cfg=loadEstafettesCfg();
     function formatPerson(person) {
-        if (!person) return "";
-        const base = person.label || `${person.grade} — ${person.name}`;
-        const extra = [];
-        if (person.mle) extra.push(`MLE: ${person.mle}`);
-        if (person.nrTph) extra.push(`TPH: ${person.nrTph}`);
-        if (person.unite) extra.push(`UNITÉ: ${person.unite}`);
-        return extra.length > 0 ? `${base} [${extra.join(', ')}]` : base;
+      if (!person) return "";
+      const base = person.label || `${person.grade} — ${person.name}`;
+      const extra = [];
+      if (person.mle) extra.push(`MLE: ${person.mle}`);
+      if (person.nrTph) extra.push(`TPH: ${person.nrTph}`);
+      if (person.unite) extra.push(`UNITÉ: ${person.unite}`);
+      return extra.length > 0 ? `${base} [${extra.join(', ')}]` : base;
     }
     const html=`
         <div style="display:grid;gap:12px">
@@ -1255,23 +1142,23 @@ function loadReprise() {
     const res=await Swal.fire({ title:"Personnel", html, width:800, focusConfirm:false, showCancelButton:true, confirmButtonText:"Enregistrer" });
     if(!res.isConfirmed) return loadStaff();
     function parsePersonLine(line) {
-        const match = line.match(/^(.+?)\s*\[(.+)\]$/);
-        if (match) {
-            const label = match[1].trim();
-            const infoStr = match[2];
-            const info = {};
-            infoStr.split(',').forEach(item => {
-                const [key, value] = item.split(':').map(s => s.trim());
-                if (key && value) {
-                    if (key.toLowerCase() === 'mle') info.mle = value;
-                    if (key.toLowerCase() === 'tph') info.nrTph = value;
-                    if (key.toLowerCase() === 'unité' || key.toLowerCase() === 'unite') info.unite = value;
-                }
-            });
-            const parsed = parseSurveillantLine(label);
-            if (parsed) { return { ...parsed, ...info }; }
-        }
-        return parseSurveillantLine(line);
+      const match = line.match(/^(.+?)\s*\[(.+)\]$/);
+      if (match) {
+        const label = match[1].trim();
+        const infoStr = match[2];
+        const info = {};
+        infoStr.split(',').forEach(item => {
+          const [key, value] = item.split(':').map(s => s.trim());
+          if (key && value) {
+            if (key.toLowerCase() === 'mle') info.mle = value;
+            if (key.toLowerCase() === 'tph') info.nrTph = value;
+            if (key.toLowerCase() === 'unité' || key.toLowerCase() === 'unite') info.unite = value;
+          }
+        });
+        const parsed = parseSurveillantLine(label);
+        if (parsed) { return { ...parsed, ...info }; }
+      }
+      return parseSurveillantLine(line);
     }
     const svText=(document.getElementById('sv').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
     const esText=(document.getElementById('es').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
@@ -1286,186 +1173,180 @@ function loadReprise() {
     return loadStaff();
   }
   // Remet à zéro les surveillants mais garde nb/descr/bâtiments
-  // Remet à zéro les surveillants mais garde nb/descr/bâtiments
-  // Modifier la fonction resetSurveillantsAfterImport
-function resetSurveillantsAfterImport() {
-  // Ne sauvegarde plus l'état du modal ici
-  const rooms = loadRooms();
-  if (Array.isArray(rooms) && rooms.length) {
-    const cleared = rooms.map(r => ({ 
-      ...r, 
-      surveillants: []  // Conserve description, batiment, capacite
+  function resetSurveillantsAfterImport() {
+    const rooms = loadRooms();
+    if (Array.isArray(rooms) && rooms.length) {
+      const cleared = rooms.map(r => ({ 
+        ...r, 
+        surveillants: []
+      }));
+      saveRooms(cleared);
+    }
+    saveEstafettesAssign({});
+  }
+
+  async function importerPersonnelDepuisColler() {
+    if (document.querySelector('.room-card')) {
+      snapshotRoomsFromModalAndSave();
+    }
+
+    const html = `<div style="display:grid;gap:10px">
+      <p style="margin:0;color:#475569">Collez les lignes (avec <b>GRADE</b> et <b>NOM ET PRENOMS</b>).</p>
+      <textarea id="txtImport" rows="12" placeholder="Collez ici…" style="width:100%;border:1px solid #d1d5db;border-radius:10px;padding:10px 12px;outline:none"></textarea>
+      <small style="color:#64748b">Format attendu : NR | GRADE | NOM ET PRENOMS | MLE | NR TPH | UNITE</small>
+    </div>`;
+
+    const res = await Swal.fire({
+      title: "Importer le personnel (coller depuis Excel)",
+      html,
+      width: 720,
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: "Importer",
+      willClose: () => {
+        if (document.querySelector('.room-card')) {
+          hydrateRoomsInputsFromStorage();
+        }
+      }
+    });
+
+    if (!res.isConfirmed) return null;
+
+    const raw = document.getElementById('txtImport').value || '';
+    const parsed = parsePersonnelFromPasted(raw);
+
+    if (!parsed.total) {
+      await Swal.fire("Aucun agent détecté", "Vérifie la présence des colonnes GRADE/NOM.", "warning");
+      return null;
+    }
+
+    saveStaff({ surveillants: parsed.surveillants, estafettes: parsed.estafettes });
+    verifierDonneesPersonnel();
+    resetSurveillantsAfterImport();
+
+    if (document.querySelector('.room-card')) {
+      const staff = loadStaff();
+      hydrateRoomsInputsFromStorage();
+      const t = document.querySelector('.sv1') || document.querySelector('.room-building');
+      if (t) t.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    await Swal.fire({
+      icon: "success",
+      title: "Import réussi",
+      html: `<div style="text-align:left">
+        <p>Agents détectés : <b>${parsed.total}</b></p>
+        <p>Surveillants : <b>${parsed.surveillants.length}</b></p>
+        <p>Estafettes (GST/G2C) : <b>${parsed.estafettes.length}</b></p>
+        <p style="color:#10b981;font-size:12px;margin-top:8px">Les configurations ont été conservées.</p>
+      </div>`
+    });
+
+    return loadStaff();
+  }
+
+  async function importerPersonnelDepuisExcel() {
+    if (document.querySelector('.room-card')) {
+      snapshotRoomsFromModalAndSave();
+    }
+
+    const html = `<div style="display:grid;gap:10px">
+      <input id="excelFile" type="file" accept=".xlsx,.xls,.csv" style="border:1px solid #d1d5db;border-radius:10px;padding:8px 10px" />
+      <small style="color:#64748b">Le fichier doit contenir <b>GRADE</b> et <b>NOM ET PRENOMS</b>.<br>
+      Les colonnes <b>MLE</b>, <b>NR TPH</b> et <b>UNITE</b> seront également importées si disponibles.</small>
+    </div>`;
+
+    const res = await Swal.fire({
+      title: "Importer le personnel depuis un fichier",
+      html,
+      width: 560,
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: "Importer",
+      willClose: () => {
+        if (document.querySelector('.room-card')) {
+          hydrateRoomsInputsFromStorage();
+        }
+      },
+      preConfirm: async () => {
+        const input = document.getElementById('excelFile');
+        const file  = input?.files?.[0];
+        if (!file) { Swal.showValidationMessage("Sélectionnez un fichier."); return false; }
+        try {
+          const buf   = await file.arrayBuffer();
+          const wb    = XLSX.read(buf, { type: "array" });
+          const sheet = wb.Sheets[wb.SheetNames[0]];
+          const rows  = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false });
+          const parsed = parsePersonnelFromObjects(rows);
+          if (!parsed.total) { Swal.showValidationMessage("Impossible de détecter des agents."); return false; }
+          return parsed;
+        } catch (e) {
+          console.error(e);
+          Swal.showValidationMessage("Erreur de lecture du fichier.");
+          return false;
+        }
+      }
+    });
+
+    if (!res.isConfirmed) return null;
+
+    saveStaff({ surveillants: res.value.surveillants, estafettes: res.value.estafettes });
+    verifierDonneesPersonnel();
+    resetSurveillantsAfterImport();
+
+    if (document.querySelector('.room-card')) {
+      const staff = loadStaff();
+      hydrateRoomsInputsFromStorage();
+      const t = document.querySelector('.sv1') || document.querySelector('.room-building');
+      if (t) t.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    const p = res.value;
+    await Swal.fire({
+      icon: "success",
+      title: "Import réussi",
+      html: `<div style="text-align:left">
+        <p>Agents détectés : <b>${p.total}</b></p>
+        <p>Surveillants : <b>${p.surveillants.length}</b></p>
+        <p>Estafettes (GST/G2C) : <b>${p.estafettes.length}</b></p>
+        <p style="color:#10b981;font-size:12px;margin-top:8px">Les configurations ont été conservées.</p>
+      </div>`
+    });
+
+    return loadStaff();
+  }
+
+  function snapshotRoomsFromModalAndSave() {
+    const cards = [...document.querySelectorAll('.room-card')];
+    const currentRooms = cards.map((card, i) => ({
+      numero: i + 1,
+      capacite: parseInt(card.querySelector('.salle-nb')?.value, 10) || 0,
+      description: (card.querySelector('.room-desc')?.value || '').trim(),
+      batiment: (card.querySelector('.room-building')?.value || '').trim(),
+      surveillants: [card.querySelector('.sv1')?.value, card.querySelector('.sv2')?.value].filter(Boolean)
     }));
-    saveRooms(cleared);
-  }
-  saveEstafettesAssign({});
-}
-
-// Modifier les fonctions d'import pour conserver l'état du modal
-// === UNIQUE === Remplace toutes les définitions par celle-ci
-async function importerPersonnelDepuisColler() {
-  // Sauvegarder l'état actuel AVANT l'import si le modal salles est ouvert
-  if (document.querySelector('.room-card')) {
-    snapshotRoomsFromModalAndSave();
+    saveRooms(currentRooms);
   }
 
-  const html = `<div style="display:grid;gap:10px">
-    <p style="margin:0;color:#475569">Collez les lignes (avec <b>GRADE</b> et <b>NOM ET PRENOMS</b>).</p>
-    <textarea id="txtImport" rows="12" placeholder="Collez ici…" style="width:100%;border:1px solid #d1d5db;border-radius:10px;padding:10px 12px;outline:none"></textarea>
-    <small style="color:#64748b">Format attendu : NR | GRADE | NOM ET PRENOMS | MLE | NR TPH | UNITE</small>
-  </div>`;
-
-  const res = await Swal.fire({
-    title: "Importer le personnel (coller depuis Excel)",
-    html,
-    width: 720,
-    focusConfirm: false,
-    showCancelButton: true,
-    confirmButtonText: "Importer",
-    // ⬇️ preDestroy ➜ willClose
-    willClose: () => {
-      if (document.querySelector('.room-card')) {
-        hydrateRoomsInputsFromStorage();
-      }
-    }
-  });
-
-  if (!res.isConfirmed) return null;
-
-  const raw = document.getElementById('txtImport').value || '';
-  const parsed = parsePersonnelFromPasted(raw);
-
-  if (!parsed.total) {
-    await Swal.fire("Aucun agent détecté", "Vérifie la présence des colonnes GRADE/NOM.", "warning");
-    return null;
+  // Réinjecte capacité / bâtiment / description depuis le storage (hors modal didOpen → accessible partout)
+  function hydrateRoomsInputsFromStorage() {
+    const rooms = loadRooms();
+    if (!rooms || !rooms.length) return;
+    document.querySelectorAll('.room-card').forEach((card, i) => {
+      const r = rooms[i] || {};
+      const nb = card.querySelector('.salle-nb');       if (nb) nb.value = r.capacite ?? '';
+      const b  = card.querySelector('.room-building');  if (b)  b.value = r.batiment ?? '';
+      const d  = card.querySelector('.room-desc');      if (d)  d.value = r.description ?? '';
+    });
   }
 
-  saveStaff({ surveillants: parsed.surveillants, estafettes: parsed.estafettes });
-  verifierDonneesPersonnel();
-  resetSurveillantsAfterImport();
-
-  if (document.querySelector('.room-card')) {
-    const staff = loadStaff();
-    buildSurveillantOptions(staff);
-    hydrateRoomsInputsFromStorage();
-    const t = document.querySelector('.sv1') || document.querySelector('.room-building');
-    if (t) t.dispatchEvent(new Event('change', { bubbles: true }));
-  }
-
-  await Swal.fire({
-    icon: "success",
-    title: "Import réussi",
-    html: `<div style="text-align:left">
-      <p>Agents détectés : <b>${parsed.total}</b></p>
-      <p>Surveillants : <b>${parsed.surveillants.length}</b></p>
-      <p>Estafettes (GST/G2C) : <b>${parsed.estafettes.length}</b></p>
-      <p style="color:#10b981;font-size:12px;margin-top:8px">Les configurations ont été conservées.</p>
-    </div>`
-  });
-
-  return loadStaff();
-}
-
-
-
-async function importerPersonnelDepuisExcel() {
-  // Sauvegarder l'état actuel AVANT l'import si le modal salles est ouvert
-  if (document.querySelector('.room-card')) {
-    snapshotRoomsFromModalAndSave();
-  }
-
-  const html = `<div style="display:grid;gap:10px">
-    <input id="excelFile" type="file" accept=".xlsx,.xls,.csv" style="border:1px solid #d1d5db;border-radius:10px;padding:8px 10px" />
-    <small style="color:#64748b">Le fichier doit contenir <b>GRADE</b> et <b>NOM ET PRENOMS</b>.<br>
-    Les colonnes <b>MLE</b>, <b>NR TPH</b> et <b>UNITE</b> seront également importées si disponibles.</small>
-  </div>`;
-
-  const res = await Swal.fire({
-    title: "Importer le personnel depuis un fichier",
-    html,
-    width: 560,
-    focusConfirm: false,
-    showCancelButton: true,
-    confirmButtonText: "Importer",
-    // ⬇️ preDestroy ➜ willClose
-    willClose: () => {
-      if (document.querySelector('.room-card')) {
-        hydrateRoomsInputsFromStorage();
-      }
-    },
-    preConfirm: async () => {
-      const input = document.getElementById('excelFile');
-      const file  = input?.files?.[0];
-      if (!file) { Swal.showValidationMessage("Sélectionnez un fichier."); return false; }
-      try {
-        const buf   = await file.arrayBuffer();
-        const wb    = XLSX.read(buf, { type: "array" });
-        const sheet = wb.Sheets[wb.SheetNames[0]];
-        const rows  = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false });
-        const parsed = parsePersonnelFromObjects(rows);
-        if (!parsed.total) { Swal.showValidationMessage("Impossible de détecter des agents."); return false; }
-        return parsed;
-      } catch (e) {
-        console.error(e);
-        Swal.showValidationMessage("Erreur de lecture du fichier.");
-        return false;
-      }
-    }
-  });
-
-  if (!res.isConfirmed) return null;
-
-  saveStaff({ surveillants: res.value.surveillants, estafettes: res.value.estafettes });
-  verifierDonneesPersonnel();
-  resetSurveillantsAfterImport();
-
-  if (document.querySelector('.room-card')) {
-    const staff = loadStaff();
-    buildSurveillantOptions(staff);
-    hydrateRoomsInputsFromStorage();
-    const t = document.querySelector('.sv1') || document.querySelector('.room-building');
-    if (t) t.dispatchEvent(new Event('change', { bubbles: true }));
-  }
-
-  const p = res.value;
-  await Swal.fire({
-    icon: "success",
-    title: "Import réussi",
-    html: `<div style="text-align:left">
-      <p>Agents détectés : <b>${p.total}</b></p>
-      <p>Surveillants : <b>${p.surveillants.length}</b></p>
-      <p>Estafettes (GST/G2C) : <b>${p.estafettes.length}</b></p>
-      <p style="color:#10b981;font-size:12px;margin-top:8px">Les configurations ont été conservées.</p>
-    </div>`
-  });
-
-  return loadStaff();
-}
-
-
-// Ajouter cette fonction pour gérer la sauvegarde/restauration
-function snapshotRoomsFromModalAndSave() {
-  const cards = [...document.querySelectorAll('.room-card')];
-  const currentRooms = cards.map((card, i) => ({
-    numero: i + 1,
-    capacite: parseInt(card.querySelector('.salle-nb')?.value, 10) || 0,
-    description: (card.querySelector('.room-desc')?.value || '').trim(),
-    batiment: (card.querySelector('.room-building')?.value || '').trim(),
-    surveillants: [card.querySelector('.sv1')?.value, card.querySelector('.sv2')?.value].filter(Boolean)
-  }));
-  saveRooms(currentRooms);
-}
- 
- 
   /******************************************************
    * 4) ESTAFETTES — calcul auto en excluant les surveillants
    ******************************************************/
   function computeEstafettesParBat(salles, staffRaw, editedMap /* {bat -> [labels]} */) {
     const fromUI = new Map(Object.entries(editedMap || {}));
     const cfg = loadEstafettesCfg();
-    // 1) Surveillants déjà utilisés (Set de noms normalisés)
     const survUsed = getAllSurveillantNames(salles);
-    // 2) Normalisation sûre d’une personne (accepte objet ou chaîne)
     const normalize = (p) => {
       if (!p) return null;
       if (typeof p === 'string') {
@@ -1494,18 +1375,15 @@ function snapshotRoomsFromModalAndSave() {
     };
     const survArr = (staffRaw?.surveillants || []).map(normalize).filter(Boolean);
     const estArr  = (staffRaw?.estafettes   || []).map(normalize).filter(Boolean);
-    // 3) Tout le personnel possible (surveillants + estafettes), hors gens déjà surveillants
     const allStaff = [...survArr, ...estArr].filter(p => p.name && p.label);
     const pool0 = allStaff.filter(p => !survUsed.has(normName(p.name)));
-    // 4) Règle estafette: pas de seniors, priorité GST > G2C > G1C
-    const ALLOWED = new Set(['GST', 'G2C', 'G1C']); // (on exclut GHC aussi, selon ta demande)
+    const ALLOWED = new Set(['GST', 'G2C', 'G1C']);
     const pool1 = pool0.filter(p => ALLOWED.has(p.grade));
     const weight = { GST: 1, G2C: 2, G1C: 3 };
     pool1.sort((a, b) =>
       (weight[a.grade] || 9) - (weight[b.grade] || 9) ||
       a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' })
     );
-    // 5) Déduplique globalement par nom
     const seen = new Set();
     const pool = [];
     for (const p of pool1) {
@@ -1514,7 +1392,6 @@ function snapshotRoomsFromModalAndSave() {
       seen.add(n);
       pool.push(p);
     }
-    // 6) Groupement des salles par bâtiment
     const byBat = new Map();
     for (const s of (salles || [])) {
       const b = _clean(s?.batiment) || '—';
@@ -1529,9 +1406,8 @@ function snapshotRoomsFromModalAndSave() {
         ? Math.max(3, cfg.minPerBuilding)
         : Math.max(2, cfg.minPerBuilding);
     };
-    // 7) Round-robin avec unicité globale
     let idx = 0;
-    const usedEst = new Set(); // noms normalisés déjà pris comme estafette (tous bâtiments)
+    const usedEst = new Set();
     const rr = () => {
       while (idx < pool.length) {
         const person = pool[idx++];
@@ -1543,7 +1419,6 @@ function snapshotRoomsFromModalAndSave() {
       }
       return null;
     };
-    // 8) Construire le résultat par bâtiment
     const out = new Map();
     const autoAssignments = new Map();
     for (const bat of byBat.keys()) {
@@ -1558,7 +1433,6 @@ function snapshotRoomsFromModalAndSave() {
         out.set(bat, list);
         autoAssignments.set(bat, list);
       } else {
-        // Nettoyer choix utilisateur (pas de surveillant, pas de doublon, pas de non-autorisé)
         const userSelRaw = (fromUI.get(bat) || []).filter(Boolean);
         const seenLoc = new Set();
         const userSel = [];
@@ -1566,10 +1440,10 @@ function snapshotRoomsFromModalAndSave() {
           const n = normName(nameFromLabel(lab));
           const g = gradeFromLabel(lab);
           if (!n) continue;
-          if (survUsed.has(n)) continue;    // jamais surveillant & estafette
-          if (usedEst.has(n)) continue;     // déjà pris ailleurs
-          if (seenLoc.has(n)) continue;     // doublon local
-          if (!ALLOWED.has(g)) continue;    // on enlève seniors + GHC
+          if (survUsed.has(n)) continue;
+          if (usedEst.has(n)) continue;
+          if (seenLoc.has(n)) continue;
+          if (!ALLOWED.has(g)) continue;
           seenLoc.add(n);
           usedEst.add(n);
           userSel.push(lab);
@@ -1583,28 +1457,39 @@ function snapshotRoomsFromModalAndSave() {
         out.set(bat, list);
       }
     }
-    // 9) Retour
     return {
       estafettesMap: out,
       autoAssignments,
       usedEstafettes: usedEst,
-      availableStaff: pool   // propre: objets normalisés uniquement
+      availableStaff: pool
     };
   }
+
+  // ✅ NOUVEAU : répartit N élèves sur K salles (1500/30 → 50 partout ; sinon le reste est distribué)
+  const repartirCapacites = (total, nbSalles) => {
+    const base = Math.floor(total / nbSalles);
+    const rest = total % nbSalles;
+    return Array.from({ length: nbSalles }, (_, i) => (i < rest ? base + 1 : base));
+  };
+
   /******************************************************
    * 5) MODAL principal (salles + à droite onglet Estafettes)
    ******************************************************/
-  async function ajouterSallesViaModal(eleves, exclusions = []) {
-    // 1) Récup rooms sauvegardées & nombre
+  async function ajouterSallesViaModal(eleves, exclusions = {}) {
     const savedRooms = loadRooms();
     const prevCount  = savedRooms.length || 0;
-  
+
+    // ✅ Effectif réellement à répartir = élèves du cours − exclus
+    const exclSet = new Set(Object.keys(exclusions || {}));
+    const effectifDispo = (Array.isArray(eleves) ? eleves : [])
+      .filter(e => !exclSet.has(String(e?.numeroIncorporation ?? '').trim())).length;
+
     const ask = await Swal.fire({
       title: "Combien de salles ?",
       input: "number",
-      inputLabel: "Nombre total de salles",
+      inputLabel: `Nombre total de salles (${effectifDispo} élèves à répartir)`,
       inputValue: prevCount || "",
-      inputPlaceholder: "Ex : 40",
+      inputPlaceholder: "Ex : 30",
       allowOutsideClick: false,
       showCancelButton: true,
       confirmButtonText: "Continuer",
@@ -1616,26 +1501,29 @@ function snapshotRoomsFromModalAndSave() {
       }
     });
     if (!ask.value) return;
-  
     const nbSalles = parseInt(ask.value, 10);
-  
-    // 2) Construire l’état actif des salles
+
     let activeRooms = (savedRooms || []).slice(0, nbSalles);
     while (activeRooms.length < nbSalles) {
       const i = activeRooms.length;
       activeRooms.push({ numero: i + 1, capacite: 0, description: "", batiment: "", surveillants: [] });
     }
+
+    // ✅ Capacités auto, sauf si la config sauvegardée correspond déjà (même nb de salles, même total)
+    const savedSum  = activeRooms.reduce((s, r) => s + (Number(r.capacite) || 0), 0);
+    const keepSaved = prevCount === nbSalles && savedSum === effectifDispo;
+    const autoCaps  = repartirCapacites(effectifDispo, nbSalles);
+
     activeRooms = activeRooms.map((r, i) => ({
       numero: i + 1,
-      capacite: Number(r.capacite) || 0,
+      capacite: keepSaved ? (Number(r.capacite) || 0) : autoCaps[i],
       description: r.description || "",
       batiment: r.batiment || "",
       surveillants: Array.isArray(r.surveillants) ? r.surveillants.slice(0, 2) : []
     }));
     saveRooms(activeRooms);
-    // ↓ pour que le cache reflète exactement l’état d’ouverture du modal
-_roomsCache = activeRooms.slice();
-  
+    _roomsCache = activeRooms.slice();
+
     // 3) CSS (une seule fois)
     if (!document.getElementById('swal-repart-css')) {
       const style = document.createElement('style'); style.id = 'swal-repart-css';
@@ -1688,7 +1576,7 @@ _roomsCache = activeRooms.slice();
       style.textContent=` .sv1 option, .sv2 option { white-space: pre-wrap; max-width: 400px; } `;
       document.head.appendChild(style);
     }
-  
+
     // 4) HTML cartes
     const cardsHTML = activeRooms.map((r, i) => {
       const cap = r.capacite ?? "";
@@ -1711,7 +1599,7 @@ _roomsCache = activeRooms.slice();
           </div>
         </div>`;
     }).join("");
-  
+
     // 5) Toolbar / Aside / Footer
     const toolbar = `
       <div class="repart-toolbar">
@@ -1720,6 +1608,7 @@ _roomsCache = activeRooms.slice();
           <button id="btn-import-excel" class="btn-chip ghost">Importer Excel</button>
           <button id="btn-import-paste" class="btn-chip ghost">Coller Excel</button>
           <input id="cap-def" type="number" min="1" placeholder="Capacité par défaut"/><button id="apply-all" class="btn-chip">Appliquer à toutes</button>
+          <button id="auto-cap" class="btn-chip alt">Répartir auto (${effectifDispo} élèves)</button>
           <input id="desc-def" type="text" placeholder="Description par défaut"/><button id="apply-desc-all" class="btn-chip alt">Appliquer descriptions</button>
           <input id="builds" type="text" placeholder="Bâtiments (ex: A,B,C)"/><button id="apply-buildings" class="btn-chip ghost">Assigner bâtiments</button>
           <input id="group-size" type="number" min="2" value="3" placeholder="Taille cible"/><input id="group-max" type="number" min="3" value="5" placeholder="Taille max"/><button id="auto-group-buildings" class="btn-chip">Grouper (A,B,C…)</button>
@@ -1746,13 +1635,13 @@ _roomsCache = activeRooms.slice();
       <div class="repart-footer">
         <div class="footer-kpi">
           <span>Total saisi : <span id="sum-cap" class="kpi">0</span></span>
-          ${Array.isArray(eleves) ? `<span>Élèves dispo : <span class="kpi">${eleves.length}</span></span>` : ''}
+          ${Array.isArray(eleves) ? `<span>Élèves dispo : <span class="kpi">${effectifDispo}</span></span>` : ''}
           <span>Salles : <span class="kpi">${activeRooms.length}</span></span>
           <span id="shortage-indicator" class="shortage-badge short-ok" style="display:none"></span>
         </div>
         <div style="font-size:12px;color:#6b7280">Astuce : utilisez les boutons +/−</div>
       </div>`;
-  
+
     // 6) Affichage modal principal
     const result = await Swal.fire({
       title: "Effectif, bâtiments & surveillants des salles",
@@ -1764,12 +1653,10 @@ _roomsCache = activeRooms.slice();
       showCancelButton: true,
       confirmButtonText: "Valider Répartition",
       didOpen: () => {
-        // ---- helpers ----
-    
         const inputs = [...document.querySelectorAll('.salle-nb')];
         const sumEl  = document.getElementById('sum-cap');
-        const total  = Array.isArray(eleves) ? eleves.length : null;
-  
+        const total  = effectifDispo; // ✅ élèves du cours − exclus
+
         const updateSum = () => {
           const sum = inputs.reduce((a, inp) => a + (parseInt(inp.value, 10) || 0), 0);
           if (sumEl) {
@@ -1785,7 +1672,7 @@ _roomsCache = activeRooms.slice();
           batiment: (card.querySelector('.room-building')?.value || '').trim() || '—',
           surveillants: [card.querySelector('.sv1')?.value, card.querySelector('.sv2')?.value].filter(Boolean)
         }));
-  
+
         function updateRoomHeadChips() {
           document.querySelectorAll('.room-card').forEach((card, i) => {
             const head = card.querySelector('.room-head');
@@ -1827,13 +1714,13 @@ _roomsCache = activeRooms.slice();
           snapshot.forEach(s => countByBat.set(s.batiment, (countByBat.get(s.batiment) || 0) + 1));
           const needFor = bat => (countByBat.get(bat) || 0) >= cfg.useThreeWhenRoomsGte
             ? Math.max(3, cfg.minPerBuilding) : Math.max(2, cfg.minPerBuilding);
-  
+
           cards.forEach(card => {
             const sv1 = card.querySelector('.sv1')?.value, sv2 = card.querySelector('.sv2')?.value;
             if (!sv1 || !sv2) { card.classList.add('sv-missing'); missingSV++; }
             else               { card.classList.remove('sv-missing'); }
           });
-  
+
           let iter;
           if (estafettesData?.estafettesMap instanceof Map) iter = estafettesData.estafettesMap.entries();
           else if (estafettesData instanceof Map)          iter = estafettesData.entries();
@@ -1843,10 +1730,10 @@ _roomsCache = activeRooms.slice();
             const have = Array.isArray(list) ? list.length : 0;
             missingEst += Math.max(0, need - have);
           }
-  
+
           const badge = document.getElementById('shortage-indicator');
           if (!badge) return { missingSV, missingEst };
-  
+
           if (missingSV === 0 && missingEst === 0) {
             badge.style.display = 'inline-block';
             badge.className = 'shortage-badge short-ok';
@@ -1862,7 +1749,7 @@ _roomsCache = activeRooms.slice();
           }
           return { missingSV, missingEst };
         }
-  
+
         // -- Options surveillants
         function _buildSurveillantOptions(staff) {
           const pools = buildSurvPools(staff?.surveillants || []);
@@ -1915,36 +1802,36 @@ _roomsCache = activeRooms.slice();
             if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur; else sel.selectedIndex = 0;
           });
         }
-  
+
         function renderEstafettePanel() {
           const panel = document.getElementById('estafette-panel');
           if (!panel) return;
-  
+
           const snapshot = getSallesSnapshot();
           const estAssign = loadEstafettesAssign() || {};
           const perBat    = loadEstafettesPerBuilding() || {};
           const staff     = loadStaff();
-  
+
           const estafettesData = computeEstafettesParBat(snapshot, staff, estAssign);
           const estMap         = estafettesData.estafettesMap;
           const autoAssignments= estafettesData.autoAssignments;
           const availableStaff = estafettesData.availableStaff;
-  
+
           const allAvailableOptions = availableStaff.map(p=>{
             let lab = p.label || `${p.grade} — ${p.name}`;
             const extra=[]; if (p.mle) extra.push(`MLE:${p.mle}`); if (p.nrTph) extra.push(`TPH:${p.nrTph}`); if (p.unite) extra.push(`UNITÉ:${p.unite}`);
             if (extra.length) lab += ` [${extra.join(', ')}]`;
             return `<option value="${(p.label||'').replace(/"/g,'&quot;')}">${lab}</option>`;
           }).join('');
-  
+
           const cfg = loadEstafettesCfg();
           const countByBat = new Map();
           snapshot.forEach(s => countByBat.set(s.batiment, (countByBat.get(s.batiment) || 0) + 1));
           const needFor = bat => perBat[bat] ?? ((countByBat.get(bat) || 0) >= cfg.useThreeWhenRoomsGte
                             ? Math.max(3, cfg.minPerBuilding) : Math.max(2,cfg.minPerBuilding));
-  
+
           const bats = [...new Set(snapshot.map(s => s.batiment))];
-  
+
           panel.innerHTML = `
             <div id="estaf-msg" class="estaf-msg" style="display:none;margin:4px 0 8px;font-size:12px;color:#b91c1c"></div>
             ${bats.map(bat=>{
@@ -1967,13 +1854,12 @@ _roomsCache = activeRooms.slice();
                 </div>`;
             }).join('')}
           `;
-  
+
           const showMsg = (txt) => {
             const m = panel.querySelector('#estaf-msg');
             m.textContent = txt || ''; m.style.display = txt ? 'block' : 'none';
           };
-  
-          // Pré-remplir
+
           panel.querySelectorAll('.est-sel').forEach(sel=>{
             const bat = sel.getAttribute('data-bat');
             const idx = +sel.getAttribute('data-idx');
@@ -1983,10 +1869,10 @@ _roomsCache = activeRooms.slice();
             if (target && [...sel.options].some(o=>o.value===target)) sel.value = target;
             else sel.selectedIndex = 0;
           });
-  
+
           if (!panel._bound) {
             panel._bound = true;
-  
+
             panel.addEventListener('click', (e)=>{
               const btn = e.target.closest('.btn-set-estaf'); if (!btn) return;
               const bat = btn.getAttribute('data-bat');
@@ -1997,9 +1883,9 @@ _roomsCache = activeRooms.slice();
               else perBat[bat] = Math.max(1, Number(val));
               saveEstafettesPerBuilding(perBat);
               renderEstafettePanel();
-              renderReprisePanel(); // MAJ conflits
+              renderReprisePanel();
             });
-  
+
             const getSelectedNames = (exceptSel = null) => {
               const set = new Set();
               panel.querySelectorAll('.est-sel').forEach(s=>{
@@ -2011,13 +1897,13 @@ _roomsCache = activeRooms.slice();
               });
               return set;
             };
-  
+
             panel.addEventListener('change', (e)=>{
               const sel = e.target.closest('.est-sel'); if (!sel) return;
               const bat = sel.getAttribute('data-bat');
               const idx = +sel.getAttribute('data-idx');
               const estAssignLoc = loadEstafettesAssign() || {};
-  
+
               if (!sel.value) {
                 const arr = (estAssignLoc[bat] || []).slice();
                 arr[idx] = '';
@@ -2026,37 +1912,36 @@ _roomsCache = activeRooms.slice();
                 showMsg('');
                 return;
               }
-  
+
               const picked = normName(nameFromLabel(sel.value));
               const already = getSelectedNames(sel);
               if (already.has(picked)) {
                 sel.classList.add('est-invalid');
-                showMsg("il/elle ets déjà affecté comme estafette ailleurs. Choisissez une autre personne.");
+                showMsg("il/elle est déjà affecté comme estafette ailleurs. Choisissez une autre personne.");
                 sel.value = '';
                 setTimeout(()=>sel.classList.remove('est-invalid'), 1200);
                 return;
               }
-  
+
               sel.classList.remove('est-invalid');
               showMsg('');
               const arr = (estAssignLoc[bat] || []).slice();
               arr[idx] = sel.value;
               estAssignLoc[bat] = arr.filter(Boolean);
               saveEstafettesAssign(estAssignLoc);
-  
+
               renderEstafettePanel();
               renderReprisePanel();
             });
           }
-  
-          // KPI manques
+
           colorizeShortages(estafettesData);
         } // renderEstafettePanel
-  
+
         function renderReprisePanel(staffObj, estafettesData) {
           const grid = document.getElementById('reprise-grid');
           if (!grid) return;
-  
+
           if (!document.getElementById('repr-reset-css')) {
             const s = document.createElement('style'); s.id = 'repr-reset-css';
             s.textContent = `
@@ -2079,8 +1964,8 @@ _roomsCache = activeRooms.slice();
             `;
             document.head.appendChild(s);
           }
-  
-          const saved = loadReprise(); // { adjoints:[], seniors:[] } ou ancien array
+
+          const saved = loadReprise();
           let state;
           if (Array.isArray(saved)) { state = { adjoints: [""], seniors: [""] }; }
           else if (saved && typeof saved === 'object') {
@@ -2089,27 +1974,27 @@ _roomsCache = activeRooms.slice();
               seniors : Array.isArray(saved.seniors)  ? saved.seniors.slice()  : [""]
             };
           } else { state = { adjoints: [""], seniors: [""] }; }
-  
+
           const normalizeSameLength = () => {
             const n = Math.max(state.adjoints.length || 1, state.seniors.length || 1);
             while (state.adjoints.length < n) state.adjoints.push("");
             while (state.seniors.length  < n) state.seniors.push("");
           };
           normalizeSameLength();
-  
+
           const snapshot = getSallesSnapshot();
           const usedSV  = new Set(snapshot.flatMap(s=>s.surveillants||[]).map(nameFromLabel).map(normName));
           const usedEst = (estafettesData && estafettesData.usedEstafettes) ? estafettesData.usedEstafettes : new Set();
-  
+
           const staff = staffObj || loadStaff();
           const allPeople = [...(staff?.surveillants||[]), ...(staff?.estafettes||[])];
           const keep = p => { const n = normName(p.name); return n && !usedSV.has(n) && !usedEst.has(n); };
-  
+
           const adjPool = allPeople.filter(p=>GROUP_A.has(p.grade)).filter(keep)
             .sort((a,b)=> gradeRank(a.grade)-gradeRank(b.grade) || a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
           const senPool = allPeople.filter(p=>GROUP_B.has(p.grade)).filter(keep)
             .sort((a,b)=> gradeRank(a.grade)-gradeRank(b.grade) || a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
-  
+
           const allEmpty = state.adjoints.every(v => !v) && state.seniors.every(v => !v);
           if (allEmpty) {
             const already = new Set();
@@ -2130,7 +2015,7 @@ _roomsCache = activeRooms.slice();
             state.adjoints = Array.from({length: rows}, (_,i)=> aFill[i] || "");
             state.seniors  = Array.from({length: rows}, (_,i)=> sFill[i] || "");
           } else normalizeSameLength();
-  
+
           const optionLabel = (p) => {
             let lab = p.label || `${p.grade} — ${p.name}`;
             const extra = []; if (p.mle) extra.push(`MLE:${p.mle}`); if (p.nrTph) extra.push(`TPH:${p.nrTph}`); if (p.unite) extra.push(`UNITÉ:${p.unite}`);
@@ -2139,7 +2024,7 @@ _roomsCache = activeRooms.slice();
             return `<option value="${val}">${lab}</option>`;
           };
           const buildOptions = (pool) => `<option value=""></option>` + pool.map(optionLabel).join('');
-  
+
           const header = `
             <div class="repr-head">
               <div class="repr-title">GENDARMES<span class="repr-sub">(GHC/G1C/G2C/GST)</span></div>
@@ -2166,13 +2051,13 @@ _roomsCache = activeRooms.slice();
             </div>
           `;
           grid.innerHTML = `<div class="repr-wrap">${header}<div class="repr-rows">${rowsHTML}</div>${foot}</div>`;
-  
+
           grid.querySelectorAll('.repr-adj').forEach((sel, i) => { if (state.adjoints[i]) sel.value = state.adjoints[i]; });
           grid.querySelectorAll('.repr-sen').forEach((sel, i) => { if (state.seniors[i])  sel.value = state.seniors[i];  });
-  
+
           const persist = () => saveReprise({ adjoints: state.adjoints, seniors: state.seniors });
           const statusEl = document.getElementById('repr-status');
-  
+
           function computeDupFlags() {
             const normalizeArr = arr => arr.map(v => v ? normName(nameFromLabel(v)) : '').filter(Boolean);
             const all = [...normalizeArr(state.adjoints), ...normalizeArr(state.seniors)];
@@ -2195,7 +2080,7 @@ _roomsCache = activeRooms.slice();
             statusEl.className = `repr-status ${cls}`; statusEl.textContent = txt;
           }
           updateStatus(); persist();
-  
+
           if (!grid._bound) {
             grid._bound = true;
             grid.addEventListener('change', (e) => {
@@ -2204,7 +2089,7 @@ _roomsCache = activeRooms.slice();
               const side = sel.classList.contains('repr-adj') ? 'adj' : 'sen';
               const val  = sel.value || "";
               sel.classList.remove('repr-error');
-  
+
               const n = val ? normName(nameFromLabel(val)) : '';
               const usedSVEst = new Set([...usedSV, ...usedEst]);
               const inAdj = state.adjoints.some((v,j)=> j!==idx && v && normName(nameFromLabel(v))===n);
@@ -2227,7 +2112,7 @@ _roomsCache = activeRooms.slice();
               persist(); renderReprisePanel(staff, estafettesData);
             });
           }
-  
+
           const addBtn = document.getElementById('reprise-add');
           if (addBtn && !addBtn._reprBound) {
             addBtn._reprBound = true;
@@ -2238,19 +2123,7 @@ _roomsCache = activeRooms.slice();
             });
           }
         } // renderReprisePanel
-  
-        // -- Hydratation simple des inputs depuis storage (sans surveillants)
-        function hydrateRoomsInputsFromStorage() {
-          const rooms = loadRooms();
-          if (!rooms || !rooms.length) return;
-          document.querySelectorAll('.room-card').forEach((card, i) => {
-            const r = rooms[i] || {};
-            const nb = card.querySelector('.salle-nb');       if (nb) nb.value = r.capacite ?? '';
-            const b  = card.querySelector('.room-building');  if (b)  b.value = r.batiment ?? '';
-            const d  = card.querySelector('.room-desc');      if (d)  d.value = r.description ?? '';
-          });
-        }
-  
+
         // -- Random surveillants
         function randomizeSurveillantsAcrossRooms() {
           const staff = loadStaff();
@@ -2291,7 +2164,7 @@ _roomsCache = activeRooms.slice();
             s2.value = lab2 && [...s2.options].some(o=>o.value===lab2) ? lab2 : "";
           });
         }
-  
+
         // -- Bouton Random inséré avant le bouton de validation
         const confirmBtn = Swal.getConfirmButton();
         const randomBtn = document.createElement('button');
@@ -2311,7 +2184,7 @@ _roomsCache = activeRooms.slice();
           colorizeShortages(estafettesData);
           updateRoomHeadChips();
         });
-  
+
         // -- Listeners UI simples
         document.querySelectorAll('.btn-inc').forEach(btn=>{
           btn.addEventListener('click',()=>{ const idx=btn.getAttribute('data-idx'); const inp=document.querySelector(`.salle-nb[data-idx="${idx}"]`);
@@ -2325,10 +2198,18 @@ _roomsCache = activeRooms.slice();
           inp.addEventListener('input',()=>{ updateSum(); });
           inp.addEventListener('wheel',e=>e.preventDefault(),{passive:false});
         });
-  
+
         document.getElementById('apply-all')?.addEventListener('click',()=>{
           const v=parseInt(document.getElementById('cap-def').value,10);
           if(!isNaN(v)&&v>0){ inputs.forEach(i=>i.value=v); updateSum(); snapshotRoomsFromModalAndSave(); }
+        });
+        // ✅ NOUVEAU : re-répartir automatiquement après modifications manuelles
+        document.getElementById('auto-cap')?.addEventListener('click', () => {
+          const caps = repartirCapacites(effectifDispo, inputs.length);
+          inputs.forEach((inp, i) => inp.value = caps[i] || '');
+          updateSum();
+          snapshotRoomsFromModalAndSave();
+          _roomsCache = loadRooms();
         });
         document.getElementById('apply-desc-all')?.addEventListener('click',()=>{
           const d=document.getElementById('desc-def').value||'';
@@ -2360,8 +2241,7 @@ _roomsCache = activeRooms.slice();
           document.querySelectorAll('.sv1,.sv2').forEach(s=>s.selectedIndex=-1);
           saveEstafettesAssign({}); snapshotRoomsFromModalAndSave(); renderEstafettePanel(); updateSum(); updateRoomHeadChips();
         });
-  
-       
+
         document.getElementById('btn-import-excel')?.addEventListener('click', async ()=>{ 
           const st=await importerPersonnelDepuisExcel(); 
           if(st){ 
@@ -2384,7 +2264,7 @@ _roomsCache = activeRooms.slice();
             updateRoomHeadChips();
           }
         });
-  
+
         // Pré-sélection des SV sauvegardés
         document.querySelectorAll('.room-card').forEach((card, i) => {
           const s1 = card.querySelector('.sv1');
@@ -2394,7 +2274,7 @@ _roomsCache = activeRooms.slice();
           if (savedLabels[0]) s1.value = savedLabels[0];
           if (savedLabels[1]) s2.value = savedLabels[1];
         });
-  
+
         // Options SV + Rendu initial
         _buildSurveillantOptions(loadStaff());
         updateSum();
@@ -2402,61 +2282,38 @@ _roomsCache = activeRooms.slice();
         renderReprisePanel();
         updateRoomHeadChips();
         colorizeDuplicateSurveillants();
-  
-        // --- Un SEUL listener "input/change" sur le popup, avec debounce ---
-       
-        // Rebuild lourd (panneaux) repoussé au repos
-const debouncedRebuild = idleDebounce(() => {
-  // On prend un snapshot complet UNIQUEMENT quand c’est pertinent
-  snapshotRoomsFromModalAndSave();
-  renderEstafettePanel();
-  renderReprisePanel();
-  colorizeDuplicateSurveillants();
-  updateRoomHeadChips();
-}, 2000);
 
-// 1) Sur frappe dans Bâtiment / Description / Capacité -> mise à jour ciblée + save coalescée
-const popup = Swal.getPopup();
-popup.addEventListener('input', (e) => {
-  const t = e.target;
-  if (t.classList.contains('room-building')) {
-    updateRoomField(+t.dataset.idx, 'batiment', (t.value || '').trim());
-  } else if (t.classList.contains('room-desc')) {
-    updateRoomField(+t.dataset.idx, 'description', (t.value || '').trim());
-  } else if (t.classList.contains('salle-nb')) {
-    updateRoomField(+t.dataset.idx, 'capacite', parseInt(t.value, 10) || 0);
-    // on garde le KPI réactif sans snapshot global
-    const inputs = [...document.querySelectorAll('.salle-nb')];
-    const sum = inputs.reduce((a, inp) => a + (parseInt(inp.value, 10) || 0), 0);
-    const sumEl = document.getElementById('sum-cap'); if (sumEl) sumEl.textContent = sum;
-  }
-});
+        const debouncedRebuild = idleDebounce(() => {
+          snapshotRoomsFromModalAndSave();
+          renderEstafettePanel();
+          renderReprisePanel();
+          colorizeDuplicateSurveillants();
+          updateRoomHeadChips();
+        }, 2000);
 
-// 2) Quand l’utilisateur “valide” (blur/change) -> on reconstruit les panneaux
-popup.addEventListener('change', (e) => {
-  if (e.target.matches('.sv1, .sv2')) {
-    updateRoomSurveillant(+e.target.dataset.idx, e.target.classList.contains('sv1')?1:2, e.target.value);
-    debouncedRebuild();
-  } else if (e.target.matches('.room-building, .room-desc')) {
-    debouncedRebuild();
-  }
-});
+        const popup = Swal.getPopup();
+        // Frappe dans Bâtiment / Description / Capacité -> mise à jour ciblée + save coalescée
+        popup.addEventListener('input', (e) => {
+          const t = e.target;
+          if (t.classList.contains('room-building')) {
+            updateRoomField(+t.dataset.idx, 'batiment', (t.value || '').trim());
+          } else if (t.classList.contains('room-desc')) {
+            updateRoomField(+t.dataset.idx, 'description', (t.value || '').trim());
+          } else if (t.classList.contains('salle-nb')) {
+            updateRoomField(+t.dataset.idx, 'capacite', parseInt(t.value, 10) || 0);
+          }
+        });
 
-  
-        if (!popup._boundHandlers) {
-          popup._boundHandlers = true;
-  
-          // En tapant dans Bâtiment/Description -> on sauve seulement (léger)
-      
-  
-          // Sur "change" (validation) -> on reconstruit panels (debounced)
-          popup.addEventListener('change', (e) => {
-            if (e.target.matches('.sv1, .sv2, .room-building, .room-desc')) {
-              debouncedRebuild();
-            }
-          });
-        }
-  
+        // Validation (change) -> reconstruction des panneaux
+        popup.addEventListener('change', (e) => {
+          if (e.target.matches('.sv1, .sv2')) {
+            updateRoomSurveillant(+e.target.dataset.idx, e.target.classList.contains('sv1')?1:2, e.target.value);
+            debouncedRebuild();
+          } else if (e.target.matches('.room-building, .room-desc')) {
+            debouncedRebuild();
+          }
+        });
+
         // Enter = confirmer
         Swal.getPopup().addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); Swal.clickConfirm(); }});
       },
@@ -2481,17 +2338,16 @@ popup.addEventListener('change', (e) => {
         return out;
       }
     });
-  
+
     const salles = result.isConfirmed ? result.value : null;
-  
+
     // 7) Enchaînement répartition si élèves fournis
     if (salles && Array.isArray(eleves)) {
       saveRooms(salles);
       await genererRepartitionDepuisCartes(eleves, salles, exclusions);
     }
   }
-  
-  // (optionnel) Suggestion reprise non utilisée directement
+
   function computeSuggestedReprise(snapshot, staff, estafettesData) {
     const survUsed = new Set((snapshot || []).flatMap(s => s.surveillants || []).map(lbl => normName(nameFromLabel(lbl))).filter(Boolean));
     const usedEst = estafettesData?.usedEstafettes || new Set();
@@ -2517,120 +2373,433 @@ popup.addEventListener('change', (e) => {
     const estafettesData = computeEstafettesParBat(salles, staff, savedAssign);
     const estMap = estafettesData.estafettesMap;
     const estafettesParBatiment = Array.from(estMap.entries()).map(([batiment, estafettes])=>{
-        const nbSalles = salles.filter(s => (_clean(s.batiment)||"—")===batiment).length;
-        return { batiment, estafettes, nbSalles };
+      const nbSalles = salles.filter(s => (_clean(s.batiment)||"—")===batiment).length;
+      return { batiment, estafettes, nbSalles };
     });
     const missingSV = salles.reduce((acc,s)=> acc + Math.max(0, 2 - (Array.isArray(s.surveillants)?s.surveillants.length:0)), 0);
     const alerts=[]; if(missingSV>0) alerts.push(`Salles sans 2 surveillants: ${missingSV}.`);
     return { salles, estafettesParBatiment, alerts, estafettesData };
   }
-/******************************************************
- * 7) RÉPARTITION ÉLÈVES (version 50 par salle, max 6/escadron)
- ******************************************************/
-async function genererRepartitionDepuisCartes(eleves, cartes, exclusionsDict = {}) {
-  // 1) Sécuriser l'entrée élèves
-  const rawEleves = Array.isArray(eleves) ? eleves : [];
-  const cleanEleves = rawEleves.filter(e => e && typeof e === "object");
-  const exclusionSet = new Set(Object.keys(exclusionsDict || {}));
 
-  // 2) Exclure les élèves spécifiés
-  const elevesExclus = [];
-  const elevesFiltres = cleanEleves.filter(e => {
-    const inc = (e.numeroIncorporation ?? "").toString().trim();
-    if (inc && exclusionSet.has(inc)) {
-      e.salle = exclusionsDict[inc] || "Non affecté";
-      elevesExclus.push(e);
-      return false;
-    }
-    return true;
-  });
+  /******************************************************
+   * 7) ABSENCES DU COURS (chargement groupé)
+   ******************************************************/
+  // Charge les absences du cours et retourne Map<eleve, totalJoursAbsence>
+  async function chargerAbsencesParEleve(elevesCour, cour) {
+    const courNum = Number(cour);
 
-  // 3) Mélanger les élèves
-  const shuffle = (arr) => {
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-  };
-  shuffle(elevesFiltres);
-
-  // 4) Créer des pools par escadron
-  const pools = {};
-  for (const e of elevesFiltres) {
-    const key = (e.escadron ?? "—").toString();
-    if (!pools[key]) pools[key] = [];
-    pools[key].push(e);
-  }
-  Object.keys(pools).forEach(k => shuffle(pools[k]));
-
-  // 5) Remplissage des salles
-  const salles = [];
-  const restants = [];
-
-  (cartes || []).forEach(({ numero, capacite, description, batiment, surveillants }) => {
-    const salle = [];
-    const quotas = {};
-
-    // Fonction de remplissage avec limite de 6 max / escadron
-    const round = (maxParEsc) => {
-      let added = 0;
-      const keys = Object.keys(pools).filter(k => pools[k].length > 0);
-      shuffle(keys);
-      for (const esc of keys) {
-        if (salle.length >= (capacite || 0)) break;
-        const q = quotas[esc] || 0;
-        if (q < maxParEsc && pools[esc].length > 0) {
-          const e = pools[esc].shift();
-          if (e) {
-            e.salle = numero;
-            e.salleDesc = description || "";
-            e.batiment = batiment || "";
-            salle.push(e);
-            quotas[esc] = q + 1;
-            added++;
-          }
-        }
+    const keepCour = (a) => {
+      const c = a?.cour ?? a?.Cour ?? a?.Eleve?.cour;
+      return c === undefined || c === null || c === '' || Number(c) === courNum;
+    };
+    const toList = (data) => {
+      if (Array.isArray(data)) return data;
+      if (Array.isArray(data?.absences)) return data.absences;
+      if (Array.isArray(data?.data)) return data.data;
+      if (data && typeof data === 'object') {
+        // format { "123": [abs...], "124": [...] }
+        return Object.entries(data).flatMap(([inc, arr]) =>
+          (Array.isArray(arr) ? arr : []).map(a => ({ numeroIncorporation: inc, ...a })));
       }
-      return added;
+      return [];
     };
 
-    // ⚙️ Répartition progressive : jusqu’à 6 élèves max / escadron
-    if (salle.length < capacite) round(1);
-    if (salle.length < capacite) round(2);
-    while (salle.length < capacite && round(3) > 0) {}
-    while (salle.length < capacite && round(4) > 0) {}
-    while (salle.length < capacite && round(5) > 0) {}
-    while (salle.length < capacite && round(6) > 0) {}
+    let absences = [];
+    try {
+      const incs = [...new Set(
+        elevesCour.map(e => String(e.numeroIncorporation ?? '').trim()).filter(Boolean)
+      )];
+      for (let i = 0; i < incs.length; i += 1000) {
+        const res = await absenceService.getBulk(incs.slice(i, i + 1000));
+        absences.push(...toList(res?.data));
+      }
+    } catch (err) {
+      console.warn("bulk indisponible → repli sur /absence (filtré par cours)", err);
+      const res = await absenceService.getAll();
+      absences = toList(res?.data);
+    }
+    absences = absences.filter(keepCour);
 
-    salles.push({
-      numero,
-      effectif: salle.length,
-      eleves: salle,
-      description: description || "",
-      batiment: batiment || "",
-      surveillants: surveillants || []
+    // Index par eleveId (prioritaire : les incorporations peuvent se répéter d'un cours à l'autre)
+    const byId = new Map(), byInc = new Map();
+    absences.forEach(a => {
+      const id = a?.eleveId ?? a?.EleveId ?? a?.eleve_id ?? a?.Eleve?.id;
+      if (id !== undefined && id !== null) {
+        const k = String(id);
+        if (!byId.has(k)) byId.set(k, []);
+        byId.get(k).push(a);
+      } else {
+        const inc = String(a?.numeroIncorporation ?? a?.numero_incorporation ?? a?.incorporation ?? '').trim();
+        if (!inc) return;
+        if (!byInc.has(inc)) byInc.set(inc, []);
+        byInc.get(inc).push(a);
+      }
     });
-  });
 
-  // 6) Gérer les restants
-  Object.values(pools).forEach(l => restants.push(...l));
-  shuffle(restants);
-  if (restants.length > 0) {
-    restants.forEach(e => { e.salle = "Reste"; e.batiment = ""; });
-    salles.push({ numero: "Reste", effectif: restants.length, eleves: restants, description: "" });
+    const result = new Map();
+    elevesCour.forEach(e => {
+      const id = String(e.Id ?? e.id ?? '');
+      const inc = String(e.numeroIncorporation ?? '').trim();
+      const list = [...(byId.get(id) || []), ...(byInc.get(inc) || [])];
+      result.set(e, safeSumAbsences(list));
+    });
+    return result;
   }
 
-  // 7) Estafettes + export
-  const staff = loadStaff();
-  const { estafettesParBatiment, alerts } = affecterPersonnel(salles, staff);
-  if (alerts.length) console.warn(alerts.join(" | "));
-  checkNoDoublonSurvEstaf(salles, estafettesParBatiment);
+  /******************************************************
+   * 8) RÉPARTITION ÉLÈVES — par nombre d'absences décroissant
+   *    salle 1 = plus d'absences, salle 2 = suivants, etc.
+   ******************************************************/
+  function isFemEleve(e) {
+    const s = String(e?.sexe ?? e?.gender ?? e?.sex ?? e?.genre ?? '').trim().toLowerCase();
+    return ['f','feminin','féminin','female','femme','vavy','fille'].includes(s);
+  }
+
+  // ===== Modal : paramètres de la répartition =====
+  async function demanderParametresRepartition(nbSalles) {
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem('repartition_params_v1') || '{}'); } catch {}
+    const html = `
+      <div style="text-align:left;display:grid;gap:14px">
+        <div>
+          <label style="font-weight:600">Absence minimale à prendre en compte (jours)</label>
+          <input id="rp-seuil" type="number" min="0" value="${saved.seuil ?? 10}"
+                 style="width:100%;margin-top:6px;padding:8px 10px;border:1px solid #d1d5db;border-radius:10px">
+          <small style="color:#64748b">Ny mpianatra ho zandary izay manana io absences ambonin'ny faran'ny kely io dia 
+           mitanmbatra salle daholo ary mifananraka (miovaova ny salle fiatombohana )<b>0</b> = tsy misy regroupement.</small>
+        </div>
+        <div>
+          <label style="font-weight:600">Salle hanombohan'ny fitambarany(regroupement )</label>
+          <input id="rp-start" type="number" min="1" max="${nbSalles}" placeholder="Vide = aléatoire"
+                 value="${saved.salleDepart ?? ''}"
+                 style="width:100%;margin-top:6px;padding:8px 10px;border:1px solid #d1d5db;border-radius:10px">
+          <small style="color:#64748b">Sraha mihoatra dia mitohy amin'ny salle manaraka, (15 → 16 → 17…).
+          .</small>
+        </div>
+        <div style="display:flex;gap:12px">
+          <div style="flex:1">
+            <label style="font-weight:600">Min / escadron / salle</label>
+            <input id="rp-min" type="number" min="0" value="${saved.minEsc ?? 2}"
+                   style="width:100%;margin-top:6px;padding:8px 10px;border:1px solid #d1d5db;border-radius:10px">
+          </div>
+          <div style="flex:1">
+            <label style="font-weight:600">Max / escadron / salle</label>
+            <input id="rp-max" type="number" min="1" value="${saved.maxEsc ?? 4}"
+                   style="width:100%;margin-top:6px;padding:8px 10px;border:1px solid #d1d5db;border-radius:10px">
+          </div>
+        </div>
+        <div>
+          <label style="font-weight:600">Minimum de filles par salle</label>
+          <input id="rp-fil" type="number" min="0" value="${saved.minFilles ?? 4}"
+                 style="width:100%;margin-top:6px;padding:8px 10px;border:1px solid #d1d5db;border-radius:10px">
+          <small style="color:#64748b"> ny vehivavy dia mizara amin'ny salle rehetra , siganlena ao amin'ny excel raha misy olana raha tsy afaka amenoana salle ny max par excadron.</small>
+        </div>
+      </div>`;
+    const res = await Swal.fire({
+      title: "Paramètres de répartition",
+      html,
+      width: 560,
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: "Lancer la répartition",
+      cancelButtonText: "Annuler",
+      preConfirm: () => {
+        const seuil = parseInt(document.getElementById('rp-seuil').value, 10);
+        const startRaw = (document.getElementById('rp-start').value || '').trim();
+        const minEsc = parseInt(document.getElementById('rp-min').value, 10);
+        const maxEsc = parseInt(document.getElementById('rp-max').value, 10);
+        const minFilles = parseInt(document.getElementById('rp-fil').value, 10);
+        if (isNaN(seuil) || seuil < 0) { Swal.showValidationMessage("Nombre de jours invalide (≥ 0)."); return false; }
+        let salleDepart = null;
+        if (startRaw !== '') {
+          salleDepart = parseInt(startRaw, 10);
+          if (isNaN(salleDepart) || salleDepart < 1 || salleDepart > nbSalles) {
+            Swal.showValidationMessage(`Salle de départ invalide (1 à ${nbSalles}).`); return false;
+          }
+        }
+        if (isNaN(minEsc) || minEsc < 0) { Swal.showValidationMessage("Minimum par escadron invalide."); return false; }
+        if (isNaN(maxEsc) || maxEsc < 1 || maxEsc < minEsc) { Swal.showValidationMessage("Maximum par escadron invalide (≥ minimum)."); return false; }
+        if (isNaN(minFilles) || minFilles < 0) { Swal.showValidationMessage("Minimum de filles invalide (≥ 0)."); return false; }
+        return { seuil, salleDepart, minEsc, maxEsc, minFilles };
+      }
+    });
+    if (!res.isConfirmed) return null;
+    try { localStorage.setItem('repartition_params_v1', JSON.stringify(res.value)); } catch {}
+    return res.value;
+  }
+
+  // ===== Pools par escadron, séparés filles / garçons =====
+  function construirePoolsEscadron(list) {
+    const pools = {};
+    shuffleInPlace((list || []).slice()).forEach(e => {
+      const k = String(e.escadron ?? '—');
+      if (!pools[k]) pools[k] = { F: [], M: [] };
+      (isFemEleve(e) ? pools[k].F : pools[k].M).push(e);
+    });
+    return pools;
+  }
+
+  // Remplit une salle jusqu'à `cap` : min/max par escadron + au moins 1 fille par escadron si possible.
+  // `existing` = élèves déjà dans la salle (ex. absents prolongés).
+  function remplirSalleParEscadron(pools, cap, existing, minEsc, maxEsc, fillesCible = 0) {
+    const salle = [...existing];
+    const cnt = {}, cntF = {};
+    existing.forEach(e => {
+      const k = String(e.escadron ?? '—');
+      cnt[k] = (cnt[k] || 0) + 1;
+      if (isFemEleve(e)) cntF[k] = (cntF[k] || 0) + 1;
+    });
+    const rem = (k) => pools[k].F.length + pools[k].M.length;
+    // escadrons les plus fournis d'abord (vide les pools de façon homogène)
+    const ordre = () => Object.keys(pools).filter(k => rem(k) > 0)
+      .map(k => [k, rem(k), Math.random()])
+      .sort((a, b) => b[1] - a[1] || a[2] - b[2])
+      .map(x => x[0]);
+    const addOne = (k) => {
+      const p = pools[k];
+      const tot = rem(k);
+      if (!tot) return false;
+      const c = cnt[k] || 0, cf = cntF[k] || 0;
+      // les filles sont placées en phase 0 (objectif par salle) : ici on préfère les garçons
+      const e = p.M.length ? p.M.pop() : (p.F.length ? p.F.pop() : null);
+      if (!e) return false;
+      salle.push(e);
+      cnt[k] = c + 1;
+      if (isFemEleve(e)) cntF[k] = cf + 1;
+      return true;
+    };
+
+    // Phase 0 : objectif de filles dans la salle (réparties sur les escadrons les moins représentés)
+    let nbF = existing.filter(isFemEleve).length;
+    while (salle.length < cap && nbF < fillesCible) {
+      const ks = Object.keys(pools).filter(k => pools[k].F.length > 0)
+        .sort((a, b) => (cnt[a] || 0) - (cnt[b] || 0) || pools[b].F.length - pools[a].F.length);
+      if (!ks.length) break;
+      const k = ks[0];
+      salle.push(pools[k].F.pop());
+      cnt[k] = (cnt[k] || 0) + 1;
+      cntF[k] = (cntF[k] || 0) + 1;
+      nbF++;
+    }
+
+    // Phase 1 : minimum par escadron
+    for (let level = 1; level <= minEsc; level++) {
+      for (const k of ordre()) {
+        if (salle.length >= cap) break;
+        if ((cnt[k] || 0) < level) addOne(k);
+      }
+    }
+    // Phase 2 : jusqu'au max, puis relèvement du max si la salle n'est pas pleine
+    const base = Math.max(maxEsc, minEsc, 1);
+    let maxUsed = base;
+    while (salle.length < cap) {
+      let progress = false;
+      for (const k of ordre()) {
+        if (salle.length >= cap) break;
+        if ((cnt[k] || 0) < maxUsed && addOne(k)) progress = true;
+      }
+      if (salle.length >= cap) break;
+      if (!progress) {
+        if (ordre().length === 0) break;
+        maxUsed++;
+      }
+    }
+    return { eleves: salle, relaxed: maxUsed > base, maxUsed };
+  }
+
+  async function genererRepartitionDepuisCartes(eleves, cartes, exclusionsDict = {}) {
+    const cleanEleves = (Array.isArray(eleves) ? eleves : []).filter(e => e && typeof e === "object");
+    const exclusionSet = new Set(Object.keys(exclusionsDict || {}));
+
+    // 0) Paramètres (seuil d'absence, salle de départ, min/max par escadron)
+    const params = await demanderParametresRepartition((cartes || []).length);
+    if (!params) return;
+
+    // 1) Exclusions
+    const elevesExclus = [];
+    const elevesFiltres = cleanEleves.filter(e => {
+      const inc = (e.numeroIncorporation ?? "").toString().trim();
+      if (inc && exclusionSet.has(inc)) {
+        e.salle = exclusionsDict[inc] || "Non affecté";
+        elevesExclus.push(e);
+        return false;
+      }
+      return true;
+    });
+
+    // 2) Absences du cours sélectionné
+    Swal.fire({
+      title: "Chargement des absences…",
+      allowOutsideClick: false,
+      showConfirmButton: false,
+      didOpen: () => Swal.showLoading()
+    });
+    let absMap;
+    try {
+      absMap = await chargerAbsencesParEleve(elevesFiltres, filter.cour);
+      Swal.close();
+    } catch (err) {
+      console.error(err);
+      Swal.close();
+      const r = await Swal.fire({
+        icon: "warning",
+        title: "Absences indisponibles",
+        text: "Impossible de charger les absences. Continuer sans regroupement par absences ?",
+        showCancelButton: true,
+        confirmButtonText: "Continuer",
+        cancelButtonText: "Annuler"
+      });
+      if (!r.isConfirmed) return;
+      absMap = new Map();
+    }
+    elevesFiltres.forEach(e => { e.nbAbsences = absMap.get(e) ?? 0; });
+
+    // 3) Séparer absents prolongés (≥ seuil) et les autres
+    const seuil = params.seuil;
+    const estProlonge = (e) => seuil > 0 && e.nbAbsences >= seuil;
+    const prolonges = elevesFiltres.filter(estProlonge);
+    shuffleInPlace(prolonges);
+    prolonges.sort((a, b) => b.nbAbsences - a.nbAbsences);
+    const pools = construirePoolsEscadron(elevesFiltres.filter(e => !estProlonge(e)));
+
+    // 4) Salle de départ du bloc des absents prolongés (variable : choisie ou aléatoire)
+    const caps = (cartes || []).map(c => Math.max(0, Number(c.capacite) || 0));
+    let startIdx = -1;
+    if (prolonges.length > 0 && caps.length > 0) {
+      let suffix = 0, maxStart = 0;
+      for (let i = caps.length - 1; i >= 0; i--) {
+        suffix += caps[i];
+        if (suffix >= prolonges.length) { maxStart = i; break; }
+      }
+      startIdx = params.salleDepart
+        ? Math.min(params.salleDepart - 1, maxStart)
+        : Math.floor(Math.random() * (maxStart + 1));
+    }
+
+    // 5) Remplissage des salles (file des absents prolongés + filles réparties dans toutes les salles)
+    const salles = [];
+    const queue = prolonges.slice();
+    let blocFinIdx = -1;
+    let nbSallesRelaxees = 0;
+    const minFilles = params.minFilles;
+    (cartes || []).forEach(({ numero, description, batiment, surveillants }, idx) => {
+      const cap = caps[idx];
+      let groupe = [];
+      if (startIdx >= 0 && idx >= startIdx && queue.length) {
+        groupe = queue.splice(0, cap);
+      }
+
+      // Objectif de filles pour cette salle : part équitable des filles restantes, au moins `minFilles` si possible
+      const roomsLeft = Math.max(1, caps.length - idx);
+      const girlsLeft = Object.values(pools).reduce((a, p) => a + p.F.length, 0)
+        + queue.filter(isFemEleve).length + groupe.filter(isFemEleve).length;
+      const avg = girlsLeft / roomsLeft;
+      const target = Math.min(girlsLeft, Math.max(Math.round(avg), avg >= minFilles ? minFilles : 0));
+
+      // Salle du groupe d'absents : si pas assez de filles, on remplace les garçons les moins absents
+      if (groupe.length > 0) {
+        let need = target - groupe.filter(isFemEleve).length;
+        while (need > 0) {
+          const ks = Object.keys(pools).filter(k => pools[k].F.length > 0)
+            .sort((a, b) => pools[b].F.length - pools[a].F.length);
+          let iB = -1;
+          for (let i = groupe.length - 1; i >= 0; i--) { if (!isFemEleve(groupe[i])) { iB = i; break; } }
+          if (!ks.length || iB < 0) break;
+          queue.unshift(groupe.splice(iB, 1)[0]);
+          groupe.push(pools[ks[0]].F.pop());
+          need--;
+        }
+        queue.sort((a, b) => b.nbAbsences - a.nbAbsences);
+      }
+
+      let relaxed = false;
+      if (groupe.length < cap) {
+        const r = remplirSalleParEscadron(pools, cap, groupe, params.minEsc, params.maxEsc, target);
+        groupe = r.eleves;
+        relaxed = r.relaxed;
+        if (relaxed) nbSallesRelaxees++;
+      }
+      const nbProlonges = groupe.filter(estProlonge).length;
+      if (nbProlonges > 0) blocFinIdx = idx;
+
+      groupe.forEach(e => {
+        e.salle = numero;
+        e.salleDesc = description || "";
+        e.batiment = batiment || "";
+      });
+      const abs = groupe.map(e => e.nbAbsences);
+      salles.push({
+        numero,
+        effectif: groupe.length,
+        eleves: groupe,
+        description: description || "",
+        batiment: batiment || "",
+        surveillants: surveillants || [],
+        absMax: abs.length ? Math.max(...abs) : 0,
+        absMin: abs.length ? Math.min(...abs) : 0,
+        nbProlonges,
+        nbFilles: groupe.filter(isFemEleve).length,
+        relaxed
+      });
+    });
+
+    // Compléter les salles incomplètes avec les élèves remis en file (suite aux échanges de filles)
+    if (queue.length) {
+      salles.forEach((sl, i) => {
+        let added = false;
+        while (sl.eleves.length < caps[i] && queue.length) {
+          const e = queue.shift();
+          e.salle = sl.numero; e.salleDesc = sl.description; e.batiment = sl.batiment;
+          sl.eleves.push(e);
+          added = true;
+        }
+        if (added) {
+          const abs = sl.eleves.map(e => e.nbAbsences);
+          sl.effectif = sl.eleves.length;
+          sl.absMax = Math.max(...abs);
+          sl.absMin = Math.min(...abs);
+          sl.nbProlonges = sl.eleves.filter(estProlonge).length;
+          sl.nbFilles = sl.eleves.filter(isFemEleve).length;
+          if (sl.nbProlonges > 0) blocFinIdx = Math.max(blocFinIdx, i);
+        }
+      });
+    }
+
+    // 6) Restants (capacité totale insuffisante)
+    const restants = [
+      ...queue,
+      ...Object.values(pools).flatMap(p => [...p.F, ...p.M])
+    ];
+    if (restants.length > 0) {
+      restants.forEach(e => { e.salle = "Reste"; e.batiment = ""; });
+      salles.push({ numero: "Reste", effectif: restants.length, eleves: restants, description: "" });
+    }
+
+    const infoRepart = {
+      seuil,
+      nbProlonges: prolonges.length,
+      salleDebut: startIdx >= 0 ? startIdx + 1 : null,
+      salleFin: blocFinIdx >= 0 ? blocFinIdx + 1 : null,
+      minEsc: params.minEsc,
+      maxEsc: params.maxEsc,
+      nbSallesRelaxees,
+      minFilles,
+      nbSallesSousMinFilles: salles.filter(x => x.numero !== "Reste" && (x.nbFilles ?? 0) < minFilles).length
+    };
+
+    // 7) Estafettes + export
+    const staff = loadStaff();
+    const { estafettesParBatiment, alerts } = affecterPersonnel(salles, staff);
+    if (alerts.length) console.warn(alerts.join(" | "));
+    checkNoDoublonSurvEstaf(salles, estafettesParBatiment);
 
   const tousEleves = [...salles.flatMap(s => s.eleves), ...elevesExclus];
-  await exporterVersExcel(tousEleves, salles, elevesExclus, estafettesParBatiment);
-}
 
-  
+const optionsWord = await demanderExportWord();   // modale : Word oui / non
+await exporterVersExcel(tousEleves, salles, elevesExclus, estafettesParBatiment, infoRepart);
+if (optionsWord) await exporterRepartitionWord(salles, optionsWord);
+  }
+
   function checkNoDoublonSurvEstaf(salles, estafettesParBatiment) {
     const allSV = new Set((salles || [])
       .flatMap(s => s.surveillants || [])
@@ -2652,11 +2821,11 @@ async function genererRepartitionDepuisCartes(eleves, cartes, exclusionsDict = {
   }
   
   /******************************************************
-   * 8) EXPORT EXCEL
+   * 9) EXPORT EXCEL
    ******************************************************/
   function sanitizeSheetName(name){ return String(name).replace(/[:\\/?*\[\]]/g,'').slice(0,31); }
   function uniqueSheetName(wb, base){ let name=sanitizeSheetName(base); let i=2; while(wb.SheetNames.includes(name)){ name=sanitizeSheetName(`${base.slice(0,28)}_${i++}`); } return name; }
-  async function exporterVersExcel(tousEleves, salles, elevesExclus = [], estafettesParBatiment = []) {
+  async function exporterVersExcel(tousEleves, salles, elevesExclus = [], estafettesParBatiment = [], infoRepart = {}) {
     const wb = XLSX.utils.book_new();
   
     /* ------------------------ Résumé ------------------------ */
@@ -2666,7 +2835,10 @@ async function genererRepartitionDepuisCartes(eleves, cartes, exclusionsDict = {
         : (s.description ? `Salle ${s.numero} (${s.description})` : `Salle ${s.numero}`);
       const nb  = typeof s.effectif === "number" ? s.effectif : ((s.eleves || []).length);
       const bat = s.batiment ? ` [Bâtiment ${s.batiment}]` : "";
-      return `${lib}${bat} : ${nb} élèves`;
+      return `${lib}${bat} : ${nb} élèves` +
+        (s.absMax !== undefined ? ` — absences ${s.absMax} → ${s.absMin} j` : "") +
+        (s.nbProlonges ? ` — dont ${s.nbProlonges} absent(s) ≥ ${infoRepart.seuil} j` : "") +
+        (s.relaxed ? ` — max/escadron relevé` : "");
     });
   
     const escadrons = [...new Set(
@@ -2689,9 +2861,37 @@ async function genererRepartitionDepuisCartes(eleves, cartes, exclusionsDict = {
     });
     const exclusionsLignes = [...exclMap].map(([k, n]) => n > 1 ? `${k} (${n})` : k);
   
+    // Élèves par escadron et par salle (avec garçons / filles)
+    const escKeys = [...new Set((salles || []).flatMap(s => (s.eleves || []).map(e => String(e.escadron ?? '—'))))]
+      .sort((a, b) => (+a || 0) - (+b || 0));
+    const statsSalle = (salles || []).map(s => {
+      const byEsc = {};
+      (s.eleves || []).forEach(e => {
+        const k = String(e.escadron ?? '—');
+        if (!byEsc[k]) byEsc[k] = { g: 0, f: 0 };
+        if (isFemEleve(e)) byEsc[k].f++; else byEsc[k].g++;
+      });
+      return { s, byEsc };
+    });
+    const lignesEscParSalle = statsSalle.map(({ s, byEsc }) => {
+      const parts = Object.keys(byEsc).sort((a, b) => (+a || 0) - (+b || 0))
+        .map(k => `Esc ${k}: ${byEsc[k].g + byEsc[k].f} (${byEsc[k].g}G/${byEsc[k].f}F)`);
+      const tg = Object.values(byEsc).reduce((a, x) => a + x.g, 0);
+      const tf = Object.values(byEsc).reduce((a, x) => a + x.f, 0);
+      const alerte = (s.numero !== "Reste" && infoRepart.minFilles && tf < infoRepart.minFilles) ? " ⚠ filles < minimum" : "";
+      return `${s.numero === "Reste" ? "Salle Reste" : `Salle ${s.numero}`} — ${tg + tf} (${tg}G/${tf}F)${alerte} : ${parts.join(" · ") || "—"}`;
+    });
+
     const resumeData = [
       { Clé: "Total élèves",      Valeur: (tousEleves || []).length },
       { Clé: "Nombre de salles",  Valeur: (salles || []).length },
+      ...(infoRepart.seuil !== undefined ? [
+        { Clé: "Seuil d'absence (jours)", Valeur: infoRepart.seuil > 0 ? infoRepart.seuil : "désactivé" },
+        { Clé: "Absents ≥ seuil", Valeur: infoRepart.nbProlonges ?? 0 },
+        { Clé: "Salles du groupe d'absents", Valeur: infoRepart.salleDebut ? `Salle ${infoRepart.salleDebut} → Salle ${infoRepart.salleFin}` : "—" },
+        { Clé: "Minimum de filles / salle", Valeur: `${infoRepart.minFilles ?? 0}` + (infoRepart.nbSallesSousMinFilles ? ` (⚠ ${infoRepart.nbSallesSousMinFilles} salle(s) en dessous)` : " (respecté)") },
+        { Clé: "Règle par escadron / salle", Valeur: `min ${infoRepart.minEsc} • max ${infoRepart.maxEsc}` + (infoRepart.nbSallesRelaxees ? ` (max relevé dans ${infoRepart.nbSallesRelaxees} salle(s))` : "") },
+      ] : []),
       { Clé: "",                  Valeur: "" },
       { Clé: "Répartition par salle", Valeur: "" },
       ...repartitionParSalle.map(line => ({ Clé: "", Valeur: line })),
@@ -2705,210 +2905,216 @@ async function genererRepartitionDepuisCartes(eleves, cartes, exclusionsDict = {
       { Clé: "", Valeur: "" },
       { Clé: "Répartition par escadron", Valeur: "" },
       ...repartitionParEscadron.map(line => ({ Clé: "", Valeur: line })),
+      { Clé: "", Valeur: "" },
+      { Clé: "Élèves par escadron et par salle (G = garçons, F = filles)", Valeur: "" },
+      ...lignesEscParSalle.map(line => ({ Clé: "", Valeur: line })),
       ...(exclusionsLignes.length
         ? [{ Clé: "", Valeur: "" }, { Clé: "Exclusions (incorporation : motif)", Valeur: "" },
            ...exclusionsLignes.map(line => ({ Clé: "", Valeur: line }))]
         : [])
     ];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumeData, { skipHeader: true }), "Résumé");
-  
-  /* ------------------------ Feuilles par salle (avec colonne SEXE = M/F) ------------------------ */
-(salles || []).forEach(salle => {
-  // Helper : normaliser le sexe en M / F
-  const normalizeSex = (val) => {
-    const s = String(val ?? "")
-      .toLowerCase()
-      .normalize("NFD").replace(/\p{Diacritic}/gu, "")
-      .trim();
-    if (!s) return "";
-    if (/^(m|masc|masculin|male|homme|h|garcon|g|boy|1)$/.test(s)) return "M";
-    if (/^(f|fem|feminin|female|femme|fille|girl|2)$/.test(s)) return "F";
-    return "";
-  };
 
-  // Ajout de "Sexe" dans l'en-tête
-  const header = ["NR", "Nom", "Prénom", "Sexe", "Esc", "Pon", "Inc", "Salle", "Bâtiment"];
-  const titre  = (salle.numero === "Reste" ? "SALLE RESTE" : `SALLE ${salle.numero}`).toUpperCase();
-  const aoa    = [];
-  const merges = [];
-
-  // Titre + éventuelle description
-  aoa.push([titre]);
-  merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: header.length - 1 } });
-
-  if (salle.description && salle.numero !== "Reste") {
-    aoa.push([String(salle.description).toUpperCase()]);
-    merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: header.length - 1 } });
-  } else {
-    aoa.push([]);
-  }
-
-  // Surveillants en haut
-  (salle.surveillants || []).forEach(lab => {
-    const grade = gradeFromLabel(lab);
-    const nom   = nameFromLabel(lab);
-    aoa.push([grade, nom]);
-  });
-
-  aoa.push([]);
-  aoa.push(header);
-
-  // Tri des élèves par numéro d'incorporation (comme avant)
-  const eleves = (salle.eleves || []).slice()
-    .sort((a, b) => (+a.numeroIncorporation || 0) - (+b.numeroIncorporation || 0));
-
-  // Ligne élève (Sexe normalisé en M/F)
-  eleves.forEach((e, idx) => {
-    const sexe = normalizeSex(e?.sexe ?? e?.SEXE ?? e?.genre ?? e?.Genre ?? "");
-    aoa.push([
-      idx + 1,
-      e?.nom || "",
-      e?.prenom || "",
-      sexe,                          // <-- M ou F uniquement
-      e?.escadron ?? "",
-      e?.peloton ?? "",
-      e?.numeroIncorporation ?? "",
-      (salle.numero === "Reste" ? "Reste" : salle.numero),
-      salle?.batiment || ""
-    ]);
-  });
-
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!merges"] = merges;
-  ws["!cols"]   = [
-    { wpx: 38 },  // NR
-    { wpx: 200 }, // Nom
-    { wpx: 180 }, // Prénom
-    { wpx: 60 },  // Sexe (M/F)
-    { wpx: 80 },  // Escadron
-    { wpx: 80 },  // Peloton
-    { wpx: 120 }, // Incorporation
-    { wpx: 65 },  // Salle
-    { wpx: 90 }   // Bâtiment
-  ];
-
-  const base = salle.numero === "Reste"
-    ? "Salle Reste"
-    : (salle.description ? `Salle ${salle.numero} - ${salle.description}` : `Salle ${salle.numero}`);
-
-  XLSX.utils.book_append_sheet(wb, ws, uniqueSheetName(wb, base));
-});
-
-  
-/* ------------------------ Feuilles par ESCADRON + PELON (style complet) ------------------------ */
-
-{
-  const assignes = [];
-  (salles || []).forEach(salle => {
-    (salle.eleves || []).forEach(e => {
-      assignes.push({
-        nom: e?.nom || "",
-        prenom: e?.prenom || "",
-        escadron: e?.escadron ?? "",
-        peloton: e?.peloton ?? "",
-        numeroIncorporation: e?.numeroIncorporation ?? "",
-        _salle: (salle.numero === "Reste" ? "Reste" : salle.numero),
-        _bat: salle.batiment || ""
+    /* ------------------------ Matrice Escadron × Salle (G/F) ------------------------ */
+    {
+      const aoa = [["Salle", "Bâtiment", "Total", "G", "F", ...escKeys.map(k => `Esc ${k}`)]];
+      statsSalle.forEach(({ s, byEsc }) => {
+        const tg = Object.values(byEsc).reduce((a, x) => a + x.g, 0);
+        const tf = Object.values(byEsc).reduce((a, x) => a + x.f, 0);
+        aoa.push([
+          s.numero === "Reste" ? "Reste" : s.numero,
+          s.batiment || "",
+          tg + tf, tg, tf,
+          ...escKeys.map(k => byEsc[k] ? `${byEsc[k].g + byEsc[k].f} (${byEsc[k].g}G/${byEsc[k].f}F)` : "")
+        ]);
       });
-    });
-  });
+      const tot = aoa.slice(1).reduce((acc, r) => { acc[0] += r[2]; acc[1] += r[3]; acc[2] += r[4]; return acc; }, [0, 0, 0]);
+      aoa.push(["TOTAL", "", tot[0], tot[1], tot[2], ...escKeys.map(() => "")]);
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws["!cols"] = [{ wpx: 60 }, { wpx: 80 }, { wpx: 55 }, { wpx: 40 }, { wpx: 40 }, ...escKeys.map(() => ({ wpx: 95 }))];
+      XLSX.utils.book_append_sheet(wb, ws, "Esc x Salle");
+    }
+  
+    /* ------------------------ Feuilles par salle (avec Sexe M/F + Abs) ------------------------ */
+    (salles || []).forEach(salle => {
+      const normalizeSex = (val) => {
+        const s = String(val ?? "")
+          .toLowerCase()
+          .normalize("NFD").replace(/\p{Diacritic}/gu, "")
+          .trim();
+        if (!s) return "";
+        if (/^(m|masc|masculin|male|homme|h|garcon|g|boy|1)$/.test(s)) return "M";
+        if (/^(f|fem|feminin|female|femme|fille|girl|2)$/.test(s)) return "F";
+        return "";
+      };
 
-  const num = v => {
-    const s = String(v ?? "").replace(/\D/g, "");
-    return s ? parseInt(s, 10) : Number.POSITIVE_INFINITY;
-  };
+      const header = ["NR", "Nom", "Prénom", "Sexe", "Esc", "Pon", "Inc", "Abs (j)", "Salle", "Bâtiment"];
+      const titre  = (salle.numero === "Reste" ? "SALLE RESTE" : `SALLE ${salle.numero}`).toUpperCase();
+      const aoa    = [];
+      const merges = [];
 
-  const combos = [
-    ...new Set(assignes.map(e => `${e.escadron}|||${e.peloton}`))
-  ]
-    .filter(s => s.trim() !== "|||")
-    .map(s => {
-      const [esc, pel] = s.split("|||");
-      return { esc, pel };
-    })
-    .sort((a, b) =>
-      num(a.esc) - num(b.esc) || num(a.pel) - num(b.pel)
-    );
+      aoa.push([titre]);
+      merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: header.length - 1 } });
 
-  const borderStyle = {
-    top: { style: "thin", color: { auto: 1 } },
-    bottom: { style: "thin", color: { auto: 1 } },
-    left: { style: "thin", color: { auto: 1 } },
-    right: { style: "thin", color: { auto: 1 } }
-  };
-
-  combos.forEach(({ esc, pel }) => {
-    const list = assignes
-      .filter(e => String(e.escadron) === String(esc) && String(e.peloton) === String(pel))
-      .sort((a, b) =>
-        num(a.numeroIncorporation) - num(b.numeroIncorporation) ||
-        (a.nom || "").localeCompare(b.nom || "", "fr", { sensitivity: "base" }) ||
-        (a.prenom || "").localeCompare(b.prenom || "", "fr", { sensitivity: "base" })
-      );
-
-    if (list.length === 0) return;
-
-    const aoa = [["NR", "Nom", "Prénom", "Esc", "Pon", "Inc", "Salle", "Bâtiment"]];
-    list.forEach((e, i) => {
-      aoa.push([
-        i + 1,
-        e.nom,
-        e.prenom,
-        e.escadron,
-        e.peloton,
-        e.numeroIncorporation,
-        e._salle,
-        e._bat
-      ]);
-    });
-
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-
-    const range = XLSX.utils.decode_range(ws["!ref"]);
-    for (let R = range.s.r; R <= range.e.r; ++R) {
-      for (let C = range.s.c; C <= range.e.c; ++C) {
-        const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
-        if (!ws[cellRef]) continue;
-        if (!ws[cellRef].s) ws[cellRef].s = {};
-
-        // === Bordures partout ===
-        ws[cellRef].s.border = borderStyle;
-
-        // === Style de l’en-tête ===
-        if (R === 0) {
-          ws[cellRef].s.font = { bold: true };
-          ws[cellRef].s.fill = { patternType: "solid", fgColor: { rgb: "D9D9D9" } }; // gris clair
-          ws[cellRef].s.alignment = { horizontal: "center", vertical: "center" };
-        } else {
-          ws[cellRef].s.alignment = { vertical: "center" };
-        }
+      if (salle.description && salle.numero !== "Reste") {
+        aoa.push([String(salle.description).toUpperCase()]);
+        merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: header.length - 1 } });
+      } else {
+        aoa.push([]);
       }
+
+      (salle.surveillants || []).forEach(lab => {
+        const grade = gradeFromLabel(lab);
+        const nom   = nameFromLabel(lab);
+        aoa.push([grade, nom]);
+      });
+
+      aoa.push([]);
+      aoa.push(header);
+
+     const elevesSalle = (salle.eleves || []).slice().sort(compareIncorporation);
+      elevesSalle.forEach((e, idx) => {
+        const sexe = normalizeSex(e?.sexe ?? e?.SEXE ?? e?.genre ?? e?.Genre ?? "");
+        aoa.push([
+          idx + 1,
+          e?.nom || "",
+          e?.prenom || "",
+          sexe,
+          e?.escadron ?? "",
+          e?.peloton ?? "",
+          e?.numeroIncorporation ?? "",
+          e?.nbAbsences ?? 0,
+          (salle.numero === "Reste" ? "Reste" : salle.numero),
+          salle?.batiment || ""
+        ]);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws["!merges"] = merges;
+      ws["!cols"]   = [
+        { wpx: 38 },  // NR
+        { wpx: 200 }, // Nom
+        { wpx: 180 }, // Prénom
+        { wpx: 60 },  // Sexe
+        { wpx: 80 },  // Escadron
+        { wpx: 80 },  // Peloton
+        { wpx: 120 }, // Incorporation
+        { wpx: 70 },  // Abs (j)
+        { wpx: 65 },  // Salle
+        { wpx: 90 }   // Bâtiment
+      ];
+
+      const base = salle.numero === "Reste"
+        ? "Salle Reste"
+        : (salle.description ? `Salle ${salle.numero} - ${salle.description}` : `Salle ${salle.numero}`);
+
+      XLSX.utils.book_append_sheet(wb, ws, uniqueSheetName(wb, base));
+    });
+
+    /* ------------------------ Feuilles par ESCADRON + PELOTON ------------------------ */
+    {
+      const assignes = [];
+      (salles || []).forEach(salle => {
+        (salle.eleves || []).forEach(e => {
+          assignes.push({
+            nom: e?.nom || "",
+            prenom: e?.prenom || "",
+            escadron: e?.escadron ?? "",
+            peloton: e?.peloton ?? "",
+            numeroIncorporation: e?.numeroIncorporation ?? "",
+            _salle: (salle.numero === "Reste" ? "Reste" : salle.numero),
+            _bat: salle.batiment || ""
+          });
+        });
+      });
+
+      const num = v => {
+        const s = String(v ?? "").replace(/\D/g, "");
+        return s ? parseInt(s, 10) : Number.POSITIVE_INFINITY;
+      };
+
+      const combos = [
+        ...new Set(assignes.map(e => `${e.escadron}|||${e.peloton}`))
+      ]
+        .filter(s => s.trim() !== "|||")
+        .map(s => {
+          const [esc, pel] = s.split("|||");
+          return { esc, pel };
+        })
+        .sort((a, b) =>
+          num(a.esc) - num(b.esc) || num(a.pel) - num(b.pel)
+        );
+
+      const borderStyle = {
+        top: { style: "thin", color: { auto: 1 } },
+        bottom: { style: "thin", color: { auto: 1 } },
+        left: { style: "thin", color: { auto: 1 } },
+        right: { style: "thin", color: { auto: 1 } }
+      };
+
+      combos.forEach(({ esc, pel }) => {
+        const list = assignes
+          .filter(e => String(e.escadron) === String(esc) && String(e.peloton) === String(pel))
+        .sort(compareIncorporation);
+
+        if (list.length === 0) return;
+
+        const aoa = [["NR", "Nom", "Prénom", "Esc", "Pon", "Inc", "Salle", "Bâtiment"]];
+        list.forEach((e, i) => {
+          aoa.push([
+            i + 1,
+            e.nom,
+            e.prenom,
+            e.escadron,
+            e.peloton,
+            e.numeroIncorporation,
+            e._salle,
+            e._bat
+          ]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+        const range = XLSX.utils.decode_range(ws["!ref"]);
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+          for (let C = range.s.c; C <= range.e.c; ++C) {
+            const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+            if (!ws[cellRef]) continue;
+            if (!ws[cellRef].s) ws[cellRef].s = {};
+
+            ws[cellRef].s.border = borderStyle;
+
+            if (R === 0) {
+              ws[cellRef].s.font = { bold: true };
+              ws[cellRef].s.fill = { patternType: "solid", fgColor: { rgb: "D9D9D9" } };
+              ws[cellRef].s.alignment = { horizontal: "center", vertical: "center" };
+            } else {
+              ws[cellRef].s.alignment = { vertical: "center" };
+            }
+          }
+        }
+
+        const colWidths = [];
+        const colCount = aoa[0].length;
+        for (let c = 0; c < colCount; c++) {
+          let maxLen = 10;
+          for (let r = 0; r < aoa.length; r++) {
+            const cell = aoa[r][c];
+            if (cell) {
+              const len = String(cell).length;
+              if (len > maxLen) maxLen = len;
+            }
+          }
+          colWidths.push({ wch: maxLen + 2 });
+        }
+        ws["!cols"] = colWidths;
+
+        const sheetName = `Esc${esc}-Pel${pel}`;
+        XLSX.utils.book_append_sheet(wb, ws, uniqueSheetName(wb, sheetName));
+      });
     }
 
-    // === Ajuster automatiquement les colonnes ===
-    const colWidths = [];
-    const colCount = aoa[0].length;
-    for (let c = 0; c < colCount; c++) {
-      let maxLen = 10;
-      for (let r = 0; r < aoa.length; r++) {
-        const cell = aoa[r][c];
-        if (cell) {
-          const len = String(cell).length;
-          if (len > maxLen) maxLen = len;
-        }
-      }
-      colWidths.push({ wch: maxLen + 2 });
-    }
-    ws["!cols"] = colWidths;
-
-    const sheetName = `Esc${esc}-Pel${pel}`;
-    XLSX.utils.book_append_sheet(wb, ws, uniqueSheetName(wb, sheetName));
-  });
-}
-
-
-
-    /* ------------------------ Surveillants (feuille historique conservée) ------------------------ */
+    /* ------------------------ Surveillants ------------------------ */
     {
       const aoa = [["NR", "GRADE", "NOM ET PRENOMS", "MLE", "NR TPH", "UNITE", "SALLE"]];
       let nr = 1;
@@ -3007,67 +3213,57 @@ async function genererRepartitionDepuisCartes(eleves, cartes, exclusionsDict = {
       XLSX.utils.book_append_sheet(wb, ws, uniqueSheetName(wb, "Surveillants (par MLE)"));
     }
   
-    /* ------------------------ À reprendre ------------------------ */
- /* ------------------------ À reprendre (détaillée) ------------------------ */
-{
-  const reprise = loadReprise();
+    /* ------------------------ À reprendre (détaillée) ------------------------ */
+    {
+      const reprise = loadReprise();
 
-  // Récup infos MLE/TPH/UNITE depuis le staff
-  const staff = loadStaff();
-  const staffData = new Map();
-  [...(staff?.surveillants || []), ...(staff?.estafettes || [])].forEach(p => {
-    const key = normName(p.name);
-    staffData.set(key, {
-      mle:   p.mle   || "",
-      nrTph: p.nrTph || "",
-      unite: p.unite || ""
-    });
-  });
+      const staff = loadStaff();
+      const staffData = new Map();
+      [...(staff?.surveillants || []), ...(staff?.estafettes || [])].forEach(p => {
+        const key = normName(p.name);
+        staffData.set(key, {
+          mle:   p.mle   || "",
+          nrTph: p.nrTph || "",
+          unite: p.unite || ""
+        });
+      });
 
-  // Nouveau format (objet { adjoints:[], seniors:[] } ) -> tableau détaillé
-  if (reprise && typeof reprise === 'object' &&
-      (Array.isArray(reprise.adjoints) || Array.isArray(reprise.seniors))) {
+      if (reprise && typeof reprise === 'object' &&
+          (Array.isArray(reprise.adjoints) || Array.isArray(reprise.seniors))) {
 
-    const lignes = [];
-    (reprise.adjoints || []).filter(Boolean).forEach(lab => lignes.push({ cat: "GENDARME", lab }));
-    (reprise.seniors  || []).filter(Boolean).forEach(lab => lignes.push({ cat: "GRADE",  lab }));
+        const lignes = [];
+        (reprise.adjoints || []).filter(Boolean).forEach(lab => lignes.push({ cat: "GENDARME", lab }));
+        (reprise.seniors  || []).filter(Boolean).forEach(lab => lignes.push({ cat: "GRADE",  lab }));
 
-    const aoa = [["NR","Catégorie","GRADE","NOM ET PRENOMS","MLE","NR TPH","UNITE"]];
-    lignes.forEach((row, i) => {
-      const grade = gradeFromLabel(row.lab);
-      const nom   = nameFromLabel(row.lab);
-      const info  = staffData.get(normName(nom)) || {};
-      aoa.push([ i + 1, row.cat, grade, nom, info.mle, info.nrTph, info.unite ]);
-    });
+        const aoa = [["NR","Catégorie","GRADE","NOM ET PRENOMS","MLE","NR TPH","UNITE"]];
+        lignes.forEach((row, i) => {
+          const grade = gradeFromLabel(row.lab);
+          const nom   = nameFromLabel(row.lab);
+          const info  = staffData.get(normName(nom)) || {};
+          aoa.push([ i + 1, row.cat, grade, nom, info.mle, info.nrTph, info.unite ]);
+        });
 
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws["!cols"] = [
-      { wpx: 38 },  // NR
-      { wpx: 90 },  // Catégorie
-      { wpx: 55 },  // GRADE
-      { wpx: 260 }, // NOM ET PRENOMS
-      { wpx: 80 },  // MLE
-      { wpx: 105 }, // NR TPH
-      { wpx: 90 }   // UNITE
-    ];
-    XLSX.utils.book_append_sheet(wb, ws, "À reprendre");
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        ws["!cols"] = [
+          { wpx: 38 }, { wpx: 90 }, { wpx: 55 }, { wpx: 260 },
+          { wpx: 80 }, { wpx: 105 }, { wpx: 90 }
+        ];
+        XLSX.utils.book_append_sheet(wb, ws, "À reprendre");
 
-  } else {
-    // Ancien format (liste [{nom, nombre}]) -> on garde le fallback simple
-    let aoa = [["Nom", "Nombre"]];
-    (reprise || []).forEach(r => {
-      if ((r.nom || "").trim() || +r.nombre > 0) aoa.push([r.nom, +r.nombre || ""]);
-    });
-    if (aoa.length === 1) aoa.push(["—",""]);
+      } else {
+        let aoa = [["Nom", "Nombre"]];
+        (reprise || []).forEach(r => {
+          if ((r.nom || "").trim() || +r.nombre > 0) aoa.push([r.nom, +r.nombre || ""]);
+        });
+        if (aoa.length === 1) aoa.push(["—",""]);
 
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws["!cols"] = [{ wpx: 160 }, { wpx: 80 }];
-    XLSX.utils.book_append_sheet(wb, ws, "À reprendre");
-  }
-}
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        ws["!cols"] = [{ wpx: 160 }, { wpx: 80 }];
+        XLSX.utils.book_append_sheet(wb, ws, "À reprendre");
+      }
+    }
 
-  
-    /* ------------------------ Estafettes (par bâtiment — historique) ------------------------ */
+    /* ------------------------ Estafettes (par bâtiment) ------------------------ */
     {
       const aoa = [["NR", "Bâtiment", "Nb salles", "Estafettes"]];
       (estafettesParBatiment || []).forEach((b, i) => {
@@ -3127,7 +3323,7 @@ async function genererRepartitionDepuisCartes(eleves, cartes, exclusionsDict = {
       XLSX.utils.book_append_sheet(wb, ws, uniqueSheetName(wb, "Estafettes (par MLE)"));
     }
   
-    /* ------------------------ Exclus (optionnel) ------------------------ */
+    /* ------------------------ Exclus ------------------------ */
     if ((elevesExclus || []).length) {
       const data = elevesExclus.map((e, idx) => ({
         NR: idx + 1,
@@ -3141,13 +3337,12 @@ async function genererRepartitionDepuisCartes(eleves, cartes, exclusionsDict = {
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "Exclus");
     }
   
-    /* ------------------------ Écriture du fichier ------------------------ */
     const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     saveAs(new Blob([wbout], { type: "application/octet-stream" }), "repartition_salles.xlsx");
   }
   
   /******************************************************
-   * 9) FAÇADES
+   * 10) FAÇADES (toujours basées sur les élèves du COURS sélectionné)
    ******************************************************/
   async function ouvrirEditeurRepartition(eleves){
     await editerStaff();
@@ -3161,140 +3356,146 @@ async function genererRepartitionDepuisCartes(eleves, cartes, exclusionsDict = {
       return ajouterSallesViaModal(eleves, excl);
     }
     const totalCap=rooms.reduce((s,r)=>s+(r.capacite||0),0);
+    const exclSet = new Set(Object.keys(excl || {}));
+    const effectif = eleves.filter(e => !exclSet.has(String(e?.numeroIncorporation ?? '').trim())).length;
     const html=`<div style="text-align:left">
-      <p><b>Dernière configuration mémorisée</b></p>
+      <p><b>Dernière configuration mémorisée</b> — Cours ${filter.cour}</p>
       <ul style="max-height:220px;overflow:auto;padding-left:18px;margin:0">
         ${rooms.map(r=>{
           const d=r.description?` (${r.description})`:''; const b=r.batiment?` [Bâtiment ${r.batiment}]`:''; const sv=Array.isArray(r.surveillants)&&r.surveillants.length?` — SV: ${r.surveillants.join(", ")}`:'';
           return `<li>Salle ${r.numero}${d}${b} → ${r.capacite} élèves${sv}</li>`;
         }).join('')}
       </ul>
-      <p style="margin-top:8px">Capacité totale : <b>${totalCap}</b> • Élèves dispo : <b>${eleves.length}</b></p>
+      <p style="margin-top:8px">Capacité totale : <b>${totalCap}</b> • Élèves dispo : <b>${effectif}</b></p>
     </div>`;
     const res=await Swal.fire({ title:"Valider la répartition", html, icon:"question", showDenyButton:true, confirmButtonText:"Valider", denyButtonText:"Modifier" });
     if(res.isConfirmed) return genererRepartitionDepuisCartes(eleves, rooms, excl);
     if(res.isDenied) return ajouterSallesViaModal(eleves, excl);
   }
   async function validerRepartition(eleves){ await validerRepartitionRapide(eleves); }
-   
 
+  // Garde : un cours doit être choisi
+  const guardCour = async () => {
+    if (!filter.cour) {
+      await Swal.fire('Cours requis', 'Sélectionnez un cours dans les filtres avant de répartir.', 'warning');
+      return false;
+    }
+    return true;
+  };
+  const handleValiderRepartition = async () => {
+    if (!(await guardCour())) return;
+    await validerRepartitionRapide(elevesCour);
+  };
+  const handleDefinirCapacites = async () => {
+    if (!(await guardCour())) return;
+    const excl = await exclureIncorporations();
+    await ajouterSallesViaModal(elevesCour, excl);
+  };
 
+  function exporterRepartitionEnPDF(salles, escadronGlobalMap) {
+    const doc = new jsPDF();
 
+    salles.forEach((salle, index) => {
+      if (index !== 0) doc.addPage();
 
+      doc.setFontSize(16);
+      doc.text("Répartition des élèves par salle", 14, 20);
 
+      doc.setFontSize(14);
+      doc.text(`Salle ${salle.numero} - ${salle.effectif} élèves`, 14, 10);
 
-  
-// Fonction PDF (à appeler en fin de genererRepartitionEtExporter)
-function exporterRepartitionEnPDF(salles, escadronGlobalMap) {
-  const doc = new jsPDF();
+      const tableData = salle.eleves.map((eleve) => [
+        eleve.nom,
+        eleve.prenom,
+        eleve.numeroIncorporation,
+        eleve.escadron,
+        eleve.peloton,
+        eleve.salle,
+      ]);
 
-  // ✅ Répartition par salle
-  salles.forEach((salle, index) => {
-    if (index !== 0) doc.addPage();
-
-    doc.setFontSize(16);
-    doc.text("Répartition des élèves par salle", 14, 20);
-
-    doc.setFontSize(14);
-    doc.text(`Salle ${salle.numero} - ${salle.effectif} élèves`, 14, 10);
-
-    const tableData = salle.eleves.map((eleve) => [
-      eleve.nom,
-      eleve.prenom,
-      eleve.numeroIncorporation,
-      eleve.escadron,
-      eleve.peloton,
-      eleve.salle,
-    ]);
-
-    autoTable(doc, {
-      startY: 15,
-      head: [["Nom", "Prénom", "Inc", "Escadron", "Peloton", "Salle"]],
-      body: tableData,
-      theme: "plain",
-      headStyles: { fillColor: [41, 128, 185] },
-      margin: { left: 14, right: 14 },
-      styles: { fontSize: 10 },
-      pageBreak: 'avoid', // 👉 On évite les sauts de page automatiques
-    });
-  });
-
-  // ✅ Répartition par escadron : Peloton = 1 page
-  const escadronsTries = Object.keys(escadronGlobalMap)
-    .map(Number)
-    .sort((a, b) => a - b);
-
-  escadronsTries.forEach((escadronNum) => {
-    const liste = escadronGlobalMap[escadronNum];
-
-    // Tri par peloton + incorporation
-    liste.sort((a, b) => {
-      if (a.peloton !== b.peloton) {
-        return a.peloton - b.peloton;
-      }
-      return a.numeroIncorporation - b.numeroIncorporation;
-    });
-
-    // Grouper par peloton
-    const pelotons = {};
-    liste.forEach((eleve) => {
-      if (!pelotons[eleve.peloton]) {
-        pelotons[eleve.peloton] = [];
-      }
-      pelotons[eleve.peloton].push(eleve);
-    });
-
-    Object.keys(pelotons)
-      .sort((a, b) => a - b)
-      .forEach((pelotonNum) => {
-        doc.addPage();
-
-        doc.setFontSize(16);
-        doc.text("Répartition par escadron", 14, 20);
-
-        doc.setFontSize(14);
-        doc.text(`Escadron ${escadronNum} - ${liste.length} élèves`, 14, 30);
-
-        doc.setFontSize(12);
-        doc.text(
-          `${pelotonNum === "1" ? "1er" : pelotonNum + "ème"} Peloton`,
-          14,
-          40
-        );
-
-        const pelotonListe = pelotons[pelotonNum];
-
-        const tableData = pelotonListe.map((eleve) => [
-          eleve.nom,
-          eleve.prenom,
-          eleve.numeroIncorporation,
-          eleve.escadron,
-          eleve.peloton,
-          eleve.salle,
-        ]);
-
-        autoTable(doc, {
-          startY: 50,
-          head: [["Nom", "Prénom", "Inc", "Escadron", "Peloton", "Salle"]],
-          body: tableData,
-          theme: "plain",
-          headStyles: { fillColor: [39, 174, 96] },
-          margin: { left: 14, right: 14 },
-          styles: { fontSize: 9 }, // 👉 Réduire un peu la police si bcp d'élèves
-          pageBreak: 'avoid', // 👉 Bloquer saut de page automatique
-        });
+      autoTable(doc, {
+        startY: 15,
+        head: [["Nom", "Prénom", "Inc", "Escadron", "Peloton", "Salle"]],
+        body: tableData,
+        theme: "plain",
+        headStyles: { fillColor: [41, 128, 185] },
+        margin: { left: 14, right: 14 },
+        styles: { fontSize: 10 },
+        pageBreak: 'avoid',
       });
-  });
+    });
 
-  doc.save("repartition_eleves.pdf");
-}
+    const escadronsTries = Object.keys(escadronGlobalMap)
+      .map(Number)
+      .sort((a, b) => a - b);
+
+    escadronsTries.forEach((escadronNum) => {
+      const liste = escadronGlobalMap[escadronNum];
+
+      liste.sort((a, b) => {
+        if (a.peloton !== b.peloton) {
+          return a.peloton - b.peloton;
+        }
+        return a.numeroIncorporation - b.numeroIncorporation;
+      });
+
+      const pelotons = {};
+      liste.forEach((eleve) => {
+        if (!pelotons[eleve.peloton]) {
+          pelotons[eleve.peloton] = [];
+        }
+        pelotons[eleve.peloton].push(eleve);
+      });
+
+      Object.keys(pelotons)
+        .sort((a, b) => a - b)
+        .forEach((pelotonNum) => {
+          doc.addPage();
+
+          doc.setFontSize(16);
+          doc.text("Répartition par escadron", 14, 20);
+
+          doc.setFontSize(14);
+          doc.text(`Escadron ${escadronNum} - ${liste.length} élèves`, 14, 30);
+
+          doc.setFontSize(12);
+          doc.text(
+            `${pelotonNum === "1" ? "1er" : pelotonNum + "ème"} Peloton`,
+            14,
+            40
+          );
+
+          const pelotonListe = pelotons[pelotonNum];
+
+          const tableData = pelotonListe.map((eleve) => [
+            eleve.nom,
+            eleve.prenom,
+            eleve.numeroIncorporation,
+            eleve.escadron,
+            eleve.peloton,
+            eleve.salle,
+          ]);
+
+          autoTable(doc, {
+            startY: 50,
+            head: [["Nom", "Prénom", "Inc", "Escadron", "Peloton", "Salle"]],
+            body: tableData,
+            theme: "plain",
+            headStyles: { fillColor: [39, 174, 96] },
+            margin: { left: 14, right: 14 },
+            styles: { fontSize: 9 },
+            pageBreak: 'avoid',
+          });
+        });
+    });
+
+    doc.save("repartition_eleves.pdf");
+  }
 
   //verifier 
   useEffect(() => {
     if (noteModalOpen && selectedEleve) {
-     
-       NoteService.getbyEleveId(selectedEleve.id)
-       
+      NoteService.getbyEleveId(selectedEleve.id)
         .then((res) => {
           if (res.data) {
             setNotes({
@@ -3304,9 +3505,8 @@ function exporterRepartitionEnPDF(salles, escadronGlobalMap) {
               rangfinfetta:res.data.rangfinfetta || '',
               rangmistage:res.data.rangmistage || '',
               rangfinstage:res.data.rangfinstage || '',
-              
             });
-            setNoteId(res.data.id); // pour savoir si c’est un update ou un create
+            setNoteId(res.data.id);
           } else {
             setNotes({ finfetta: '', mistage: '', finstage: '' ,   rangfinfetta:'',rangmistage:'',rangfinstage:'',});
             setNoteId(null);
@@ -3325,14 +3525,11 @@ function exporterRepartitionEnPDF(salles, escadronGlobalMap) {
       finfetta: notes.finfetta,
       mistage: notes.mistage,
       finstage: notes.finstage,
-      //rang
       rangfinfetta:notes.rangfinfetta,
       rangmistage:notes.rangmistage,
       rangfinstage:notes.rangfinstage,
       eleveId: selectedEleve.id
     };
-    //console.log("note id veeeee",noteId);
-  
     try {
       if (noteId) {
         await NoteService.update(noteId, noteData);
@@ -3346,9 +3543,6 @@ function exporterRepartitionEnPDF(salles, escadronGlobalMap) {
       alert("Échec de l'enregistrement.");
     }
   };
-  
-  
-  
 
   //cour 
   const [coursList, setCoursList] = useState([]);
@@ -3357,28 +3551,21 @@ function exporterRepartitionEnPDF(salles, escadronGlobalMap) {
       try {
         const res = await courService.getAll();
         const coursData = res.data;
-  
-        // Trier par valeur décroissante
         coursData.sort((a, b) => b.cour - a.cour);
-  
         setCoursList(coursData);
-  
-        // Définir par défaut le plus grand
         if (coursData.length > 0) {
           setFilter(prev => ({
             ...prev,
-            cour: coursData[0].cour.toString(), // Important si select attend une string
+            cour: coursData[0].cour.toString(),
           }));
         }
       } catch (err) {
         console.error("Erreur lors du chargement des cours", err);
       }
     };
-  
     fetchCours();
   }, []);
   
-  //fonction delete
   const handleDelete = (id) => {
     Swal.fire({
       title: 'Êtes-vous sûr ?',
@@ -3391,7 +3578,6 @@ function exporterRepartitionEnPDF(salles, escadronGlobalMap) {
       cancelButtonText: 'Annuler'
     }).then((result) => {
       if (result.isConfirmed) {
-        
         EleveService.delete(id)
           .then(() => {
             setEleves(prev => prev.filter(e => e.id !== id));
@@ -3407,46 +3593,41 @@ function exporterRepartitionEnPDF(salles, escadronGlobalMap) {
 
   useEffect(() => {
     fetchAllData();
-  }, [refreshKey]); // ✅ ça relance le fetch quand refreshKey change
+  }, [refreshKey]);
   
-  
-// maka donne rehetra
-const fetchAllData = async () => {
-  if (isFirstLoad.current) setIsLoading(true);
-  let allEleves = [];
-  let currentOffset = 0;
-  const limit = 500;
+  const fetchAllData = async () => {
+    if (isFirstLoad.current) setIsLoading(true);
+    let allEleves = [];
+    let currentOffset = 0;
+    const limit = 500;
 
-  try {
-    while (true) {
-      const response = await EleveService.getPaginated(limit, currentOffset);
-      const data = response.data;
+    try {
+      while (true) {
+        const response = await EleveService.getPaginated(limit, currentOffset);
+        const data = response.data;
 
-      if (!Array.isArray(data) || data.length === 0) break;
+        if (!Array.isArray(data) || data.length === 0) break;
 
-      allEleves = [...allEleves, ...data];
-      currentOffset += limit;
+        allEleves = [...allEleves, ...data];
+        currentOffset += limit;
 
-      if (data.length < limit) break;
+        if (data.length < limit) break;
+      }
+      setEleves(allEleves);
+    } catch (error) {
+      console.error("Erreur de chargement :", error);
+    } finally {
+      if (isFirstLoad.current) {
+        setIsLoading(false);
+        isFirstLoad.current = false;
+      }
     }
-  
-
-    setEleves(allEleves);
-  } catch (error) {
-    console.error("Erreur de chargement :", error);
-  } finally {
-    if (isFirstLoad.current) {
-      setIsLoading(false);
-      isFirstLoad.current = false;
-    }
-  }
-};
+  };
 
   const handleOpenModal = (eleve) => {
     setEleveActif(eleve);
     setShowModal(true);
   };
-  
 
   const handleCloseModal = () => {
     setShowModal(false);
@@ -3460,7 +3641,6 @@ const fetchAllData = async () => {
       [name]: value
     }));
   };
-  //pour le filtre 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilter(prev => ({ ...prev, [name]: value }));
@@ -3469,7 +3649,7 @@ const fetchAllData = async () => {
   const handleSave = async () => {
     try {
       if (EleveService.update) {
-        await EleveService.update(eleveActif); // Assure-toi que cette méthode est bien dans ton service
+        await EleveService.update(eleveActif);
       }
       setShowModal(false);
     } catch (error) {
@@ -3483,1190 +3663,1101 @@ const fetchAllData = async () => {
     if (['f', 'féminin', 'feminin', 'female', 'fille'].includes(s)) return 'F';
     return '';
   };
-  
- 
+
   // Application du filtre
   const elevesAAfficher = eleves.filter(eleve => {
-  const escadronMatch = filter.escadron === '' || eleve.escadron === Number(filter.escadron);
-  const pelotonMatch  = filter.peloton  === '' || eleve.peloton  === Number(filter.peloton);
-  const courMatch     = filter.cour     === '' || eleve.cour     === Number(filter.cour);
+    const escadronMatch = filter.escadron === '' || eleve.escadron === Number(filter.escadron);
+    const pelotonMatch  = filter.peloton  === '' || eleve.peloton  === Number(filter.peloton);
+    const courMatch     = filter.cour     === '' || eleve.cour     === Number(filter.cour);
 
-  const sexeEleve  = normSexe(eleve.sexe ?? eleve.gender ?? eleve.sex);
-  const matricule  = eleve.matricule ?? eleve.mle ?? eleve.matriculeNumber;
-  const sexeMatch  = !filter.sexe || sexeEleve === filter.sexe;
+    const sexeEleve  = normSexe(eleve.sexe ?? eleve.gender ?? eleve.sex);
+    const matricule  = eleve.matricule ?? eleve.mle ?? eleve.matriculeNumber;
+    const sexeMatch  = !filter.sexe || sexeEleve === filter.sexe;
 
-  const centreConcoursMatch  = filter.centreConcours === '' || eleve.centreConcours === filter.centreConcours;
-  const lieuNaissanceMatch   = filter.lieuNaissance  === '' || eleve.lieuNaissance  === filter.lieuNaissance;
-  const fadyMatch            = filter.fady           === '' || eleve.fady           === filter.fady;
+    const centreConcoursMatch  = filter.centreConcours === '' || eleve.centreConcours === filter.centreConcours;
+    const lieuNaissanceMatch   = filter.lieuNaissance  === '' || eleve.lieuNaissance  === filter.lieuNaissance;
+    const fadyMatch            = filter.fady           === '' || eleve.fady           === filter.fady;
 
-  const matchSearch = !filter.search || (
-    eleve.nom?.toLowerCase().includes(filter.search.toLowerCase()) ||
-    eleve.prenom?.toLowerCase().includes(filter.search.toLowerCase()) ||
-    eleve.numeroIncorporation?.toString().includes(filter.search) ||
-    matricule?.toString().includes(filter.search) ||
-    (['m', 'f'].includes(filter.search) && sexeEleve.toLowerCase() === filter.search)
-  );
+    const matchSearch = !filter.search || (
+      eleve.nom?.toLowerCase().includes(filter.search.toLowerCase()) ||
+      eleve.prenom?.toLowerCase().includes(filter.search.toLowerCase()) ||
+      eleve.numeroIncorporation?.toString().includes(filter.search) ||
+      matricule?.toString().includes(filter.search) ||
+      (['m', 'f'].includes(filter.search) && sexeEleve.toLowerCase() === filter.search)
+    );
 
-  // ← NOUVEAU : recherche famille
-const familleSearch = filter.famille.toLowerCase().trim();
-const familleMatch = !familleSearch || (
-  (eleve.Pere?.nom    ?? '').toLowerCase().includes(familleSearch) ||
-  (eleve.Mere?.nom    ?? '').toLowerCase().includes(familleSearch) ||
-  (eleve.Tuteur?.nom  ?? '').toLowerCase().includes(familleSearch)
-);
+    const familleSearch = filter.famille.toLowerCase().trim();
+    const familleMatch = !familleSearch || (
+      (eleve.Pere?.nom    ?? '').toLowerCase().includes(familleSearch) ||
+      (eleve.Mere?.nom    ?? '').toLowerCase().includes(familleSearch) ||
+      (eleve.Tuteur?.nom  ?? '').toLowerCase().includes(familleSearch)
+    );
 
-const professionSearch = filter.profession.toLowerCase().trim();
-const professionMatch = !professionSearch || (
-  (eleve.Pere?.profession    ?? '').toLowerCase().includes(professionSearch) ||
-  (eleve.Mere?.profession    ?? '').toLowerCase().includes(professionSearch) ||
-  (eleve.Tuteur?.profession  ?? '').toLowerCase().includes(professionSearch) ||
-  (eleve.Accident?.profession ?? '').toLowerCase().includes(professionSearch)
-);
+    const professionSearch = filter.profession.toLowerCase().trim();
+    const professionMatch = !professionSearch || (
+      (eleve.Pere?.profession    ?? '').toLowerCase().includes(professionSearch) ||
+      (eleve.Mere?.profession    ?? '').toLowerCase().includes(professionSearch) ||
+      (eleve.Tuteur?.profession  ?? '').toLowerCase().includes(professionSearch) ||
+      (eleve.Accident?.profession ?? '').toLowerCase().includes(professionSearch)
+    );
 
-  if (filter.peloton !== '' && filter.escadron === '' && filter.search) return true;
+    if (filter.peloton !== '' && filter.escadron === '' && filter.search) return true;
 
- return (
-    escadronMatch &&
-    pelotonMatch  &&
-    courMatch     &&
-    sexeMatch     &&
-    matchSearch   &&
-    centreConcoursMatch &&
-    lieuNaissanceMatch  &&
-    fadyMatch     &&
-    familleMatch  &&
-    professionMatch     // ← NOUVEAU
-  );
-});
+    return (
+      escadronMatch &&
+      pelotonMatch  &&
+      courMatch     &&
+      sexeMatch     &&
+      matchSearch   &&
+      centreConcoursMatch &&
+      lieuNaissanceMatch  &&
+      fadyMatch     &&
+      familleMatch  &&
+      professionMatch
+    );
+  });
   
-  // Helper robuste
-const sexToMF = (v) => {
-  if (v === null || v === undefined) return "-";
-  // nombres / booleans éventuels
-  if (v === 1 || v === true) return "M";
-  if (v === 0 || v === false) return "F";
+  const sexToMF = (v) => {
+    if (v === null || v === undefined) return "-";
+    if (v === 1 || v === true) return "M";
+    if (v === 0 || v === false) return "F";
 
-  const s = String(v).trim().toLowerCase();
+    const s = String(v).trim().toLowerCase();
 
-  // Masculin
-  if (["m", "masculin", "male", "homme", "lahy", "garçon", "garcon"].includes(s)) return "M";
-  // Féminin
-  if (["f", "féminin", "feminin", "female", "femme", "vavy", "fille"].includes(s)) return "F";
+    if (["m", "masculin", "male", "homme", "lahy", "garçon", "garcon"].includes(s)) return "M";
+    if (["f", "féminin", "feminin", "female", "femme", "vavy", "fille"].includes(s)) return "F";
 
-  // Si déjà "M" / "F" ou autre valeur courte
-  if (s === "m") return "M";
-  if (s === "f") return "F";
+    return "-";
+  };
 
-  return "-";
-};
+  const columns = [
+    { name: 'Nom', selector: row => row.nom, sortable: true },
+    { name: 'Prénom', selector: row => row.prenom, sortable: true },
+    { name: 'Sexe', selector: row => sexToMF(row.sexe), sortable: true, width: "90px", center: true },
 
- const columns = [
-  { name: 'Nom', selector: row => row.nom, sortable: true },
-  { name: 'Prénom', selector: row => row.prenom, sortable: true },
-  { name: 'Sexe', selector: row => sexToMF(row.sexe), sortable: true, width: "90px", center: true },
-
-  { name: 'Esc / Pon', selector: row => row.escadron + " "+row.peloton , sortable: true , width:"130px" },
-  { name: 'Matricule', selector: row => row.matricule, sortable: true,width : "110px" },
- {
-  name: 'Inc',
-  selector: row => row.numeroIncorporation ?? '',
-  sortable: true,
-  sortFunction: (a, b) => {
-    const parseInc = (v) => {
-      const s = String(v ?? '').trim();
-      const m = s.match(/^(\d+)([A-Za-z]*)$/);
-      if (!m) return [Infinity, ''];
-      return [parseInt(m[1], 10), m[2].toLowerCase()];
-    };
-    const [na, sa] = parseInc(a.numeroIncorporation);
-    const [nb, sb] = parseInc(b.numeroIncorporation);
-    return na !== nb ? na - nb : sa.localeCompare(sb);
-  },
-  width: "90px"
-},
-{
-  name: 'Famille',
-  width: '200px',
-  omit: !filter.famille, // cachée si pas de recherche famille active
-  cell: row => {
-    const q = filter.famille.toLowerCase().trim();
-    if (!q) return null;
-    const roles = [
-      { key: 'Pere',   label: 'Père',   style: { background:'#E6F1FB', color:'#0C447C', border:'0.5px solid #85B7EB' } },
-      { key: 'Mere',   label: 'Mère',   style: { background:'#FBEAF0', color:'#72243E', border:'0.5px solid #ED93B1' } },
-      { key: 'Tuteur', label: 'Tuteur', style: { background:'#E1F5EE', color:'#085041', border:'0.5px solid #5DCAA5' } },
-    ];
-    return (
-      <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-        {roles
-          .filter(r => (row[r.key]?.nom ?? '').toLowerCase().includes(q))
-          .map(r => (
-            <span key={r.key} style={{
-              ...r.style,
-              padding:'2px 8px', borderRadius:999,
-              fontSize:11, fontWeight:500,
-              display:'flex', alignItems:'center', gap:4
-            }}>
-              {r.label} : {row[r.key].nom}
-            </span>
-          ))
-        }
-      </div>
-    );
-  }
-},
-{
-  name: 'Profession parent',
-  width: '200px',
-  omit: !filter.profession,
-  cell: row => {
-    const q = filter.profession.toLowerCase().trim();
-    if (!q) return null;
-    const roles = [
-      { key: 'Pere',    label: 'Père',   style: { background:'#E6F1FB', color:'#0C447C', border:'0.5px solid #85B7EB' } },
-      { key: 'Mere',    label: 'Mère',   style: { background:'#FBEAF0', color:'#72243E', border:'0.5px solid #ED93B1' } },
-      { key: 'Tuteur',  label: 'Tuteur', style: { background:'#E1F5EE', color:'#085041', border:'0.5px solid #5DCAA5' } },
-      { key: 'Accident',label: 'Contact',style: { background:'#FFF8E1', color:'#7B5800', border:'0.5px solid #FFD54F' } },
-    ];
-    return (
-      <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-        {roles
-          .filter(r => (row[r.key]?.profession ?? '').toLowerCase().includes(q))
-          .map(r => (
-            <span key={r.key} style={{
-              ...r.style,
-              padding:'2px 8px', borderRadius:999,
-              fontSize:11, fontWeight:500,
-              display:'flex', alignItems:'center', gap:4
-            }}>
-              {r.label} : {row[r.key].profession}
-            </span>
-          ))
-        }
-      </div>
-    );
-  }
-},
-
-  // === Nouvelles colonnes alimentées par les maps ===
-  {
-    name: 'Sanction',
-    selector: row => {
-      const id = row.Id ?? row.id;
-      const v = hasSanctionMap[id];
-      return v === undefined ? '…' : (v ? 'Oui' : 'Non');
+    { name: 'Esc / Pon', selector: row => row.escadron + " "+row.peloton , sortable: true , width:"130px" },
+    { name: 'Matricule', selector: row => row.matricule, sortable: true,width : "110px" },
+    {
+      name: 'Inc',
+      selector: row => row.numeroIncorporation ?? '',
+      sortable: true,
+      sortFunction: (a, b) => {
+        const parseInc = (v) => {
+          const s = String(v ?? '').trim();
+          const m = s.match(/^(\d+)([A-Za-z]*)$/);
+          if (!m) return [Infinity, ''];
+          return [parseInt(m[1], 10), m[2].toLowerCase()];
+        };
+        const [na, sa] = parseInc(a.numeroIncorporation);
+        const [nb, sb] = parseInc(b.numeroIncorporation);
+        return na !== nb ? na - nb : sa.localeCompare(sb);
+      },
+      width: "90px"
     },
-    sortable: true,
-    width: "120px"
-  },
-  {
-    name: 'Absences (jours)',
-    selector: row => {
-      const id = row.Id ?? row.id;
-      const v = absDaysMap[id];
-      return v === undefined ? '…' : v;
-
+    {
+      name: 'Famille',
+      width: '200px',
+      omit: !filter.famille,
+      cell: row => {
+        const q = filter.famille.toLowerCase().trim();
+        if (!q) return null;
+        const roles = [
+          { key: 'Pere',   label: 'Père',   style: { background:'#E6F1FB', color:'#0C447C', border:'0.5px solid #85B7EB' } },
+          { key: 'Mere',   label: 'Mère',   style: { background:'#FBEAF0', color:'#72243E', border:'0.5px solid #ED93B1' } },
+          { key: 'Tuteur', label: 'Tuteur', style: { background:'#E1F5EE', color:'#085041', border:'0.5px solid #5DCAA5' } },
+        ];
+        return (
+          <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+            {roles
+              .filter(r => (row[r.key]?.nom ?? '').toLowerCase().includes(q))
+              .map(r => (
+                <span key={r.key} style={{
+                  ...r.style,
+                  padding:'2px 8px', borderRadius:999,
+                  fontSize:11, fontWeight:500,
+                  display:'flex', alignItems:'center', gap:4
+                }}>
+                  {r.label} : {row[r.key].nom}
+                </span>
+              ))
+            }
+          </div>
+        );
+      }
     },
-    sortable: true,
-    width: "140px"
-  },
-  {
-    name: 'Consultations externes',
-    selector: row => {
-      const id = row.Id ?? row.id;
-      const v = consDaysMap[id];
-      return v === undefined ? -1 : v; // -1 pour ceux pas encore chargés
+    {
+      name: 'Profession parent',
+      width: '200px',
+      omit: !filter.profession,
+      cell: row => {
+        const q = filter.profession.toLowerCase().trim();
+        if (!q) return null;
+        const roles = [
+          { key: 'Pere',    label: 'Père',   style: { background:'#E6F1FB', color:'#0C447C', border:'0.5px solid #85B7EB' } },
+          { key: 'Mere',    label: 'Mère',   style: { background:'#FBEAF0', color:'#72243E', border:'0.5px solid #ED93B1' } },
+          { key: 'Tuteur',  label: 'Tuteur', style: { background:'#E1F5EE', color:'#085041', border:'0.5px solid #5DCAA5' } },
+          { key: 'Accident',label: 'Contact',style: { background:'#FFF8E1', color:'#7B5800', border:'0.5px solid #FFD54F' } },
+        ];
+        return (
+          <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+            {roles
+              .filter(r => (row[r.key]?.profession ?? '').toLowerCase().includes(q))
+              .map(r => (
+                <span key={r.key} style={{
+                  ...r.style,
+                  padding:'2px 8px', borderRadius:999,
+                  fontSize:11, fontWeight:500,
+                  display:'flex', alignItems:'center', gap:4
+                }}>
+                  {r.label} : {row[r.key].profession}
+                </span>
+              ))
+            }
+          </div>
+        );
+      }
     },
-    sortable: true,
-    width: "140px",
-    cell: row => {
-      const id = row.Id ?? row.id;
-      const v = consDaysMap[id];
-      return v === undefined ? '…' : v;
+    {
+      name: 'Sanction',
+      selector: row => {
+        const id = row.Id ?? row.id;
+        const v = hasSanctionMap[id];
+        return v === undefined ? '…' : (v ? 'Oui' : 'Non');
+      },
+      sortable: true,
+      width: "120px"
+    },
+    {
+      name: 'Absences (jours)',
+      selector: row => {
+        const id = row.Id ?? row.id;
+        const v = absDaysMap[id];
+        return v === undefined ? '…' : v;
+      },
+      sortable: true,
+      width: "140px"
+    },
+    {
+      name: 'Consultations externes',
+      selector: row => {
+        const id = row.Id ?? row.id;
+        const v = consDaysMap[id];
+        return v === undefined ? -1 : v;
+      },
+      sortable: true,
+      width: "140px",
+      cell: row => {
+        const id = row.Id ?? row.id;
+        const v = consDaysMap[id];
+        return v === undefined ? '…' : v;
+      }
+    },
+    {
+      name: 'FETTA',
+      width: '130px',
+      right: true,
+      sortable: true,
+      selector: (row) => selectorNoteNumeric(row, 'finfetta'),
+      cell:     (row) => renderNoteCell(row, 'finfetta'),
+    },
+    {
+      name: 'Mi-Stage',
+      width: '130px',
+      right: true,
+      sortable: true,
+      selector: (row) => selectorNoteNumeric(row, 'mistage'),
+      cell:     (row) => renderNoteCell(row, 'mistage'),
+    },
+    {
+      name: 'Fin Formation',
+      width: '130px',
+      right: true,
+      sortable: true,
+      selector: (row) => selectorNoteNumeric(row, 'finstage'),
+      cell:     (row) => renderNoteCell(row, 'finstage'),
+    },
+    {
+      name: 'Actions',
+      cell: row => (
+        <>
+          <button className="btn btn-warning btn-sm me-2" onClick={() => handleOpenModal(row)}>View</button>
+          {(user?.type === 'superadmin' || user?.type === 'admin' || user?.type === 'user') && (
+            <button className="btn btn-info btn-sm me-2" onClick={() => handleOpenNoteModal(row)}>Fiche</button>
+          )}
+          {user?.type === 'superadmin' && (
+            <button className="btn btn-danger btn-sm" onClick={() => handleDelete(row.id)}>Delete</button>
+          )}
+        </>
+      )
     }
-  },
-  // === NOUVELLES COLONNES MOYENNES ===
-  {
-    name: 'FETTA',
-    width: '130px',
-    right: true,
-    sortable: true,
-    selector: (row) => selectorNoteNumeric(row, 'finfetta'),
-    cell:     (row) => renderNoteCell(row, 'finfetta'),
-  },
-  {
-    name: 'Mi-Stage',
-    width: '130px',
-    right: true,
-    sortable: true,
-    selector: (row) => selectorNoteNumeric(row, 'mistage'),
-    cell:     (row) => renderNoteCell(row, 'mistage'),
-  },
-  {
-    name: 'Fin Formation',
-    width: '130px',
-    right: true,
-    sortable: true,
-    selector: (row) => selectorNoteNumeric(row, 'finstage'),
-    cell:     (row) => renderNoteCell(row, 'finstage'),
-  },
-  
-  
+  ];
 
-  {
-    name: 'Actions',
-    cell: row => (
-      <>
-        <button className="btn btn-warning btn-sm me-2" onClick={() => handleOpenModal(row)}>View</button>
-        {(user?.type === 'superadmin' || user?.type === 'admin' || user?.type === 'user') && (
-          <button className="btn btn-info btn-sm me-2" onClick={() => handleOpenNoteModal(row)}>Fiche</button>
-        )}
-        {user?.type === 'superadmin' && (
-          <button className="btn btn-danger btn-sm" onClick={() => handleDelete(row.id)}>Delete</button>
-        )}
-      </>
-    )
+  //export en excel 
+  const handleExportExcel = async () => {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Elèves par escadron');
+
+      const title = 'Liste des élèves gendarme';
+      worksheet.mergeCells('A1:F1');
+      const titleCell = worksheet.getCell('A1');
+      titleCell.value = title;
+      titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      titleCell.font = { size: 16, bold: true };
+      worksheet.getRow(1).height = 30;
+
+      const columns = [
+        { header: 'Nom', key: 'nom', width: 20 },
+        { header: 'Prénom', key: 'prenom', width: 20 },
+        { header: 'Numéro Incorporation', key: 'numeroIncorporation', width: 25 },
+        { header: 'Matricule', key: 'matricule', width: 25 },
+        { header: 'Escadron', key: 'escadron', width: 15 },
+        { header: 'Peloton', key: 'peloton', width: 15 },
+        { header: 'NUMERO 1', key: 'telephone1', width: 15 },
+        { header: 'NUMERO 2', key: 'telephone2', width: 15 },
+        { header: 'NUMERO 3', key: 'telephone3', width: 15 },
+        { header: 'Sexe', key: 'sexe', width: 10 },
+        { header: 'Fady (Ethnie)', key: 'fady', width: 20 },
+        { header: 'Genre Concours', key: 'genreConcours', width: 20 },
+        { header: 'Niveau', key: 'niveau', width: 15 },
+        { header: 'Centre Concours', key: 'centreConcours', width: 20 },
+        { header: 'Note FETTA', key: 'finfetta', width: 15 },
+        { header: 'Rang FETTA', key: 'rangFinfetta', width: 15 },
+        { header: 'Note Mi-Stage', key: 'mistage', width: 15 },
+        { header: 'Rang Mi-Stage', key: 'rangMistage', width: 15 },
+        { header: 'Note Fin Formation', key: 'finstage', width: 18 },
+        { header: 'Rang Fin Formation', key: 'rangFinstage', width: 18 },
+      ];
+      worksheet.columns = columns;
+
+      let currentRow = 3;
+
+      const escadronsUniques = [...new Set(elevesAAfficher.map(e => e.escadron))].sort((a, b) => a - b);
+
+      for (const escadron of escadronsUniques) {
+        worksheet.mergeCells(`A${currentRow}:F${currentRow}`);
+        const sousTitreCell = worksheet.getCell(`A${currentRow}`);
+        sousTitreCell.value = `${escadron}ème escadron`;
+        sousTitreCell.font = { size: 14, bold: true, color: { argb: 'FF1F497D' } };
+        sousTitreCell.alignment = { horizontal: 'left', vertical: 'middle' };
+        worksheet.getRow(currentRow).height = 20;
+        currentRow++;
+
+        worksheet.getRow(currentRow).values = columns.map(col => col.header);
+        worksheet.getRow(currentRow).font = { bold: true };
+        worksheet.getRow(currentRow).alignment = { horizontal: 'center' };
+        worksheet.getRow(currentRow).border = { bottom: { style: 'thin' } };
+        currentRow++;
+
+        const elevesEscadron = elevesAAfficher.filter(e => e.escadron === escadron);
+
+        elevesEscadron.forEach(eleve => {
+          worksheet.getRow(currentRow).values = [
+            eleve.nom || '',
+            eleve.prenom || '',
+            eleve.numeroIncorporation || '',
+            eleve.matricule || '',
+            eleve.escadron || '',
+            eleve.peloton || '',
+            eleve.telephone1 || '',
+            eleve.telephone2 || '',
+            eleve.telephone3 || '',
+            eleve.sexe || '',
+            eleve.fady || '',
+            eleve.genreConcours || '',
+            eleve.niveau || '',
+            eleve.centreConcours || '',
+            eleve.Note?.finfetta || '',
+            eleve.Note?.rangfinfetta || '',
+            eleve.Note?.mistage || '',
+            eleve.Note?.rangmistage || '',
+            eleve.Note?.finstage || '',
+            eleve.Note?.rangfinstage || '',
+          ];
+
+          worksheet.getRow(currentRow).eachCell({ includeEmpty: true }, cell => {
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          });
+          currentRow++;
+        });
+
+        currentRow++;
+      }
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      saveAs(blob, `Eleves_par_Escadron_${new Date().toISOString().slice(0,10)}.xlsx`);
+    } catch (error) {
+      console.error("Erreur lors de l'exportation Excel :", error);
+      alert("Erreur lors de l'exportation Excel");
+    }
+  };
+
+  function repartirEquitable(eleves) {
+    const NB_ESC  = 10;
+    const NB_PEL  = 3;
+    const PAR_PEL = 50;
+
+    const shuffle = (arr) => {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    };
+
+    const norm = (v) => String(v ?? '').toLowerCase().trim();
+
+    const isFemale = (e) => {
+      const s = norm(e.sexe ?? e.gender ?? e.sex ?? e.genre ?? '');
+      return ['f','feminin','féminin','female','femme','vavy','fille'].includes(s);
+    };
+    const isMale = (e) => !isFemale(e);
+
+    const bresenham = (N, K) => {
+      if (K <= 0 || N <= 0) return Array(K).fill(0);
+      const base = Math.floor(N / K);
+      const rest = N % K;
+      return Array.from({ length: K }, (_, i) => i < rest ? base + 1 : base);
+    };
+
+    const pool  = (eleves ?? []).filter(e => e && typeof e === 'object');
+    const total = pool.length;
+
+    const getNiveau  = (e) => norm(e.niveau          ?? e.level            ?? '') || '—';
+    const getEthnie  = (e) => norm(e.fady             ?? e.ethnie           ?? '') || '—';
+    const getGenre   = (e) => norm(e.genreConcours    ?? ''                    ) || '—';
+    const getCentre  = (e) => norm(e.centreConcours   ?? e.centre           ?? '') || '—';
+
+    const cases = [];
+    for (let e = 1; e <= NB_ESC; e++)
+      for (let p = 1; p <= NB_PEL; p++)
+        cases.push({
+          escadron: e, peloton: p,
+          eleves:   [],
+          quotaF: 0, quotaM: 0,
+          quotas: { niveau: {}, ethnie: {}, genre: {}, centre: {} },
+          counts: { niveau: {}, ethnie: {}, genre: {}, centre: {} },
+        });
+
+    const caseOf = (ei, pi) => cases[ei * NB_PEL + pi];
+
+    const femPool  = pool.filter(isFemale);
+    const mascPool = pool.filter(isMale);
+    const nbF = femPool.length;
+    const nbM = mascPool.length;
+
+    const qFEsc = bresenham(nbF, NB_ESC);
+    const qMEsc = bresenham(nbM, NB_ESC);
+
+    for (let ei = 0; ei < NB_ESC; ei++) {
+      const fPel = bresenham(qFEsc[ei], NB_PEL);
+      const mPel = bresenham(qMEsc[ei], NB_PEL);
+      for (let pi = 0; pi < NB_PEL; pi++) {
+        const c = caseOf(ei, pi);
+        c.quotaF = fPel[pi];
+        c.quotaM = mPel[pi];
+      }
+    }
+
+    const assignQuota = (criterion, getVal) => {
+      const countByVal = {};
+      pool.forEach(e => {
+        const v = getVal(e);
+        countByVal[v] = (countByVal[v] || 0) + 1;
+      });
+      Object.entries(countByVal).forEach(([val, count]) => {
+        const qEsc = bresenham(count, NB_ESC);
+        for (let ei = 0; ei < NB_ESC; ei++) {
+          const qPel = bresenham(qEsc[ei], NB_PEL);
+          for (let pi = 0; pi < NB_PEL; pi++) {
+            const c = caseOf(ei, pi);
+            c.quotas[criterion][val] = qPel[pi];
+            c.counts[criterion][val] = 0;
+          }
+        }
+      });
+    };
+
+    assignQuota('niveau', getNiveau);
+    assignQuota('ethnie', getEthnie);
+    assignQuota('genre',  getGenre);
+    assignQuota('centre', getCentre);
+
+    const score = (c, e, sexKey) => {
+      const sexCount = c.eleves.filter(sexKey === 'F' ? isFemale : isMale).length;
+      const sexQuota = sexKey === 'F' ? c.quotaF : c.quotaM;
+      if (sexCount >= sexQuota) return -Infinity;
+
+      const manque = (crit, getVal) => {
+        const v = getVal(e);
+        return (c.quotas[crit][v] || 0) - (c.counts[crit][v] || 0);
+      };
+
+      return (
+        manque('niveau', getNiveau) * 4 +
+        manque('ethnie', getEthnie) * 3 +
+        manque('genre',  getGenre)  * 3 +
+        manque('centre', getCentre) * 2 +
+        (sexQuota - sexCount)
+      );
+    };
+
+    const freqMap = {};
+    pool.forEach(e => {
+      const k = [getNiveau(e), getEthnie(e), getGenre(e), getCentre(e)].join('|||');
+      freqMap[k] = (freqMap[k] || 0) + 1;
+    });
+
+    const sortByRarity = (arr) =>
+      shuffle(arr).sort((a, b) => {
+        const ka = [getNiveau(a), getEthnie(a), getGenre(a), getCentre(a)].join('|||');
+        const kb = [getNiveau(b), getEthnie(b), getGenre(b), getCentre(b)].join('|||');
+        return (freqMap[ka] || 0) - (freqMap[kb] || 0);
+      });
+
+    const restants = [];
+
+    const placerEleve = (e, sexKey) => {
+      let bestCase = null, bestScore = -Infinity;
+      for (const c of cases) {
+        const s = score(c, e, sexKey);
+        if (s > bestScore) { bestScore = s; bestCase = c; }
+      }
+      if (bestCase && bestScore > -Infinity) {
+        bestCase.eleves.push(e);
+        bestCase.counts.niveau[getNiveau(e)]  = (bestCase.counts.niveau[getNiveau(e)]  || 0) + 1;
+        bestCase.counts.ethnie[getEthnie(e)]  = (bestCase.counts.ethnie[getEthnie(e)]  || 0) + 1;
+        bestCase.counts.genre [getGenre(e)]   = (bestCase.counts.genre [getGenre(e)]   || 0) + 1;
+        bestCase.counts.centre[getCentre(e)]  = (bestCase.counts.centre[getCentre(e)]  || 0) + 1;
+      } else {
+        restants.push(e);
+      }
+    };
+
+    sortByRarity(femPool) .forEach(e => placerEleve(e, 'F'));
+    sortByRarity(mascPool).forEach(e => placerEleve(e, 'M'));
+
+    if (restants.length) {
+      const esc10 = cases.filter(c => c.escadron === NB_ESC)
+                         .sort((a, b) => a.peloton - b.peloton);
+      restants.forEach((e, i) => esc10[i % esc10.length].eleves.push(e));
+    }
+
+    cases.forEach(c => {
+      c.eleves.sort((a, b) =>
+        (Number(a.numeroIncorporation) || 0) - (Number(b.numeroIncorporation) || 0)
+      );
+      c.effectif = c.eleves.length;
+      delete c.quotaF; delete c.quotaM;
+      delete c.quotas; delete c.counts;
+    });
+
+    const compte = (arr, getKey) => {
+      const map = {};
+      arr.forEach(e => { const k = getKey(e); map[k] = (map[k] || 0) + 1; });
+      return Object.entries(map).sort((a, b) => b[1] - a[1])
+        .map(([label, count]) => ({ label, count }));
+    };
+
+    const resume = {
+      totalEleves:   total,
+      totalAffectes: cases.reduce((s, c) => s + c.effectif, 0),
+      totalRestants: restants.length,
+      totalM: nbM, totalF: nbF,
+      parEscadron: Array.from({ length: NB_ESC }, (_, i) => {
+        const esc       = i + 1;
+        const cEsc      = cases.filter(c => c.escadron === esc);
+        const elevesEsc = cEsc.flatMap(c => c.eleves);
+        return {
+          escadron: esc,
+          effectif: elevesEsc.length,
+          masculin: elevesEsc.filter(isMale).length,
+          feminin:  elevesEsc.filter(isFemale).length,
+          niveaux:  compte(elevesEsc, getNiveau),
+          ethnies:  compte(elevesEsc, getEthnie),
+          genres:   compte(elevesEsc, getGenre),
+          centres:  compte(elevesEsc, getCentre),
+          parPeloton: cEsc.map(c => ({
+            peloton:  c.peloton,
+            effectif: c.effectif,
+            masculin: c.eleves.filter(isMale).length,
+            feminin:  c.eleves.filter(isFemale).length,
+            niveaux:  compte(c.eleves, getNiveau),
+            ethnies:  compte(c.eleves, getEthnie),
+            genres:   compte(c.eleves, getGenre),
+            centres:  compte(c.eleves, getCentre),
+          })),
+        };
+      }),
+    };
+
+    return { cases, restants, resume };
   }
-];
 
-  
-//export en excel 
-const handleExportExcel = async () => {
-  try {
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Elèves par escadron');
+  const handleRepartirEquitable = async () => {
+    const { cases, restants, resume } = repartirEquitable(elevesAAfficher);
 
-    // Titre principal fusionné
-    const title = 'Liste des élèves gendarme';
-    worksheet.mergeCells('A1:F1');
-    const titleCell = worksheet.getCell('A1');
-    titleCell.value = title;
-    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-    titleCell.font = { size: 16, bold: true };
-    worksheet.getRow(1).height = 30;
+    const lignesEsc = (resume.parEscadron ?? []).map(esc => {
+      const niveauxStr = (esc.niveaux ?? [])
+        .slice(0, 4)
+        .map(n => `${n.label}:<b>${n.count}</b>`)
+        .join(' · ') || '-';
 
-    const columns = [
-      { header: 'Nom', key: 'nom', width: 20 },
-      { header: 'Prénom', key: 'prenom', width: 20 },
-      { header: 'Numéro Incorporation', key: 'numeroIncorporation', width: 25 },
-      { header: 'Matricule', key: 'matricule', width: 25 },
-      { header: 'Escadron', key: 'escadron', width: 15 },
-      { header: 'Peloton', key: 'peloton', width: 15 },
+      const genresStr = (esc.genres ?? [])
+        .slice(0, 4)
+        .map(g => `${g.label}:<b>${g.count}</b>`)
+        .join(' · ') || '-';
 
-      { header: 'NUMERO 1', key: 'telephone1', width: 15 },
-      { header: 'NUMERO 2', key: 'telephone2', width: 15 },
-      { header: 'NUMERO 3', key: 'telephone3', width: 15 },
+      const centresStr = (esc.centres ?? [])
+        .slice(0, 4)
+        .map(c => `${c.label}:<b>${c.count}</b>`)
+        .join(' · ') || '-';
 
-      { header: 'Sexe', key: 'sexe', width: 10 },                        // NEW
-      { header: 'Fady (Ethnie)', key: 'fady', width: 20 },               // NEW
-      { header: 'Genre Concours', key: 'genreConcours', width: 20 },     // NEW
-      { header: 'Niveau', key: 'niveau', width: 15 },                    // NEW
-      { header: 'Centre Concours', key: 'centreConcours', width: 20 },   // NEW
+      const pelStr = (esc.parPeloton ?? []).map(p =>
+        `<span style="white-space:nowrap">
+          P${p.peloton}: <b>${p.effectif}</b>
+          (${p.masculin}M/${p.feminin}F)
+        </span>`
+      ).join(' | ');
 
-      { header: 'Note FETTA', key: 'finfetta', width: 15 },
-      { header: 'Rang FETTA', key: 'rangFinfetta', width: 15 },
-      { header: 'Note Mi-Stage', key: 'mistage', width: 15 },
-      { header: 'Rang Mi-Stage', key: 'rangMistage', width: 15 },
-      { header: 'Note Fin Formation', key: 'finstage', width: 18 },
-      { header: 'Rang Fin Formation', key: 'rangFinstage', width: 18 },
-    ];
-    worksheet.columns = columns;
+      return `
+        <tr style="border-bottom:1px solid #e5e7eb">
+          <td style="padding:4px 8px;font-weight:700">ESC ${esc.escadron}</td>
+          <td style="padding:4px 8px;text-align:center">${esc.effectif}</td>
+          <td style="padding:4px 8px;text-align:center;white-space:nowrap">
+            ${esc.masculin}M / ${esc.feminin}F
+          </td>
+          <td style="padding:4px 8px;font-size:11px">${niveauxStr}</td>
+          <td style="padding:4px 8px;font-size:11px">${genresStr}</td>
+          <td style="padding:4px 8px;font-size:11px">${centresStr}</td>
+          <td style="padding:4px 8px;font-size:11px">${pelStr}</td>
+        </tr>`;
+    }).join('');
 
-    let currentRow = 3;
+    const confirmResult = await Swal.fire({
+      title: 'Répartition équitable',
+      html: `
+        <div style="text-align:left">
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+            <span style="background:#eff6ff;border:1px solid #bfdbfe;
+                         padding:4px 12px;border-radius:999px;font-size:13px">
+              👥 <b>${resume.totalAffectes}</b> affectés
+            </span>
+            <span style="background:#f0fdf4;border:1px solid #bbf7d0;
+                         padding:4px 12px;border-radius:999px;font-size:13px">
+              ♂ <b>${resume.totalM}</b> M
+            </span>
+            <span style="background:#fdf2f8;border:1px solid #f5d0fe;
+                         padding:4px 12px;border-radius:999px;font-size:13px">
+              ♀ <b>${resume.totalF}</b> F
+            </span>
+            ${resume.totalRestants > 0
+              ? `<span style="background:#fef3c7;border:1px solid #fde68a;
+                             padding:4px 12px;border-radius:999px;font-size:13px">
+                  ⚠️ <b>${resume.totalRestants}</b> restant(s) → ESC 10
+                 </span>`
+              : `<span style="background:#f0fdf4;border:1px solid #bbf7d0;
+                             padding:4px 12px;border-radius:999px;font-size:13px">
+                  ✓ Tous placés
+                 </span>`
+            }
+          </div>
 
-    const escadronsUniques = [...new Set(elevesAAfficher.map(e => e.escadron))].sort((a, b) => a - b);
+          <div style="overflow:auto;max-height:420px">
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead>
+                <tr style="background:#f8fafc">
+                  <th style="padding:6px 8px;text-align:left;position:sticky;top:0;background:#f8fafc">ESC</th>
+                  <th style="padding:6px 8px;position:sticky;top:0;background:#f8fafc">Total</th>
+                  <th style="padding:6px 8px;position:sticky;top:0;background:#f8fafc">Sexe</th>
+                  <th style="padding:6px 8px;text-align:left;position:sticky;top:0;background:#f8fafc">Niveaux</th>
+                  <th style="padding:6px 8px;text-align:left;position:sticky;top:0;background:#f8fafc">Genre Concours</th>
+                  <th style="padding:6px 8px;text-align:left;position:sticky;top:0;background:#f8fafc">Centres</th>
+                  <th style="padding:6px 8px;text-align:left;position:sticky;top:0;background:#f8fafc">Pelotons</th>
+                </tr>
+              </thead>
+              <tbody>${lignesEsc}</tbody>
+            </table>
+          </div>
+        </div>
+      `,
+      width: '1000px',
+      icon: 'info',
+      showCancelButton: true,
+      confirmButtonText: '📥 Exporter Excel',
+      cancelButtonText: 'Annuler',
+    });
 
-    for (const escadron of escadronsUniques) {
-      worksheet.mergeCells(`A${currentRow}:F${currentRow}`);
-      const sousTitreCell = worksheet.getCell(`A${currentRow}`);
-      sousTitreCell.value = `${escadron}ème escadron`;
-      sousTitreCell.font = { size: 14, bold: true, color: { argb: 'FF1F497D' } };
-      sousTitreCell.alignment = { horizontal: 'left', vertical: 'middle' };
-      worksheet.getRow(currentRow).height = 20;
-      currentRow++;
+    if (!confirmResult.isConfirmed) return;
 
-      worksheet.getRow(currentRow).values = columns.map(col => col.header);
-      worksheet.getRow(currentRow).font = { bold: true };
-      worksheet.getRow(currentRow).alignment = { horizontal: 'center' };
-      worksheet.getRow(currentRow).border = { bottom: { style: 'thin' } };
-      currentRow++;
+    const elevesModifies = cases.flatMap(c =>
+      c.eleves.map(e => ({ ...e, escadron: c.escadron, peloton: c.peloton }))
+    );
 
-      const elevesEscadron = elevesAAfficher.filter(e => e.escadron === escadron);
+    await exportRepartitionEquitableExcel(elevesModifies, cases, resume);
+  };
 
-      elevesEscadron.forEach(eleve => {
-        worksheet.getRow(currentRow).values = [
-          eleve.nom || '',
-          eleve.prenom || '',
-          eleve.numeroIncorporation || '',
-          eleve.matricule || '',
-          eleve.escadron || '',
-          eleve.peloton || '',
+  async function exportRepartitionEquitableExcel(elevesModifies, cases, resume) {
+    const wb = XLSX.utils.book_new();
 
-          eleve.telephone1 || '',
-          eleve.telephone2 || '',
-          eleve.telephone3 || '',
+    const uniqueName = (wb, base) => {
+      let name = base.slice(0, 31), i = 2;
+      while (wb.SheetNames.includes(name))
+        name = `${base.slice(0, 28)}_${i++}`;
+      return name;
+    };
 
-          eleve.sexe || '',              // NEW
-          eleve.fady || '',              // NEW
-          eleve.genreConcours || '',     // NEW
-          eleve.niveau || '',            // NEW
-          eleve.centreConcours || '',    // NEW
+    const isFemale = (e) => {
+      const s = String(e.sexe ?? '').toLowerCase().trim();
+      return ['f','feminin','féminin','female','femme','vavy','fille'].includes(s);
+    };
 
-          eleve.Note?.finfetta || '',
-          eleve.Note?.rangfinfetta || '',
-          eleve.Note?.mistage || '',
-          eleve.Note?.rangmistage || '',
-          eleve.Note?.finstage || '',
-          eleve.Note?.rangfinstage || '',
+    const normSex = (v) => {
+      const s = String(v ?? '').toLowerCase().trim();
+      if (['m','masculin','male','homme','lahy','garcon','garçon'].includes(s)) return 'M';
+      if (['f','feminin','féminin','female','femme','vavy','fille'].includes(s)) return 'F';
+      return '';
+    };
+
+    const COLOR = {
+      TITRE_BG:   '1F3864',
+      TITRE_FG:   'FFFFFF',
+      HEADER_BG:  'D9E1F2',
+      HEADER_FG:  '1F3864',
+      FILLE_BG:   'FCE4D6',
+      GARCON_BG:  'DDEBF7',
+      ESC_TITLE:  'E2EFDA',
+      BORDER:     '8EA9C1',
+    };
+
+    const borderAll = {
+      top:    { style: 'thin', color: { rgb: COLOR.BORDER } },
+      bottom: { style: 'thin', color: { rgb: COLOR.BORDER } },
+      left:   { style: 'thin', color: { rgb: COLOR.BORDER } },
+      right:  { style: 'thin', color: { rgb: COLOR.BORDER } },
+    };
+
+    const cellStyle = (fgRgb, bold = false, center = false) => ({
+      font:      { bold, color: { rgb: fgRgb === COLOR.TITRE_BG ? 'FFFFFF' : '000000' } },
+      fill:      { patternType: 'solid', fgColor: { rgb: fgRgb } },
+      border:    borderAll,
+      alignment: { horizontal: center ? 'center' : 'left', vertical: 'center', wrapText: true },
+    });
+
+    const applyStyle = (ws, ref, style) => {
+      if (!ws[ref]) ws[ref] = { v: '', t: 's' };
+      ws[ref].s = style;
+    };
+
+    const styleRow = (ws, rowIdx, nbCols, style) => {
+      for (let c = 0; c < nbCols; c++) {
+        const ref = XLSX.utils.encode_cell({ r: rowIdx, c });
+        applyStyle(ws, ref, style);
+      }
+    };
+
+    const COLS_PEL = ['NR', 'N° INCORP', 'NOM ET PRENOMS', 'N° INSCR.', 'CENTRE', 'SEXE', 'ESC', 'PON'];
+    const WIDTHS_PEL = [40, 80, 220, 110, 140, 55, 50, 50];
+
+    for (let ei = 0; ei < 10; ei++) {
+      for (let pi = 0; pi < 3; pi++) {
+        const c        = cases[ei * 3 + pi];
+        const escLabel = `${c.escadron}ÈME ESCADRON`;
+        const pelLabel = `${c.peloton === 1 ? '1ER' : c.peloton + 'ÈME'} PELOTON`;
+        const titreStr = `REPARTITION — ${escLabel}`;
+
+        const aoa = [];
+        aoa.push([titreStr, '', '', '', '', '', '', '']);
+        aoa.push([pelLabel, '', '', '', '', '', '', '']);
+        aoa.push(['', '', '', '', '', '', '', '']);
+        aoa.push([...COLS_PEL]);
+
+        const filles  = c.eleves.filter(isFemale);
+        const garcons = c.eleves.filter(e => !isFemale(e));
+
+        let nr = 1;
+        [...filles, ...garcons].forEach(e => {
+          aoa.push([
+            nr++,
+            e.numeroIncorporation ?? '',
+            `${String(e.nom ?? '').toUpperCase()} ${String(e.prenom ?? '')}`.trim(),
+            e.CIN ?? e.numCandidature ?? '',
+            e.centreConcours ?? e.centre ?? '',
+            normSex(e.sexe ?? ''),
+            c.escadron,
+            c.peloton,
+          ]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+        ws['!merges'] = [
+          { s: { r: 0, c: 0 }, e: { r: 0, c: COLS_PEL.length - 1 } },
+          { s: { r: 1, c: 0 }, e: { r: 1, c: COLS_PEL.length - 1 } },
         ];
 
-        worksheet.getRow(currentRow).eachCell({ includeEmpty: true }, cell => {
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        applyStyle(ws, 'A1', { ...cellStyle(COLOR.TITRE_BG, true, true), font: { bold: true, sz: 14, color: { rgb: 'FFFFFF' } }, alignment: { horizontal: 'center', vertical: 'center' } });
+        applyStyle(ws, 'A2', { ...cellStyle(COLOR.ESC_TITLE, true, true), font: { bold: true, sz: 12, color: { rgb: '1F3864' } }, alignment: { horizontal: 'center', vertical: 'center' } });
+        styleRow(ws, 3, COLS_PEL.length, cellStyle(COLOR.HEADER_BG, true, true));
+
+        const dataStart = 4;
+        [...filles, ...garcons].forEach((e, idx) => {
+          const rowIdx  = dataStart + idx;
+          const isFille = isFemale(e);
+          const bg      = isFille ? COLOR.FILLE_BG : COLOR.GARCON_BG;
+          styleRow(ws, rowIdx, COLS_PEL.length, cellStyle(bg, false, false));
+          [0, 5, 6, 7].forEach(ci => {
+            const ref = XLSX.utils.encode_cell({ r: rowIdx, c: ci });
+            if (ws[ref]) ws[ref].s = { ...ws[ref].s, alignment: { horizontal: 'center', vertical: 'center' } };
+          });
         });
-        currentRow++;
-      });
 
-      currentRow++;
-    }
+        ws['!rows'] = [
+          { hpt: 28 },
+          { hpt: 22 },
+          { hpt: 8  },
+          { hpt: 18 },
+          ...Array(c.eleves.length).fill({ hpt: 16 }),
+        ];
 
-    const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    saveAs(blob, `Eleves_par_Escadron_${new Date().toISOString().slice(0,10)}.xlsx`);
-  } catch (error) {
-    console.error("Erreur lors de l'exportation Excel :", error);
-    alert("Erreur lors de l'exportation Excel");
-  }
-};
+        ws['!cols'] = WIDTHS_PEL.map(w => ({ wpx: w }));
 
-function repartirEquitable(eleves) {
-  const NB_ESC  = 10;
-  const NB_PEL  = 3;
-  const PAR_PEL = 50;
-
-  /* ── utilitaires ─────────────────────────────────────────────── */
-  const shuffle = (arr) => {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  };
-
-  const norm = (v) => String(v ?? '').toLowerCase().trim();
-
-  const isFemale = (e) => {
-    const s = norm(e.sexe ?? e.gender ?? e.sex ?? e.genre ?? '');
-    return ['f','feminin','féminin','female','femme','vavy','fille'].includes(s);
-  };
-  const isMale = (e) => !isFemale(e);
-
-  /* ── Bresenham : distribue N sur K cases, retourne tableau de K entiers ── */
-  const bresenham = (N, K) => {
-    if (K <= 0 || N <= 0) return Array(K).fill(0);
-    const base = Math.floor(N / K);
-    const rest = N % K;
-    return Array.from({ length: K }, (_, i) => i < rest ? base + 1 : base);
-  };
-
-  /* ── accesseurs critères ──────────────────────────────────────── */
-  const pool  = (eleves ?? []).filter(e => e && typeof e === 'object');
-  const total = pool.length;
-
-  const getNiveau  = (e) => norm(e.niveau          ?? e.level            ?? '') || '—';
-  const getEthnie  = (e) => norm(e.fady             ?? e.ethnie           ?? '') || '—';
-  const getGenre   = (e) => norm(e.genreConcours    ?? ''                    ) || '—';
-  const getCentre  = (e) => norm(e.centreConcours   ?? e.centre           ?? '') || '—';
-
-  /* ════════════════════════════════════════════════════════════════
-     ÉTAPE 1 — Créer les 30 cases avec leurs quotas
-  ════════════════════════════════════════════════════════════════ */
-  const cases = [];
-  for (let e = 1; e <= NB_ESC; e++)
-    for (let p = 1; p <= NB_PEL; p++)
-      cases.push({
-        escadron: e, peloton: p,
-        eleves:   [],
-        quotaF: 0, quotaM: 0,
-        quotas: { niveau: {}, ethnie: {}, genre: {}, centre: {} },
-        counts: { niveau: {}, ethnie: {}, genre: {}, centre: {} },
-      });
-
-  const caseOf = (ei, pi) => cases[ei * NB_PEL + pi];
-
-  /* ── quotas F / M ────────────────────────────────────────────── */
-  const femPool  = pool.filter(isFemale);
-  const mascPool = pool.filter(isMale);
-  const nbF = femPool.length;
-  const nbM = mascPool.length;
-
-  const qFEsc = bresenham(nbF, NB_ESC);
-  const qMEsc = bresenham(nbM, NB_ESC);
-
-  for (let ei = 0; ei < NB_ESC; ei++) {
-    const fPel = bresenham(qFEsc[ei], NB_PEL);
-    const mPel = bresenham(qMEsc[ei], NB_PEL);
-    for (let pi = 0; pi < NB_PEL; pi++) {
-      const c = caseOf(ei, pi);
-      c.quotaF = fPel[pi];
-      c.quotaM = mPel[pi];
-    }
-  }
-
-  /* ── quotas par critère (Bresenham 2 niveaux) ────────────────── */
-  const assignQuota = (criterion, getVal) => {
-    const countByVal = {};
-    pool.forEach(e => {
-      const v = getVal(e);
-      countByVal[v] = (countByVal[v] || 0) + 1;
-    });
-    Object.entries(countByVal).forEach(([val, count]) => {
-      const qEsc = bresenham(count, NB_ESC);
-      for (let ei = 0; ei < NB_ESC; ei++) {
-        const qPel = bresenham(qEsc[ei], NB_PEL);
-        for (let pi = 0; pi < NB_PEL; pi++) {
-          const c = caseOf(ei, pi);
-          c.quotas[criterion][val] = qPel[pi];
-          c.counts[criterion][val] = 0;
-        }
+        const sheetName = uniqueName(wb, `ESC${c.escadron}-PEL${c.peloton}`);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
       }
-    });
-  };
-
-  assignQuota('niveau', getNiveau);
-  assignQuota('ethnie', getEthnie);
-  assignQuota('genre',  getGenre);
-  assignQuota('centre', getCentre);
-
-  /* ════════════════════════════════════════════════════════════════
-     ÉTAPE 2 — Score d'une case pour un élève
-  ════════════════════════════════════════════════════════════════ */
-  const score = (c, e, sexKey) => {
-    const sexCount = c.eleves.filter(sexKey === 'F' ? isFemale : isMale).length;
-    const sexQuota = sexKey === 'F' ? c.quotaF : c.quotaM;
-    if (sexCount >= sexQuota) return -Infinity;
-
-    const manque = (crit, getVal) => {
-      const v = getVal(e);
-      return (c.quotas[crit][v] || 0) - (c.counts[crit][v] || 0);
-    };
-
-    return (
-      manque('niveau', getNiveau) * 4 +
-      manque('ethnie', getEthnie) * 3 +
-      manque('genre',  getGenre)  * 3 +
-      manque('centre', getCentre) * 2 +
-      (sexQuota - sexCount)           // bonus : case qui a encore besoin de ce sexe
-    );
-  };
-
-  /* ════════════════════════════════════════════════════════════════
-     ÉTAPE 3 — Trier par rareté (groupes rares placés en premier)
-  ════════════════════════════════════════════════════════════════ */
-  const freqMap = {};
-  pool.forEach(e => {
-    const k = [getNiveau(e), getEthnie(e), getGenre(e), getCentre(e)].join('|||');
-    freqMap[k] = (freqMap[k] || 0) + 1;
-  });
-
-  const sortByRarity = (arr) =>
-    shuffle(arr).sort((a, b) => {
-      const ka = [getNiveau(a), getEthnie(a), getGenre(a), getCentre(a)].join('|||');
-      const kb = [getNiveau(b), getEthnie(b), getGenre(b), getCentre(b)].join('|||');
-      return (freqMap[ka] || 0) - (freqMap[kb] || 0);
-    });
-
-  /* ════════════════════════════════════════════════════════════════
-     ÉTAPE 4 — Placement
-  ════════════════════════════════════════════════════════════════ */
-  const restants = [];
-
-  const placerEleve = (e, sexKey) => {
-    let bestCase = null, bestScore = -Infinity;
-    for (const c of cases) {
-      const s = score(c, e, sexKey);
-      if (s > bestScore) { bestScore = s; bestCase = c; }
     }
-    if (bestCase && bestScore > -Infinity) {
-      bestCase.eleves.push(e);
-      bestCase.counts.niveau[getNiveau(e)]  = (bestCase.counts.niveau[getNiveau(e)]  || 0) + 1;
-      bestCase.counts.ethnie[getEthnie(e)]  = (bestCase.counts.ethnie[getEthnie(e)]  || 0) + 1;
-      bestCase.counts.genre [getGenre(e)]   = (bestCase.counts.genre [getGenre(e)]   || 0) + 1;
-      bestCase.counts.centre[getCentre(e)]  = (bestCase.counts.centre[getCentre(e)]  || 0) + 1;
-    } else {
-      restants.push(e);
+
+    /* FEUILLE RÉSUMÉ GLOBAL */
+    {
+      const aoa = [];
+
+      aoa.push(['RÉSUMÉ DE LA RÉPARTITION ÉQUITABLE', '', '', '', '', '', '']);
+      aoa.push([`Total élèves : ${resume.totalAffectes}   |   Masculin : ${resume.totalM}   |   Féminin : ${resume.totalF}   |   Restants ESC10 : ${resume.totalRestants}`, '', '', '', '', '', '']);
+      aoa.push([]);
+
+      aoa.push(['ESC', 'PELOTON', 'EFFECTIF', 'MASCULIN', 'FÉMININ', 'NIVEAUX', 'GENRES CONCOURS', 'CENTRES', 'ETHNIES']);
+
+      resume.parEscadron.forEach(esc => {
+        esc.parPeloton.forEach((pel, pi) => {
+          const fmt = (arr) => (arr ?? []).slice(0, 5)
+            .map(x => `${x.label}(${x.count})`).join(', ') || '-';
+
+          aoa.push([
+            pi === 0 ? `ESC ${esc.escadron}` : '',
+            `Peloton ${pel.peloton}`,
+            pel.effectif  ?? 0,
+            pel.masculin  ?? 0,
+            pel.feminin   ?? 0,
+            fmt(pel.niveaux),
+            fmt(pel.genres),
+            fmt(pel.centres),
+            fmt(pel.ethnies),
+          ]);
+        });
+        aoa.push(['', '', '', '', '', '', '', '', '']);
+      });
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+      ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } },
+      ];
+
+      applyStyle(ws, 'A1', { fill: { patternType: 'solid', fgColor: { rgb: COLOR.TITRE_BG } }, font: { bold: true, sz: 14, color: { rgb: 'FFFFFF' } }, alignment: { horizontal: 'center', vertical: 'center' } });
+      applyStyle(ws, 'A2', { fill: { patternType: 'solid', fgColor: { rgb: 'D9E1F2' } }, font: { bold: true, sz: 11 }, alignment: { horizontal: 'center' } });
+
+      styleRow(ws, 3, 9, cellStyle(COLOR.HEADER_BG, true, true));
+
+      let rowIdx = 4;
+      resume.parEscadron.forEach(esc => {
+        esc.parPeloton.forEach(() => {
+          styleRow(ws, rowIdx, 9, cellStyle('FFFFFF', false, false));
+          rowIdx++;
+        });
+        rowIdx++;
+      });
+
+      ws['!cols'] = [60, 80, 80, 80, 80, 200, 200, 200, 200].map(w => ({ wpx: w }));
+      ws['!rows'] = [{ hpt: 28 }, { hpt: 18 }];
+
+      XLSX.utils.book_append_sheet(wb, ws, 'RÉSUMÉ');
     }
-  };
 
-  sortByRarity(femPool) .forEach(e => placerEleve(e, 'F'));
-  sortByRarity(mascPool).forEach(e => placerEleve(e, 'M'));
-
-  /* ── restants → ESC 10 ───────────────────────────────────────── */
-  if (restants.length) {
-    const esc10 = cases.filter(c => c.escadron === NB_ESC)
-                       .sort((a, b) => a.peloton - b.peloton);
-    restants.forEach((e, i) => esc10[i % esc10.length].eleves.push(e));
-  }
-
-  /* ── finalisation ────────────────────────────────────────────── */
-  cases.forEach(c => {
-    c.eleves.sort((a, b) =>
-      (Number(a.numeroIncorporation) || 0) - (Number(b.numeroIncorporation) || 0)
-    );
-    c.effectif = c.eleves.length;
-    delete c.quotaF; delete c.quotaM;
-    delete c.quotas; delete c.counts;
-  });
-
-  /* ════════════════════════════════════════════════════════════════
-     ÉTAPE 5 — Résumé
-  ════════════════════════════════════════════════════════════════ */
-  const compte = (arr, getKey) => {
-    const map = {};
-    arr.forEach(e => { const k = getKey(e); map[k] = (map[k] || 0) + 1; });
-    return Object.entries(map).sort((a, b) => b[1] - a[1])
-      .map(([label, count]) => ({ label, count }));
-  };
-
-  const resume = {
-    totalEleves:   total,
-    totalAffectes: cases.reduce((s, c) => s + c.effectif, 0),
-    totalRestants: restants.length,
-    totalM: nbM, totalF: nbF,
-    parEscadron: Array.from({ length: NB_ESC }, (_, i) => {
-      const esc       = i + 1;
-      const cEsc      = cases.filter(c => c.escadron === esc);
+    /* FEUILLE PAR ESCADRON (vue consolidée) */
+    for (let ei = 0; ei < 10; ei++) {
+      const escNum    = ei + 1;
+      const cEsc      = cases.filter(c => c.escadron === escNum)
+                             .sort((a, b) => a.peloton - b.peloton);
       const elevesEsc = cEsc.flatMap(c => c.eleves);
-      return {
-        escadron: esc,
-        effectif: elevesEsc.length,
-        masculin: elevesEsc.filter(isMale).length,
-        feminin:  elevesEsc.filter(isFemale).length,
-        niveaux:  compte(elevesEsc, getNiveau),
-        ethnies:  compte(elevesEsc, getEthnie),
-        genres:   compte(elevesEsc, getGenre),
-        centres:  compte(elevesEsc, getCentre),
-        parPeloton: cEsc.map(c => ({
-          peloton:  c.peloton,
-          effectif: c.effectif,
-          masculin: c.eleves.filter(isMale).length,
-          feminin:  c.eleves.filter(isFemale).length,
-          niveaux:  compte(c.eleves, getNiveau),
-          ethnies:  compte(c.eleves, getEthnie),
-          genres:   compte(c.eleves, getGenre),
-          centres:  compte(c.eleves, getCentre),
-        })),
-      };
-    }),
-  };
-
-  return { cases, restants, resume };
-}
-//toinyyy
-//
-//
-//
-// Handler à ajouter dans le composant
-const handleRepartirEquitable = async () => {
-  const { cases, restants, resume } = repartirEquitable(elevesAAfficher);
-
-  // ── Construire tableau HTML résumé ──────────────────────────────
-  const lignesEsc = (resume.parEscadron ?? []).map(esc => {
-    // ✅ utiliser esc.niveaux et esc.genres (pas genresConcours)
-    const niveauxStr = (esc.niveaux ?? [])
-      .slice(0, 4)
-      .map(n => `${n.label}:<b>${n.count}</b>`)
-      .join(' · ') || '-';
-
-    const genresStr = (esc.genres ?? [])
-      .slice(0, 4)
-      .map(g => `${g.label}:<b>${g.count}</b>`)
-      .join(' · ') || '-';
-
-    const centresStr = (esc.centres ?? [])
-      .slice(0, 4)
-      .map(c => `${c.label}:<b>${c.count}</b>`)
-      .join(' · ') || '-';
-
-    // Pelotons : une mini-ligne par peloton
-    const pelStr = (esc.parPeloton ?? []).map(p =>
-      `<span style="white-space:nowrap">
-        P${p.peloton}: <b>${p.effectif}</b>
-        (${p.masculin}M/${p.feminin}F)
-      </span>`
-    ).join(' | ');
-
-    return `
-      <tr style="border-bottom:1px solid #e5e7eb">
-        <td style="padding:4px 8px;font-weight:700">ESC ${esc.escadron}</td>
-        <td style="padding:4px 8px;text-align:center">${esc.effectif}</td>
-        <td style="padding:4px 8px;text-align:center;white-space:nowrap">
-          ${esc.masculin}M / ${esc.feminin}F
-        </td>
-        <td style="padding:4px 8px;font-size:11px">${niveauxStr}</td>
-        <td style="padding:4px 8px;font-size:11px">${genresStr}</td>
-        <td style="padding:4px 8px;font-size:11px">${centresStr}</td>
-        <td style="padding:4px 8px;font-size:11px">${pelStr}</td>
-      </tr>`;
-  }).join('');
-
-  const confirmResult = await Swal.fire({
-    title: 'Répartition équitable',
-    html: `
-      <div style="text-align:left">
-        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
-          <span style="background:#eff6ff;border:1px solid #bfdbfe;
-                       padding:4px 12px;border-radius:999px;font-size:13px">
-            👥 <b>${resume.totalAffectes}</b> affectés
-          </span>
-          <span style="background:#f0fdf4;border:1px solid #bbf7d0;
-                       padding:4px 12px;border-radius:999px;font-size:13px">
-            ♂ <b>${resume.totalM}</b> M
-          </span>
-          <span style="background:#fdf2f8;border:1px solid #f5d0fe;
-                       padding:4px 12px;border-radius:999px;font-size:13px">
-            ♀ <b>${resume.totalF}</b> F
-          </span>
-          ${resume.totalRestants > 0
-            ? `<span style="background:#fef3c7;border:1px solid #fde68a;
-                           padding:4px 12px;border-radius:999px;font-size:13px">
-                ⚠️ <b>${resume.totalRestants}</b> restant(s) → ESC 10
-               </span>`
-            : `<span style="background:#f0fdf4;border:1px solid #bbf7d0;
-                           padding:4px 12px;border-radius:999px;font-size:13px">
-                ✓ Tous placés
-               </span>`
-          }
-        </div>
-
-        <div style="overflow:auto;max-height:420px">
-          <table style="width:100%;border-collapse:collapse;font-size:12px">
-            <thead>
-              <tr style="background:#f8fafc">
-                <th style="padding:6px 8px;text-align:left;position:sticky;top:0;background:#f8fafc">ESC</th>
-                <th style="padding:6px 8px;position:sticky;top:0;background:#f8fafc">Total</th>
-                <th style="padding:6px 8px;position:sticky;top:0;background:#f8fafc">Sexe</th>
-                <th style="padding:6px 8px;text-align:left;position:sticky;top:0;background:#f8fafc">Niveaux</th>
-                <th style="padding:6px 8px;text-align:left;position:sticky;top:0;background:#f8fafc">Genre Concours</th>
-                <th style="padding:6px 8px;text-align:left;position:sticky;top:0;background:#f8fafc">Centres</th>
-                <th style="padding:6px 8px;text-align:left;position:sticky;top:0;background:#f8fafc">Pelotons</th>
-              </tr>
-            </thead>
-            <tbody>${lignesEsc}</tbody>
-          </table>
-        </div>
-      </div>
-    `,
-    width: '1000px',
-    icon: 'info',
-    showCancelButton: true,
-    confirmButtonText: '📥 Exporter Excel',
-    cancelButtonText: 'Annuler',
-  });
-
-  if (!confirmResult.isConfirmed) return;
-
-  const elevesModifies = cases.flatMap(c =>
-    c.eleves.map(e => ({ ...e, escadron: c.escadron, peloton: c.peloton }))
-  );
-
-  await exportRepartitionEquitableExcel(elevesModifies, cases, resume);
-};
-// Export Excel de la répartition
-async function exportRepartitionEquitableExcel(elevesModifies, cases, resume) {
-  const wb = XLSX.utils.book_new();
-
-  /* ── helpers ──────────────────────────────────────────────────── */
-  const uniqueName = (wb, base) => {
-    let name = base.slice(0, 31), i = 2;
-    while (wb.SheetNames.includes(name))
-      name = `${base.slice(0, 28)}_${i++}`;
-    return name;
-  };
-
-  const isFemale = (e) => {
-    const s = String(e.sexe ?? '').toLowerCase().trim();
-    return ['f','feminin','féminin','female','femme','vavy','fille'].includes(s);
-  };
-
-  const normSex = (v) => {
-    const s = String(v ?? '').toLowerCase().trim();
-    if (['m','masculin','male','homme','lahy','garcon','garçon'].includes(s)) return 'M';
-    if (['f','feminin','féminin','female','femme','vavy','fille'].includes(s)) return 'F';
-    return '';
-  };
-
-  /* ── couleurs ─────────────────────────────────────────────────── */
-  const COLOR = {
-    TITRE_BG:   '1F3864',  // bleu foncé
-    TITRE_FG:   'FFFFFF',
-    HEADER_BG:  'D9E1F2',  // bleu clair
-    HEADER_FG:  '1F3864',
-    FILLE_BG:   'FCE4D6',  // rose pâle
-    GARCON_BG:  'DDEBF7',  // bleu pâle
-    ESC_TITLE:  'E2EFDA',  // vert pâle (titre escadron)
-    BORDER:     '8EA9C1',
-  };
-
-  const borderAll = {
-    top:    { style: 'thin', color: { rgb: COLOR.BORDER } },
-    bottom: { style: 'thin', color: { rgb: COLOR.BORDER } },
-    left:   { style: 'thin', color: { rgb: COLOR.BORDER } },
-    right:  { style: 'thin', color: { rgb: COLOR.BORDER } },
-  };
-
-  const cellStyle = (fgRgb, bold = false, center = false) => ({
-    font:      { bold, color: { rgb: fgRgb === COLOR.TITRE_BG ? 'FFFFFF' : '000000' } },
-    fill:      { patternType: 'solid', fgColor: { rgb: fgRgb } },
-    border:    borderAll,
-    alignment: { horizontal: center ? 'center' : 'left', vertical: 'center', wrapText: true },
-  });
-
-  /* applique un style à une cellule */
-  const applyStyle = (ws, ref, style) => {
-    if (!ws[ref]) ws[ref] = { v: '', t: 's' };
-    ws[ref].s = style;
-  };
-
-  /* applique un style sur toute une ligne */
-  const styleRow = (ws, rowIdx, nbCols, style) => {
-    for (let c = 0; c < nbCols; c++) {
-      const ref = XLSX.utils.encode_cell({ r: rowIdx, c });
-      applyStyle(ws, ref, style);
-    }
-  };
-
-  /* ════════════════════════════════════════════════════════════════
-     FEUILLES PAR PELOTON  (format identique à vos images)
-     1 feuille = 1 escadron × 1 peloton
-  ════════════════════════════════════════════════════════════════ */
-  const COLS_PEL = ['NR', 'N° INCORP', 'NOM ET PRENOMS', 'N° INSCR.', 'CENTRE', 'SEXE', 'ESC', 'PON'];
-  const WIDTHS_PEL = [40, 80, 220, 110, 140, 55, 50, 50];
-
-  for (let ei = 0; ei < 10; ei++) {
-    for (let pi = 0; pi < 3; pi++) {
-      const c        = cases[ei * 3 + pi];
-      const escLabel = `${c.escadron}ÈME ESCADRON`;
-      const pelLabel = `${c.peloton === 1 ? '1ER' : c.peloton + 'ÈME'} PELOTON`;
-      const titreStr = `REPARTITION — ${escLabel}`;
 
       const aoa = [];
 
-      /* ligne 0 : titre principal */
-      aoa.push([titreStr, '', '', '', '', '', '', '']);
+      aoa.push([`RÉPARTITION — ${escNum}ÈME ESCADRON (TOUS PELOTONS)`, '', '', '', '', '', '', '']);
+      aoa.push([`Effectif total : ${elevesEsc.length}   |   M : ${elevesEsc.filter(e => !isFemale(e)).length}   |   F : ${elevesEsc.filter(isFemale).length}`, '', '', '', '', '', '', '']);
+      aoa.push([]);
 
-      /* ligne 1 : sous-titre peloton */
-      aoa.push([pelLabel, '', '', '', '', '', '', '']);
+      aoa.push(['NR', 'N° INCORP', 'NOM ET PRENOMS', 'N° INSCR.', 'CENTRE', 'SEXE', 'ESC', 'PON']);
 
-      /* ligne 2 : vide */
-      aoa.push(['', '', '', '', '', '', '', '']);
-
-      /* ligne 3 : en-têtes colonnes */
-      aoa.push([...COLS_PEL]);
-
-      /* lignes données — filles d'abord (avec leur numéro F) puis garçons */
-      const filles  = c.eleves.filter(isFemale);
-      const garcons = c.eleves.filter(e => !isFemale(e));
-
-      // numéroter globalement dans l'ordre : filles en premier, garçons ensuite
-      // (comme dans vos images où les F apparaissent avec leur inc suivi de "F")
       let nr = 1;
-      [...filles, ...garcons].forEach(e => {
+      cEsc.forEach((c, ci) => {
         aoa.push([
-          nr++,
-          e.numeroIncorporation ?? '',
-          `${String(e.nom ?? '').toUpperCase()} ${String(e.prenom ?? '')}`.trim(),
-          e.CIN ?? e.numCandidature ?? '',   // N° INSCR. → CIN ou numCandidature
-          e.centreConcours ?? e.centre ?? '',
-          normSex(e.sexe ?? ''),
-          c.escadron,
-          c.peloton,
+          `${c.peloton === 1 ? '1ER' : c.peloton + 'ÈME'} PELOTON — ${c.effectif} élèves`,
+          '', '', '', '', '', '', ''
         ]);
+
+        const filles  = c.eleves.filter(isFemale);
+        const garcons = c.eleves.filter(e => !isFemale(e));
+        [...filles, ...garcons].forEach(e => {
+          aoa.push([
+            nr++,
+            e.numeroIncorporation ?? '',
+            `${String(e.nom ?? '').toUpperCase()} ${String(e.prenom ?? '')}`.trim(),
+            e.CIN ?? e.numCandidature ?? '',
+            e.centreConcours ?? e.centre ?? '',
+            normSex(e.sexe ?? ''),
+            c.escadron,
+            c.peloton,
+          ]);
+        });
+
+        if (ci < cEsc.length - 1) aoa.push([]);
       });
 
       const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-      /* ── fusions ── */
       ws['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: COLS_PEL.length - 1 } }, // titre
-        { s: { r: 1, c: 0 }, e: { r: 1, c: COLS_PEL.length - 1 } }, // sous-titre
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
       ];
 
-      /* ── styles ── */
-      // titre
-      applyStyle(ws, 'A1', { ...cellStyle(COLOR.TITRE_BG, true, true), font: { bold: true, sz: 14, color: { rgb: 'FFFFFF' } }, alignment: { horizontal: 'center', vertical: 'center' } });
-      // sous-titre peloton
-      applyStyle(ws, 'A2', { ...cellStyle(COLOR.ESC_TITLE, true, true), font: { bold: true, sz: 12, color: { rgb: '1F3864' } }, alignment: { horizontal: 'center', vertical: 'center' } });
-      // en-têtes
-      styleRow(ws, 3, COLS_PEL.length, cellStyle(COLOR.HEADER_BG, true, true));
+      applyStyle(ws, 'A1', { fill: { patternType: 'solid', fgColor: { rgb: COLOR.TITRE_BG } }, font: { bold: true, sz: 13, color: { rgb: 'FFFFFF' } }, alignment: { horizontal: 'center', vertical: 'center' } });
+      applyStyle(ws, 'A2', { fill: { patternType: 'solid', fgColor: { rgb: 'D9E1F2' } }, font: { bold: true }, alignment: { horizontal: 'center' } });
+      styleRow(ws, 3, 8, cellStyle(COLOR.HEADER_BG, true, true));
 
-      // lignes élèves
-      const dataStart = 4;
-      [...filles, ...garcons].forEach((e, idx) => {
-        const rowIdx  = dataStart + idx;
-        const isFille = isFemale(e);
-        const bg      = isFille ? COLOR.FILLE_BG : COLOR.GARCON_BG;
-        styleRow(ws, rowIdx, COLS_PEL.length, cellStyle(bg, false, false));
-        // centrer N°, SEXE, ESC, PON
-        [0, 5, 6, 7].forEach(ci => {
-          const ref = XLSX.utils.encode_cell({ r: rowIdx, c: ci });
-          if (ws[ref]) ws[ref].s = { ...ws[ref].s, alignment: { horizontal: 'center', vertical: 'center' } };
-        });
-      });
-
-      /* hauteurs de lignes */
-      ws['!rows'] = [
-        { hpt: 28 }, // titre
-        { hpt: 22 }, // sous-titre
-        { hpt: 8  }, // vide
-        { hpt: 18 }, // header
-        ...Array(c.eleves.length).fill({ hpt: 16 }),
-      ];
-
-      /* largeurs colonnes */
       ws['!cols'] = WIDTHS_PEL.map(w => ({ wpx: w }));
+      ws['!rows'] = [{ hpt: 26 }, { hpt: 18 }];
 
-      const sheetName = uniqueName(wb, `ESC${c.escadron}-PEL${c.peloton}`);
-      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      XLSX.utils.book_append_sheet(wb, ws, uniqueName(wb, `ESC ${escNum}`));
     }
+
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    saveAs(
+      new Blob([wbout], { type: 'application/octet-stream' }),
+      `repartition_equitable_${new Date().toISOString().slice(0, 10)}.xlsx`
+    );
   }
 
-  /* ════════════════════════════════════════════════════════════════
-     FEUILLE RÉSUMÉ GLOBAL
-  ════════════════════════════════════════════════════════════════ */
-  {
-    const aoa = [];
-
-    // Titre
-    aoa.push(['RÉSUMÉ DE LA RÉPARTITION ÉQUITABLE', '', '', '', '', '', '']);
-    aoa.push([`Total élèves : ${resume.totalAffectes}   |   Masculin : ${resume.totalM}   |   Féminin : ${resume.totalF}   |   Restants ESC10 : ${resume.totalRestants}`, '', '', '', '', '', '']);
-    aoa.push([]); // vide
-
-    // En-tête résumé
-    aoa.push(['ESC', 'PELOTON', 'EFFECTIF', 'MASCULIN', 'FÉMININ', 'NIVEAUX', 'GENRES CONCOURS', 'CENTRES', 'ETHNIES']);
-
-    resume.parEscadron.forEach(esc => {
-  esc.parPeloton.forEach((pel, pi) => {
-    // ✅ fmt sécurisé + bonne clé genres (pas genresConcours)
-    const fmt = (arr) => (arr ?? []).slice(0, 5)
-      .map(x => `${x.label}(${x.count})`).join(', ') || '-';
-
-    aoa.push([
-      pi === 0 ? `ESC ${esc.escadron}` : '',
-      `Peloton ${pel.peloton}`,
-      pel.effectif  ?? 0,
-      pel.masculin  ?? 0,
-      pel.feminin   ?? 0,
-      fmt(pel.niveaux),
-      fmt(pel.genres),    // ✅ genres (pas genresConcours)
-      fmt(pel.centres),
-      fmt(pel.ethnies),
-    ]);
-  });
-  aoa.push(['', '', '', '', '', '', '', '', '']);
-});
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-
-    // fusions titre
-    ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } },
-    ];
-
-    // style titre
-    applyStyle(ws, 'A1', { fill: { patternType: 'solid', fgColor: { rgb: COLOR.TITRE_BG } }, font: { bold: true, sz: 14, color: { rgb: 'FFFFFF' } }, alignment: { horizontal: 'center', vertical: 'center' } });
-    applyStyle(ws, 'A2', { fill: { patternType: 'solid', fgColor: { rgb: 'D9E1F2' } }, font: { bold: true, sz: 11 }, alignment: { horizontal: 'center' } });
-
-    // style en-tête
-    styleRow(ws, 3, 9, cellStyle(COLOR.HEADER_BG, true, true));
-
-    // style lignes données
-    let rowIdx = 4;
-    resume.parEscadron.forEach(esc => {
-      esc.parPeloton.forEach(() => {
-        styleRow(ws, rowIdx, 9, cellStyle('FFFFFF', false, false));
-        rowIdx++;
-      });
-      rowIdx++; // ligne vide
-    });
-
-    ws['!cols'] = [60, 80, 80, 80, 80, 200, 200, 200, 200].map(w => ({ wpx: w }));
-    ws['!rows'] = [{ hpt: 28 }, { hpt: 18 }];
-
-    XLSX.utils.book_append_sheet(wb, ws, 'RÉSUMÉ');
-  }
-
-  /* ════════════════════════════════════════════════════════════════
-     FEUILLE PAR ESCADRON (vue consolidée : 3 pelotons côte à côte)
-  ════════════════════════════════════════════════════════════════ */
-  for (let ei = 0; ei < 10; ei++) {
-    const escNum    = ei + 1;
-    const cEsc      = cases.filter(c => c.escadron === escNum)
-                           .sort((a, b) => a.peloton - b.peloton);
-    const elevesEsc = cEsc.flatMap(c => c.eleves);
-
-    const aoa = [];
-
-    // Titre
-    aoa.push([`RÉPARTITION — ${escNum}ÈME ESCADRON (TOUS PELOTONS)`, '', '', '', '', '', '', '']);
-    aoa.push([`Effectif total : ${elevesEsc.length}   |   M : ${elevesEsc.filter(e => !isFemale(e)).length}   |   F : ${elevesEsc.filter(isFemale).length}`, '', '', '', '', '', '', '']);
-    aoa.push([]);
-
-    // En-tête
-    aoa.push(['NR', 'N° INCORP', 'NOM ET PRENOMS', 'N° INSCR.', 'CENTRE', 'SEXE', 'ESC', 'PON']);
-
-    // Données : regroupées par peloton avec un séparateur
-    let nr = 1;
-    cEsc.forEach((c, ci) => {
-      // sous-titre peloton
-      aoa.push([
-        `${c.peloton === 1 ? '1ER' : c.peloton + 'ÈME'} PELOTON — ${c.effectif} élèves`,
-        '', '', '', '', '', '', ''
-      ]);
-      const rowSep = aoa.length - 1; // index pour style
-
-      const filles  = c.eleves.filter(isFemale);
-      const garcons = c.eleves.filter(e => !isFemale(e));
-      [...filles, ...garcons].forEach(e => {
-        aoa.push([
-          nr++,
-          e.numeroIncorporation ?? '',
-          `${String(e.nom ?? '').toUpperCase()} ${String(e.prenom ?? '')}`.trim(),
-          e.CIN ?? e.numCandidature ?? '',
-          e.centreConcours ?? e.centre ?? '',
-          normSex(e.sexe ?? ''),
-          c.escadron,
-          c.peloton,
-        ]);
-      });
-
-      if (ci < cEsc.length - 1) aoa.push([]); // espace entre pelotons
-    });
-
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-
-    ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
-    ];
-
-    applyStyle(ws, 'A1', { fill: { patternType: 'solid', fgColor: { rgb: COLOR.TITRE_BG } }, font: { bold: true, sz: 13, color: { rgb: 'FFFFFF' } }, alignment: { horizontal: 'center', vertical: 'center' } });
-    applyStyle(ws, 'A2', { fill: { patternType: 'solid', fgColor: { rgb: 'D9E1F2' } }, font: { bold: true }, alignment: { horizontal: 'center' } });
-    styleRow(ws, 3, 8, cellStyle(COLOR.HEADER_BG, true, true));
-
-    ws['!cols'] = WIDTHS_PEL.map(w => ({ wpx: w }));
-    ws['!rows'] = [{ hpt: 26 }, { hpt: 18 }];
-
-    XLSX.utils.book_append_sheet(wb, ws, uniqueName(wb, `ESC ${escNum}`));
-  }
-
-  /* ── écriture fichier ─────────────────────────────────────────── */
-  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  saveAs(
-    new Blob([wbout], { type: 'application/octet-stream' }),
-    `repartition_equitable_${new Date().toISOString().slice(0, 10)}.xlsx`
-  );
-}
-
-
+  // ✅ Export des notes de français (la fonction était référencée dans le JSX mais jamais définie)
+  const handleExportExcel2 = () => {
+    const rows = filteredNotes.map(r => ({
+      Nom: r.Eleve?.nom || '',
+      "Prénom": r.Eleve?.prenom || '',
+      Incorporation: r.Eleve?.numeroIncorporation || '',
+      Escadron: r.Eleve?.escadron || '',
+      Peloton: r.Eleve?.peloton || '',
+      Niveau: r.niveau || '',
+      Note: r.note ?? ''
+    }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Notes Français');
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    saveAs(new Blob([wbout], { type: 'application/octet-stream' }), `notes_francais_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
 
   return (
     <div className="container mt-5" >
      
-     <h1 className="text-center fw-bold mb-4">
-  <i className="fa fa-users me-2 text-primary"></i>
-  Liste des Élèves Gendarmes
-</h1>
+      <h1 className="text-center fw-bold mb-4">
+        <i className="fa fa-users me-2 text-primary"></i>
+        Liste des Élèves Gendarmes
+      </h1>
 
-     {/* SearchCard — version Bootstrap améliorée */}
-<div className="row justify-content-center mb-5">
-  <div className="col-md-11 col-lg-9">
-    <div className="card border-0 shadow rounded-4">
-      {/* Header */}
-      <div
-        className="card-header border-0 p-3 rounded-top-4"
-        style={{ background: "linear-gradient(135deg,#f8f9fa,#eef2f7)" }}
-      >
-        <div className="d-flex align-items-center justify-content-between">
-          <div className="d-flex align-items-center gap-2">
-            <i className="fa fa-search fs-5 text-secondary" aria-hidden="true"></i>
-            <div>
-              <h6 className="mb-0">Recherche d’élèves</h6>
-              <small className="text-muted">
-                Filtre par cours, escadron, peloton, sexe, ou saisis un nom/incorporation.
-              </small>
-            </div>
-          </div>
+      {/* SearchCard */}
+      <div className="row justify-content-center mb-5">
+        <div className="col-md-11 col-lg-9">
+          <div className="card border-0 shadow rounded-4">
+            <div
+              className="card-header border-0 p-3 rounded-top-4"
+              style={{ background: "linear-gradient(135deg,#f8f9fa,#eef2f7)" }}
+            >
+              <div className="d-flex align-items-center justify-content-between">
+                <div className="d-flex align-items-center gap-2">
+                  <i className="fa fa-search fs-5 text-secondary" aria-hidden="true"></i>
+                  <div>
+                    <h6 className="mb-0">Recherche d’élèves</h6>
+                    <small className="text-muted">
+                      Filtre par cours, escadron, peloton, sexe, ou saisis un nom/incorporation.
+                    </small>
+                  </div>
+                </div>
 
-          <button
-            type="button"
-            className="btn btn-sm btn-outline-secondary"
-            onClick={() =>
-              setFilter({ escadron: "", peloton: "", search: "", cour: "", sexe: "" ,famille: '', profession: ''  })
-            }
-          >
-            <i className="fa fa-refresh me-1"></i> Réinitialiser
-            {(filter.cour || filter.search || filter.escadron || filter.peloton || filter.sexe) && (
-              <span className="badge text-bg-secondary ms-2">
-                {Number(Boolean(filter.cour)) +
-                  Number(Boolean(filter.search)) +
-                  Number(Boolean(filter.escadron)) +
-                  Number(Boolean(filter.peloton)) +
-                  Number(Boolean(filter.sexe)) +
-                  Number(Boolean(filter.famille)+
-                  Number(Boolean(filter.profession))) 
-
-                  } +
-                  
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Body */}
-      <div className="card-body">
-        <div className="row g-3">
-          {/* Recherche (avec icône + bouton effacer) */}
-          <div className="col-12">
-            <label className="form-label fw-semibold" htmlFor="search">
-              Recherche
-            </label>
-            <div className="position-relative">
-              <span
-                className="position-absolute top-50 translate-middle-y ms-3"
-                aria-hidden="true"
-              >
-                <i className="fa fa-search text-muted"></i>
-              </span>
-
-              <input
-                id="search"
-                type="text"
-                className="form-control ps-5"
-                placeholder="Nom, prénom, incorporation ou matricule"
-                name="search"
-                value={filter.search}
-                onChange={handleFilterChange}
-                aria-label="Recherche par nom, prénom, incorporation ou matricule"
-              />
-
-              {filter.search && (
                 <button
                   type="button"
-                  className="btn btn-sm btn-link text-decoration-none position-absolute top-50 end-0 translate-middle-y me-2"
-                  onClick={() => setFilter({ ...filter, search: "" })}
-                  aria-label="Effacer la recherche"
-                  title="Effacer"
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={() =>
+                    setFilter({ escadron: "", peloton: "", search: "", cour: "", sexe: "", famille: '', profession: '', centreConcours: "", lieuNaissance: "", fady: "" })
+                  }
                 >
-                  <i className="fa fa-times-circle"></i>
+                  <i className="fa fa-refresh me-1"></i> Réinitialiser
+                  {(filter.cour || filter.search || filter.escadron || filter.peloton || filter.sexe || filter.famille || filter.profession) && (
+                    <span className="badge text-bg-secondary ms-2">
+                      {Number(Boolean(filter.cour)) +
+                        Number(Boolean(filter.search)) +
+                        Number(Boolean(filter.escadron)) +
+                        Number(Boolean(filter.peloton)) +
+                        Number(Boolean(filter.sexe)) +
+                        Number(Boolean(filter.famille)) +
+                        Number(Boolean(filter.profession))}
+                    </span>
+                  )}
                 </button>
-              )}
-            </div>
-           
-          </div>
-          <div className="col-12">
-  <label className="form-label fw-semibold" htmlFor="famille">
-    Recherche famille (père / mère / tuteur)
-  </label>
-  <div className="position-relative">
-    <span className="position-absolute top-50 translate-middle-y ms-3">
-      <i className="fa fa-users text-muted"></i>
-    </span>
-    <input
-      id="famille"
-      type="text"
-      className="form-control ps-5"
-      placeholder="Nom du père, de la mère ou du tuteur"
-      name="famille"
-      value={filter.famille}
-      onChange={handleFilterChange}
-    />
-    {filter.famille && (
-      <button
-        type="button"
-        className="btn btn-sm btn-link text-decoration-none position-absolute top-50 end-0 translate-middle-y me-2"
-        onClick={() => setFilter(prev => ({ ...prev, famille: '' }))}
-        title="Effacer"
-      >
-        <i className="fa fa-times-circle"></i>
-      </button>
-    )}
-  </div>
-</div>
-<div className="col-12">
-  <label className="form-label fw-semibold" htmlFor="profession">
-    Recherche par profession (père / mère / tuteur)
-  </label>
-  <div className="position-relative">
-    <span className="position-absolute top-50 translate-middle-y ms-3">
-      <i className="fa fa-briefcase text-muted"></i>
-    </span>
-    <input
-      id="profession"
-      type="text"
-      className="form-control ps-5"
-      placeholder="Ex: gendarme, médecin, commerçant..."
-      name="profession"
-      value={filter.profession}
-      onChange={handleFilterChange}
-    />
-    {filter.profession && (
-      <button
-        type="button"
-        className="btn btn-sm btn-link text-decoration-none position-absolute top-50 end-0 translate-middle-y me-2"
-        onClick={() => setFilter(prev => ({ ...prev, profession: '' }))}
-        title="Effacer"
-      >
-        <i className="fa fa-times-circle"></i>
-      </button>
-    )}
-  </div>
-</div>
-        
-
-
-          {/* Cours */}
-          <div className="col-md-6">
-            <label className="form-label fw-semibold" htmlFor="cours">
-              Cours
-            </label>
-            <select
-              id="cours"
-              className="form-select"
-              name="cour"
-              value={filter.cour}
-              onChange={handleFilterChange}
-            >
-              <option value="">Tous les cours</option>
-              {coursList.map((c) => (
-                <option key={c.id} value={c.cour}>
-                  {c.cour}
-                </option>
-              ))}
-            </select>
-          </div>
-            {/* Centre de concours */}
-            <div className="col-md-6">
-                <label className="form-label fw-semibold" htmlFor="centreConcours">
-                  Centre de concours
-                </label>
-                <select
-                  id="centreConcours"
-                  className="form-select"
-                  name="centreConcours"
-                  value={filter.centreConcours}
-                  onChange={handleFilterChange}
-                >
-                  <option value="">Tous les centres</option>
-                  {centreConcoursList.map((cc, i) => (
-                    <option key={i} value={cc}>
-                      {cc}
-                    </option>
-                  ))}
-                </select>
               </div>
-                              {/* Lieu de naissance */}
+            </div>
+
+            <div className="card-body">
+              <div className="row g-3">
+                <div className="col-12">
+                  <label className="form-label fw-semibold" htmlFor="search">
+                    Recherche
+                  </label>
+                  <div className="position-relative">
+                    <span
+                      className="position-absolute top-50 translate-middle-y ms-3"
+                      aria-hidden="true"
+                    >
+                      <i className="fa fa-search text-muted"></i>
+                    </span>
+
+                    <input
+                      id="search"
+                      type="text"
+                      className="form-control ps-5"
+                      placeholder="Nom, prénom, incorporation ou matricule"
+                      name="search"
+                      value={filter.search}
+                      onChange={handleFilterChange}
+                      aria-label="Recherche par nom, prénom, incorporation ou matricule"
+                    />
+
+                    {filter.search && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-link text-decoration-none position-absolute top-50 end-0 translate-middle-y me-2"
+                        onClick={() => setFilter({ ...filter, search: "" })}
+                        aria-label="Effacer la recherche"
+                        title="Effacer"
+                      >
+                        <i className="fa fa-times-circle"></i>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="col-12">
+                  <label className="form-label fw-semibold" htmlFor="famille">
+                    Recherche famille (père / mère / tuteur)
+                  </label>
+                  <div className="position-relative">
+                    <span className="position-absolute top-50 translate-middle-y ms-3">
+                      <i className="fa fa-users text-muted"></i>
+                    </span>
+                    <input
+                      id="famille"
+                      type="text"
+                      className="form-control ps-5"
+                      placeholder="Nom du père, de la mère ou du tuteur"
+                      name="famille"
+                      value={filter.famille}
+                      onChange={handleFilterChange}
+                    />
+                    {filter.famille && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-link text-decoration-none position-absolute top-50 end-0 translate-middle-y me-2"
+                        onClick={() => setFilter(prev => ({ ...prev, famille: '' }))}
+                        title="Effacer"
+                      >
+                        <i className="fa fa-times-circle"></i>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="col-12">
+                  <label className="form-label fw-semibold" htmlFor="profession">
+                    Recherche par profession (père / mère / tuteur)
+                  </label>
+                  <div className="position-relative">
+                    <span className="position-absolute top-50 translate-middle-y ms-3">
+                      <i className="fa fa-briefcase text-muted"></i>
+                    </span>
+                    <input
+                      id="profession"
+                      type="text"
+                      className="form-control ps-5"
+                      placeholder="Ex: gendarme, médecin, commerçant..."
+                      name="profession"
+                      value={filter.profession}
+                      onChange={handleFilterChange}
+                    />
+                    {filter.profession && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-link text-decoration-none position-absolute top-50 end-0 translate-middle-y me-2"
+                        onClick={() => setFilter(prev => ({ ...prev, profession: '' }))}
+                        title="Effacer"
+                      >
+                        <i className="fa fa-times-circle"></i>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Cours */}
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold" htmlFor="cours">
+                    Cours
+                  </label>
+                  <select
+                    id="cours"
+                    className="form-select"
+                    name="cour"
+                    value={filter.cour}
+                    onChange={handleFilterChange}
+                  >
+                    <option value="">Tous les cours</option>
+                    {coursList.map((c) => (
+                      <option key={c.id} value={c.cour}>
+                        {c.cour}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Centre de concours */}
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold" htmlFor="centreConcours">
+                    Centre de concours
+                  </label>
+                  <select
+                    id="centreConcours"
+                    className="form-select"
+                    name="centreConcours"
+                    value={filter.centreConcours}
+                    onChange={handleFilterChange}
+                  >
+                    <option value="">Tous les centres</option>
+                    {centreConcoursList.map((cc, i) => (
+                      <option key={i} value={cc}>
+                        {cc}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Lieu de naissance */}
                 <div className="col-md-6">
                   <label className="form-label fw-semibold" htmlFor="lieuNaissance">
                     Lieu de naissance
@@ -4708,1013 +4799,944 @@ async function exportRepartitionEquitableExcel(elevesModifies, cases, resume) {
                   </select>
                 </div>
 
-          {/* Escadron */}
-          <div className="col-md-6">
-            <label className="form-label fw-semibold" htmlFor="escadron">
-              Escadron
-            </label>
-            <select
-              id="escadron"
-              className="form-select"
-              name="escadron"
-              value={filter.escadron}
-              onChange={handleFilterChange}
-            >
-              <option value="">Tous les escadrons</option>
-              {[...Array(10)].map((_, i) => (
-                <option key={i + 1} value={i + 1}>
-                  {i + 1}
-                </option>
-              ))}
-            </select>
+                {/* Escadron */}
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold" htmlFor="escadron">
+                    Escadron
+                  </label>
+                  <select
+                    id="escadron"
+                    className="form-select"
+                    name="escadron"
+                    value={filter.escadron}
+                    onChange={handleFilterChange}
+                  >
+                    <option value="">Tous les escadrons</option>
+                    {[...Array(10)].map((_, i) => (
+                      <option key={i + 1} value={i + 1}>
+                        {i + 1}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Peloton */}
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold" htmlFor="peloton">
+                    Peloton
+                  </label>
+                  <select
+                    id="peloton"
+                    className="form-select"
+                    name="peloton"
+                    value={filter.peloton}
+                    onChange={handleFilterChange}
+                  >
+                    <option value="">Tous les pelotons</option>
+                    {[1, 2, 3].map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Sexe */}
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold" htmlFor="sexe">
+                    Sexe
+                  </label>
+                  <select
+                    id="sexe"
+                    className="form-select"
+                    name="sexe"
+                    value={filter.sexe ?? ''}
+                    onChange={handleFilterChange}
+                  >
+                    <option value="">Tous les sexes</option>
+                    <option value="M">Masculin (M)</option>
+                    <option value="F">Féminin (F)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
           </div>
-
-          {/* Peloton */}
-          <div className="col-md-6">
-            <label className="form-label fw-semibold" htmlFor="peloton">
-              Peloton
-            </label>
-            <select
-              id="peloton"
-              className="form-select"
-              name="peloton"
-              value={filter.peloton}
-              onChange={handleFilterChange}
-            >
-              <option value="">Tous les pelotons</option>
-              {[1, 2, 3].map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Sexe */}
-          <div className="col-md-6">
-            <label className="form-label fw-semibold" htmlFor="sexe">
-              Sexe
-            </label>
-            <select
-              id="sexe"
-              className="form-select"
-              name="sexe"
-              value={filter.sexe}
-              onChange={handleFilterChange}
-            >
-              <option value="">Tous les sexes</option>
-              <option value="M">Masculin (M)</option>
-              <option value="F">Féminin (F)</option>
-            </select>
-          </div>
-
-          {/* Astuce UX */}
-         
-
-          {/* Bouton Réinitialiser pleine largeur (optionnel) */}
-        
         </div>
       </div>
-    </div>
-  </div>
-</div>
 
+      <div
+        style={{
+          width: '100vw',
+          marginLeft: 'calc(50% - 50vw)',
+          marginRight: 'calc(50% - 50vw)',
+          paddingLeft: 0,
+          paddingRight: 0,
+        }}
+      >
+        <div className="card border-0 shadow rounded-4 mb-4 w-100" style={{margin:"1rem"}}>
 
-                
-<div
-  style={{
-    /* fait sortir le bloc du padding/centrage parent */
-    width: '100vw',
-    marginLeft: 'calc(50% - 50vw)',
-    marginRight: 'calc(50% - 50vw)',
-    paddingLeft: 0,
-    paddingRight: 0,
-  }}
->
-  <div className="card border-0 shadow rounded-4 mb-4 w-100" style={{margin:"1rem"}}>
+          {/* HEADER */}
+          <div style={{ background: 'linear-gradient(135deg,#f8f9fa,#eef2f7)' }}>
+            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
 
-  {/* HEADER */}
-  <div style={{ background: 'linear-gradient(135deg,#f8f9fa,#eef2f7)' }}>
-    <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+              <div className="d-flex align-items-center gap-2">
+                <h5 className="fw-bold text-primary mb-0">
+                  👥 Liste des élèves Gendarme
+                </h5>
+                <span className="badge text-bg-primary rounded-pill">
+                  {elevesAAfficher?.length ?? 0}
+                </span>
+              </div>
 
-      
-      {/* Titre + compteur */}
-      <div className="d-flex align-items-center gap-2">
-        <h5 className="fw-bold text-primary mb-0">
-          👥 Liste des élèves Gendarme
-        </h5>
-        <span className="badge text-bg-primary rounded-pill">
-           {elevesAAfficher?.length ?? 0}
-        </span>
-      </div>
+              {/* Toolbar desktop */}
+              <div className="d-none d-md-flex align-items-center gap-2">
+                {canEdit && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm shadow-sm rounded-3"
+                      onClick={handleValiderRepartition}
+                      title={`Valider la répartition par salles (cours ${filter.cour || '—'}, ${elevesCour.length} élèves)`}
+                      aria-label="Valider la répartition"
+                    >
+                      <i className="fa fa-check me-2" aria-hidden="true"></i>
+                      Valider la répartition
+                    </button>
 
-      {/* Toolbar desktop */}
-      <div className="d-none d-md-flex align-items-center gap-2">
-        {canEdit && (
-          <>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm shadow-sm rounded-3"
-              onClick={() => validerRepartitionRapide(eleves)}
-              data-bs-toggle="tooltip"
-              title="Valider la répartition actuelle par salles"
-              aria-label="Valider la répartition"
-            >
-              <i className="fa fa-check me-2" aria-hidden="true"></i>
-              Valider la répartition
-            </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-warning btn-sm shadow-sm rounded-3"
+                      onClick={handleDefinirCapacites}
+                      title="Modifier ou redéfinir les capacités des salles"
+                      aria-label="Modifier ou redéfinir les capacités"
+                    >
+                      <i className="fa fa-sliders me-2" aria-hidden="true"></i>
+                      (Re)définir les capacités
+                    </button>
+                  </>
+                )}
 
-            <button
-              type="button"
-              className="btn btn-outline-warning btn-sm shadow-sm rounded-3"
-              onClick={async () => {
-                const excl = await exclureIncorporations(); // se sauvegarde déjà
-                await ajouterSallesViaModal(eleves, excl);
-              }}
-              data-bs-toggle="tooltip"
-              title="Modifier ou redéfinir les capacités des salles"
-              aria-label="Modifier ou redéfinir les capacités"
-            >
-              <i className="fa fa-sliders me-2" aria-hidden="true"></i>
-              (Re)définir les capacités
-            </button>
-          </>
-        )}
+                {user.type !== "saisie" && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary btn-sm shadow-sm rounded-3"
+                      onClick={() => setShowNoteModal(true)}
+                      title="Saisir ou éditer les notes de Français"
+                      aria-label="Ouvrir la saisie des notes de Français"
+                    >
+                      <i className="fa fa-book me-2" aria-hidden="true"></i>
+                      Note Français
+                    </button>
 
-        {user.type !== "saisie" && (
-          <>
-            <button
-              type="button"
-              className="btn btn-outline-secondary btn-sm shadow-sm rounded-3"
-              onClick={() => setShowNoteModal(true)}
-              data-bs-toggle="tooltip"
-              title="Saisir ou éditer les notes de Français"
-              aria-label="Ouvrir la saisie des notes de Français"
-            >
-              <i className="fa fa-book me-2" aria-hidden="true"></i>
-              Note Français
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-success btn-sm shadow-sm rounded-3"
-              onClick={handleExportExcel}
-              data-bs-toggle="tooltip"
-              title="Exporter la liste au format Excel (.xlsx)"
-              aria-label="Exporter en Excel"
-            >
-              <i className="fa fa-file-excel me-2" aria-hidden="true"></i>
-              Exporter (.xlsx)
-            </button>
-          </>
-        )}
-      </div>
-      {canEdit && (
-  <button
-    type="button"
-    className="btn btn-outline-info btn-sm shadow-sm rounded-3"
-    onClick={handleRepartirEquitable}
-    title="Répartir équitablement par niveau, fady, genreConcours et sexe"
-  >
-    <i className="fa fa-random me-2" aria-hidden="true"></i>
-    Répartition équitable
-  </button>
-)}
-
-      {/* Toolbar mobile (menu condensé) */}
-      <div className="dropdown d-md-none">
-        <button
-          className="btn btn-light btn-sm shadow-sm rounded-3 dropdown-toggle"
-          type="button"
-          data-bs-toggle="dropdown"
-          aria-expanded="false"
-        >
-          Actions
-        </button>
-        <ul className="dropdown-menu dropdown-menu-end">
-          {canEdit && (
-            <>
-              <li>
-                <button
-                  className="dropdown-item d-flex align-items-center gap-2"
-                  onClick={() => validerRepartitionRapide(eleves)}
-                >
-                  <i className="fa fa-check" aria-hidden="true"></i>
-                  <span>Valider la répartition</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  className="dropdown-item d-flex align-items-center gap-2"
-                  onClick={async () => {
-                    const excl = await exclureIncorporations();
-                    await ajouterSallesViaModal(eleves, excl);
-                  }}
-                >
-                  <i className="fa fa-sliders" aria-hidden="true"></i>
-                  <span>(Re)définir les capacités</span>
-                </button>
-              </li>
-              <li><hr className="dropdown-divider" /></li>
-            </>
-          )}
-
-          {user.type !== "saisie" && (
-            <>
-              <li>
-                <button
-                  className="dropdown-item d-flex align-items-center gap-2"
-                  onClick={() => setShowNoteModal(true)}
-                >
-                  <i className="fa fa-book" aria-hidden="true"></i>
-                  <span>Note Français</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  className="dropdown-item d-flex align-items-center gap-2"
-                  onClick={handleExportExcel}
-                >
-                  <i className="fa fa-file-excel" aria-hidden="true"></i>
-                  <span>Exporter (.xlsx)</span>
-                </button>
-              </li>
-            </>
-          )}
-        </ul>
-      </div>
-
-      <div className="card-body p-0">
-      {isLoading ? (
-        <div className="text-center my-4">
-          <ProgressBar now={60} label="Chargement..." animated striped />
-        </div>
-      ) : (
-        <div className="table-responsive" style={{ width: "100%", overflowX: "auto" }}>
-         <DataTable
-          //  className="datatable-fixed-header"
-            columns={columns}
-            data={elevesAAfficher}
-            pagination
-            paginationPerPage={50}
-            paginationRowsPerPageOptions={[50, 100]}
-            highlightOnHover
-            striped
-            fixedHeader
-           
-            noDataComponent="Aucun élève à afficher"
-            customStyles={{
-              table: {
-                style: {
-                  width: '100%',
-                },
-              },
-              headRow: {
-                style: {
-                  backgroundColor: '#f8f9fa',
-                  fontWeight: 700,
-                },
-              },
-              headCells: {
-                style: {
-                  fontSize: '1.1rem',
-                  paddingLeft: '12px',
-                  paddingRight: '12px',
-                },
-              },
-              rows: {
-                style: {
-                  fontSize: '1rem',
-                  minHeight: '48px',
-                },
-              },
-              cells: {
-                style: {
-                  fontSize: '1rem',
-                  paddingLeft: '12px',
-                  paddingRight: '12px',
-                },
-              },
-            }}
-          />
-
-
-                  </div>
+                    <button
+                      type="button"
+                      className="btn btn-success btn-sm shadow-sm rounded-3"
+                      onClick={handleExportExcel}
+                      title="Exporter la liste au format Excel (.xlsx)"
+                      aria-label="Exporter en Excel"
+                    >
+                      <i className="fa fa-file-excel me-2" aria-hidden="true"></i>
+                      Exporter (.xlsx)
+                    </button>
+                  </>
                 )}
               </div>
-            </div>
-          </div>
-                  {noteModalOpen && selectedEleve && (
-  <div
-    className="modal-overla"
-    style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      width: '100vw',
-      height: '100vh',
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      zIndex: 9999,
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-    }}
-  >
-   <div
-  className="modal-content"
-  style={{
-    maxWidth: '1200px',
-    width: '95%',
-    background: 'white',
-    borderRadius: '12px',
-    padding: '20px',
-    position: 'relative',
-    zIndex: 10000,
-    color: 'black',
-    maxHeight: '90vh',
-    overflow: 'hidden',
-    display: 'flex',            // AJOUT
-    flexDirection: 'column',    // AJOUT
-    boxShadow: '0 10px 30px rgba(0,0,0,0.15)'
-  }}
->
-      <button
-        style={{ position: 'absolute', top: 10, right: 10, fontSize: '24px', background: 'transparent', border: 'none', cursor: 'pointer' }}
-        onClick={handleCloseNoteModal}
-      >
-        ×
-      </button>
-
-      <h5 className="text-center mb-3">
-        Fiche – {selectedEleve.nom} {selectedEleve.prenom}
-      </h5>
-
-      {/* ======= 2 colonnes x 2 lignes ======= */}
-      <div
-  className="row g-3"
-  style={{
-    flex: 1,
-    minHeight: 0,
-    overflowY: 'auto',
-    overflowX: 'hidden',
-    paddingBottom: '12px',
-  }}
->
-
-        {/* ================= COL 1 (ligne 1) : NOTES ================= */}
-        <div className="col-12 col-lg-6 d-flex">
-          <div className="card shadow-sm border-0 w-100 d-flex flex-column">
-            <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
-              <span>Notes (aperçu)</span>
-              {(user?.type !== 'saisie' && user?.type !== 'user') && (
-                <button className="btn btn-success btn-sm rounded-pill" onClick={handleSaveNotes}>
-                  Enregistrer
-                </button>
-              )}
-            </div>
-            <div className="card-body p-2" style={{overflowY:'auto'}}>
-              <div className="table-responsive">
-                <table className="table table-sm table-bordered">
-                  <tbody>
-                    <tr>
-                      <th style={{whiteSpace:'nowrap'}}>Fin FETTA</th>
-                      <td>{notes.finfetta || '-'}</td>
-                      <th style={{whiteSpace:'nowrap'}}>Rang Fin FETTA</th>
-                      <td>{notes.rangfinfetta || '-'}</td>
-                    </tr>
-                    <tr>
-                      <th>Mi-Stage</th>
-                      <td>{notes.mistage || '-'}</td>
-                      <th>Rang Mi-Stage</th>
-                      <td>{notes.rangmistage || '-'}</td>
-                    </tr>
-                    <tr>
-                      <th>Fin Formation</th>
-                      <td>{notes.finstage || '-'}</td>
-                      <th>Rang Fin Formation</th>
-                      <td>{notes.rangfinstage || '-'}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ============ COL 2 (ligne 1) : CONSULTATIONS EXTERNES ============ */}
-        <div className="col-12 col-lg-6 d-flex">
-          <div className="card shadow-sm border-0 w-100 d-flex flex-column">
-            <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
-              <span>Consultations externes</span>
-              <span className="badge bg-secondary">{consultationsEleve?.length || 0}</span>
-            </div>
-
-            <div className="card-body p-2" style={{overflowY:'auto'}}>
-              {loadingConsultationsEleve && (
-                <div className="alert alert-info py-2 mb-2">Chargement…</div>
-              )}
-              {errorConsultationsEleve && (
-                <div className="alert alert-danger py-2 mb-2">{errorConsultationsEleve}</div>
-              )}
-              {!loadingConsultationsEleve && !errorConsultationsEleve && consultationsEleve.length === 0 && (
-                <div className="text-muted">Aucune consultation.</div>
-              )}
-
-              {consultationsEleve.length > 0 && (() => {
-                const rows = consultationsEleve.map((c, idx) => {
-                  const start = getStartField(c);
-                  const end   = getEndField(c);
-                  const nb    = getNbJours(c);
-                  const computed = (end && start) ? dayDiffInclusive(start, end) : null;
-                  const days  = (nb != null && nb !== "") ? Number(nb) : computed;
-                  const endLabel = end ? formatDate(end) : (start ? "Pas encore arrivé" : "-");
-                  return {
-                    key: c.id || idx,
-                    id: c.id,
-                    startLabel: start ? formatDate(start) : "-",
-                    endLabel,
-                    days: end ? (days ?? "-") : "-",
-                    ok: Boolean(end && (days != null) && !Number.isNaN(days)),
-                  };
-                });
-                const totalGlobal = rows.reduce((s, r) => s + (r.ok ? Number(r.days) : 0), 0);
-                const enCours = rows.filter(r => r.endLabel === "Pas encore arrivé").length;
-
-                return (
-                  <div className="table-responsive">
-                    <table className="table table-sm table-bordered align-middle">
-                      <thead>
-                        <tr>
-                          <th style={{whiteSpace:'nowrap', position:'sticky', top:0, background:'#f8f9fa'}}>#</th>
-                          <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Date départ</th>
-                          <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Date arrivée</th>
-                          <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Total (j)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((r, i) => (
-                          <tr key={r.key}>
-                            <td>{r.id ?? (i + 1)}</td>
-                            <td>{r.startLabel}</td>
-                            <td>{r.endLabel}</td>
-                            <td>{r.days}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr>
-                          <th colSpan={3} style={{textAlign:'right'}}>Total global (terminés)</th>
-                          <th>
-                            <span className="badge bg-secondary">{totalGlobal}</span>
-                          </th>
-                        </tr>
-                        {enCours > 0 && (
-                          <tr>
-                            <td colSpan={4} className="text-muted">
-                              {enCours} consultation(s) en cours (non comptées).
-                            </td>
-                          </tr>
-                        )}
-                      </tfoot>
-                    </table>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
-
-        {/* ================= COL 3 (ligne 2) : ABSENCES ================= */}
-        <div className="col-12 col-lg-6 d-flex">
-         <div className="card shadow-sm border-0 w-100 d-flex flex-column">
-            <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
-              <span>Absences</span>
-              <span className="badge bg-secondary">{absencesEleve?.length || 0}</span>
-            </div>
-
-            <div className="card-body p-2" style={{overflowY:'auto'}}>
-              {loadingAbsencesEleve && (
-                <div className="alert alert-info py-2 mb-2">Chargement…</div>
-              )}
-              {errorAbsencesEleve && (
-                <div className="alert alert-danger py-2 mb-2">{errorAbsencesEleve}</div>
-              )}
-              {!loadingAbsencesEleve && !errorAbsencesEleve && absencesEleve.length === 0 && (
-                <div className="text-muted">Aucune absence.</div>
-              )}
-
-              {absencesEleve.length > 0 && (() => {
-                const groupsMap = {};
-                absencesEleve.forEach((a) => {
-                  const motifRaw = getMotifAbs(a);
-                  const key = normalizeKey(motifRaw || "Sans motif");
-                  const label = (motifRaw && String(motifRaw).trim()) || "Sans motif";
-                  const nbRaw = getNombreAbs(a);
-                  let val = parseNumberFlexible(nbRaw);
-                  if (!Number.isFinite(val)) val = 1;
-                  if (!groupsMap[key]) groupsMap[key] = { label, sum: 0, count: 0 };
-                  groupsMap[key].sum += val;
-                  groupsMap[key].count += 1;
-                });
-                const rows = Object.values(groupsMap).sort((a, b) =>
-                  a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
-                );
-                const totalGlobal = rows.reduce((acc, r) => acc + r.sum, 0);
-
-                return (
-                  <div className="table-responsive">
-                    <table className="table table-sm table-bordered align-middle">
-                      <thead>
-                        <tr>
-                          <th style={{whiteSpace:'nowrap', position:'sticky', top:0, background:'#f8f9fa'}}>#</th>
-                          <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Motif</th>
-                          <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Nombre</th>
-                          <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((r, idx) => (
-                          <tr key={r.label + idx}>
-                            <td>{idx + 1}</td>
-                            <td>{r.label}</td>
-                            <td>{r.count}</td>
-                            <td>{r.sum}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr>
-                          <th colSpan={3} style={{textAlign:'right'}}>Total global</th>
-                          <th><span className="badge bg-secondary">{totalGlobal}</span></th>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
-        {/* ===== ABSENCES DES COURS PRÉCÉDENTS (redoublant) ===== */}
-{ancAbsences.map((h) => {
-  const groups = {};
-  h.absences.forEach((a) => {
-    const key = normalizeKey(getMotifAbs(a));
-    const label = String(getMotifAbs(a) || "Sans motif").trim();
-    const v = parseNumberFlexible(getNombreAbs(a)) ?? 1;
-    if (!groups[key]) groups[key] = { label, count: 0, sum: 0 };
-    groups[key].count += 1;
-    groups[key].sum += v;
-  });
-  const rows = Object.values(groups);
-  const total = rows.reduce((s, r) => s + r.sum, 0);
-
-  return (
-    <div className="col-12 col-lg-6 d-flex" key={`anc-${h.cour}`}>
-      <div className="card shadow-sm w-100 d-flex flex-column h-100"
-           style={{ border: "2px dashed #f0ad4e" }}>
-        <div className="card-header fw-semibold d-flex justify-content-between align-items-center"
-             style={{ background: "#fff3cd", color: "#8a6d3b" }}>
-          <span>Absences — Cours {h.cour} (redoublement)</span>
-          <span className="badge bg-warning text-dark">{total} j</span>
-        </div>
-        <div className="card-body p-2" style={{ overflowY: "auto" }}>
-          <small className="text-muted">
-            Ancien dossier : Inc. {h.numeroIncorporation} · Esc. {h.escadron}/{h.peloton}
-          </small>
-          <div className="table-responsive mt-2">
-            <table className="table table-sm table-bordered align-middle">
-              <thead>
-                <tr><th>#</th><th>Motif</th><th>Nombre</th><th>Total</th></tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => (
-                  <tr key={i}><td>{i + 1}</td><td>{r.label}</td><td>{r.count}</td><td>{r.sum}</td></tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <th colSpan={3} style={{ textAlign: "right" }}>Total cours {h.cour}</th>
-                  <th><span className="badge bg-warning text-dark">{total}</span></th>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-})}
-
-{/* ================= COL 4 (ligne 2) : SANCTIONS ================= */}
-<div className="col-12 col-lg-6 d-flex">
-  <div className="card shadow-sm border-0 w-100 d-flex flex-column">
-    <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
-      <span>Sanctions</span>
-      <div className="d-flex gap-2">
-        <span className="badge bg-success-subtle text-success border border-success-subtle">
-          + {(sanctions || []).filter(s => getSanctionType(s) === "positive").length}
-        </span>
-        <span className="badge bg-danger-subtle text-danger border border-danger-subtle">
-          − {(sanctions || []).filter(s => getSanctionType(s) === "negative").length}
-        </span>
-      </div>
-    </div>
-
-    <div className="card-body p-2" style={{ overflowY: "auto" }}>
-      {loadingSanctions && <div className="alert alert-info py-2 mb-2">Chargement…</div>}
-      {errorSanctions && <div className="alert alert-danger py-2 mb-2">{errorSanctions}</div>}
-      {!loadingSanctions && !errorSanctions && (!sanctions || sanctions.length === 0) && (
-        <div className="text-muted">Aucune sanction.</div>
-      )}
-
-      {/* Formulaire d’ajout/édition — visible uniquement pour admin/superadmin */}
-      {canEditSanctions && (
-        <div className="mb-2 border rounded p-2">
-          <div className="row g-2 align-items-end">
-            {/* Champ Type */}
-            <div className="col-4">
-              <label className="form-label mb-1">Type</label>
-              <select
-                className="form-select form-select-sm"
-                value={sanctionForm.type}
-                onChange={(e) => setSanctionForm({ ...sanctionForm, type: e.target.value })}
-              >
-                <option value="positive">Positive</option>
-                <option value="negative">Négative</option>
-              </select>
-            </div>
-
-            {/* Champ Taux */}
-            <div className="col-3">
-              <label className="form-label mb-1">Taux</label>
-              <input
-                type="text"
-                className="form-control form-control-sm"
-                placeholder="0"
-                min="0"
-                value={sanctionForm.taux || ""}
-                onChange={(e) => setSanctionForm({ ...sanctionForm, taux: e.target.value })}
-              />
-            </div>
-
-            {/* Champ Motif */}
-            <div className="col-5">
-              <label className="form-label mb-1">Motif</label>
-              <input
-                className="form-control form-control-sm"
-                placeholder="Motif…"
-                value={sanctionForm.motif}
-                onChange={(e) => setSanctionForm({ ...sanctionForm, motif: e.target.value })}
-              />
-            </div>
-
-            {/* Boutons */}
-            <div className="col-12 d-flex gap-2">
-              <button
-                type="button"
-                className="btn btn-sm btn-primary"
-                onClick={handleSaveSanction}
-                disabled={!sanctionForm.motif || sanctionForm.motif.trim().length === 0}
-                title={
-                  !sanctionForm.motif?.trim()
-                    ? "Saisir un motif pour activer"
-                    : "Enregistrer la sanction"
-                }
-              >
-                {sanctionEditingId ? "Mettre à jour" : "Ajouter"}
-              </button>
-              {sanctionEditingId && (
+              {canEdit && (
                 <button
                   type="button"
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={() => {
-                    setSanctionEditingId(null);
-                    setSanctionForm({ type: "negative", motif: "", taux: "" });
-                  }}
+                  className="btn btn-outline-info btn-sm shadow-sm rounded-3"
+                  onClick={handleRepartirEquitable}
+                  title="Répartir équitablement par niveau, fady, genreConcours et sexe"
                 >
-                  Annuler
+                  <i className="fa fa-random me-2" aria-hidden="true"></i>
+                  Répartition équitable
                 </button>
               )}
+
+              {/* Toolbar mobile */}
+              <div className="dropdown d-md-none">
+                <button
+                  className="btn btn-light btn-sm shadow-sm rounded-3 dropdown-toggle"
+                  type="button"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                >
+                  Actions
+                </button>
+                <ul className="dropdown-menu dropdown-menu-end">
+                  {canEdit && (
+                    <>
+                      <li>
+                        <button
+                          className="dropdown-item d-flex align-items-center gap-2"
+                          onClick={handleValiderRepartition}
+                        >
+                          <i className="fa fa-check" aria-hidden="true"></i>
+                          <span>Valider la répartition</span>
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          className="dropdown-item d-flex align-items-center gap-2"
+                          onClick={handleDefinirCapacites}
+                        >
+                          <i className="fa fa-sliders" aria-hidden="true"></i>
+                          <span>(Re)définir les capacités</span>
+                        </button>
+                      </li>
+                      <li><hr className="dropdown-divider" /></li>
+                    </>
+                  )}
+
+                  {user.type !== "saisie" && (
+                    <>
+                      <li>
+                        <button
+                          className="dropdown-item d-flex align-items-center gap-2"
+                          onClick={() => setShowNoteModal(true)}
+                        >
+                          <i className="fa fa-book" aria-hidden="true"></i>
+                          <span>Note Français</span>
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          className="dropdown-item d-flex align-items-center gap-2"
+                          onClick={handleExportExcel}
+                        >
+                          <i className="fa fa-file-excel" aria-hidden="true"></i>
+                          <span>Exporter (.xlsx)</span>
+                        </button>
+                      </li>
+                    </>
+                  )}
+                </ul>
+              </div>
+
+              <div className="card-body p-0">
+                {isLoading ? (
+                  <div className="text-center my-4">
+                    <ProgressBar now={60} label="Chargement..." animated striped />
+                  </div>
+                ) : (
+                  <div className="table-responsive" style={{ width: "100%", overflowX: "auto" }}>
+                    <DataTable
+                      columns={columns}
+                      data={elevesAAfficher}
+                      pagination
+                      paginationPerPage={50}
+                      paginationRowsPerPageOptions={[50, 100]}
+                      highlightOnHover
+                      striped
+                      fixedHeader
+                      noDataComponent="Aucun élève à afficher"
+                      customStyles={{
+                        table: { style: { width: '100%' } },
+                        headRow: { style: { backgroundColor: '#f8f9fa', fontWeight: 700 } },
+                        headCells: { style: { fontSize: '1.1rem', paddingLeft: '12px', paddingRight: '12px' } },
+                        rows: { style: { fontSize: '1rem', minHeight: '48px' } },
+                        cells: { style: { fontSize: '1rem', paddingLeft: '12px', paddingRight: '12px' } },
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Tableau sanctions */}
-      {sanctions && sanctions.length > 0 && (
-        <div
-          className="table-responsive"
-          style={{ maxHeight: "300px", overflowY: "auto" }} // ✅ scroll vertical dans le tableau
-        >
-          <table className="table table-sm table-bordered align-middle mb-0">
-            <thead>
-              <tr>
-                <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>#</th>
-                <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>Type</th>
-                <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>Taux</th>
-                <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>Motif</th>
-                {canEditSanctions && (
-                  <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>Actions</th>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {sanctions.map((s, idx) => {
-                const type = getSanctionType(s);
-                const motif = s?.motif ?? s?.raison ?? s?.reason ?? "-";
-                const taux = s?.taux ?? "-";
-                const badge =
-                  type === "positive" ? (
-                    <span className="badge bg-success-subtle text-success border border-success-subtle">
-                      Positive
-                    </span>
-                  ) : (
-                    <span className="badge bg-danger-subtle text-danger border border-danger-subtle">
-                      Négative
-                    </span>
-                  );
-
-                return (
-                  <tr key={s.id || idx}>
-                    <td>{s.id ?? idx + 1}</td>
-                    <td>{badge}</td>
-                    <td>{taux}</td>
-                    <td
-                      style={{
-                        whiteSpace: "pre-wrap",
-                        wordBreak: "break-word",
-                        minWidth: "200px",
-                      }}
-                    >
-                      {motif || "-"}
-                    </td>
-                    {canEditSanctions && (
-                      <td>
-                        <div className="d-flex gap-2">
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-primary"
-                            onClick={() => handleEditSanction(s)}
-                          >
-                            Modifier
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => handleDeleteSanction(s.id)}
-                          >
-                            Supprimer
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  </div>
-</div>
-{/* ================= OBSERVATION ================= */}
-<div className="col-12 d-flex">
- <div className="card shadow-sm border-0 w-100 d-flex flex-column">
-    <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
-      <span>Observations</span>
-      <span className="badge bg-secondary">{observations?.length || 0}</span>
-    </div>
-
-    <div className="card-body p-2" style={{ overflowY: "auto" }}>
-      {loadingObservations && <div className="alert alert-info py-2 mb-2">Chargement…</div>}
-      {errorObservations && <div className="alert alert-danger py-2 mb-2">{errorObservations}</div>}
-      {!loadingObservations && !errorObservations && (!observations || observations.length === 0) && (
-        <div className="text-muted">Aucune observation.</div>
-      )}
-
-      {/* Formulaire d'ajout/édition — visible pour tous */}
-      <div className="mb-2 border rounded p-2">
-        <div className="row g-2 align-items-end">
-          <div className="col-10">
-            <label className="form-label mb-1">Observation</label>
-            <textarea
-              className="form-control form-control-sm"
-              rows={2}
-              placeholder="Saisir une observation…"
-              value={observationForm.contenu}
-              onChange={(e) => setObservationForm({ ...observationForm, contenu: e.target.value })}
-            />
-          </div>
-          <div className="col-12 d-flex gap-2">
-            <button
-              type="button"
-              className="btn btn-sm btn-primary"
-              onClick={handleSaveObservation}
-              disabled={!observationForm.contenu || observationForm.contenu.trim().length === 0}
+          {noteModalOpen && selectedEleve && (
+            <div
+              className="modal-overla"
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                width: '100vw',
+                height: '100vh',
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                zIndex: 9999,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
             >
-              {observationEditingId ? "Mettre à jour" : "Ajouter"}
-            </button>
-            {observationEditingId && (
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary"
-                onClick={() => {
-                  setObservationEditingId(null);
-                  setObservationForm({ contenu: "" });
+              <div
+                className="modal-content"
+                style={{
+                  maxWidth: '1200px',
+                  width: '95%',
+                  background: 'white',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  position: 'relative',
+                  zIndex: 10000,
+                  color: 'black',
+                  maxHeight: '90vh',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.15)'
                 }}
               >
-                Annuler
-              </button>
-            )}
+                <button
+                  style={{ position: 'absolute', top: 10, right: 10, fontSize: '24px', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                  onClick={handleCloseNoteModal}
+                >
+                  ×
+                </button>
+
+                <h5 className="text-center mb-3">
+                  Fiche – {selectedEleve.nom} {selectedEleve.prenom}
+                </h5>
+
+                <div
+                  className="row g-3"
+                  style={{
+                    flex: 1,
+                    minHeight: 0,
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    paddingBottom: '12px',
+                  }}
+                >
+                  {/* NOTES */}
+                  <div className="col-12 col-lg-6 d-flex">
+                    <div className="card shadow-sm border-0 w-100 d-flex flex-column">
+                      <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                        <span>Notes (aperçu)</span>
+                        {(user?.type !== 'saisie' && user?.type !== 'user') && (
+                          <button className="btn btn-success btn-sm rounded-pill" onClick={handleSaveNotes}>
+                            Enregistrer
+                          </button>
+                        )}
+                      </div>
+                      <div className="card-body p-2" style={{overflowY:'auto'}}>
+                        <div className="table-responsive">
+                          <table className="table table-sm table-bordered">
+                            <tbody>
+                              <tr>
+                                <th style={{whiteSpace:'nowrap'}}>Fin FETTA</th>
+                                <td>{notes.finfetta || '-'}</td>
+                                <th style={{whiteSpace:'nowrap'}}>Rang Fin FETTA</th>
+                                <td>{notes.rangfinfetta || '-'}</td>
+                              </tr>
+                              <tr>
+                                <th>Mi-Stage</th>
+                                <td>{notes.mistage || '-'}</td>
+                                <th>Rang Mi-Stage</th>
+                                <td>{notes.rangmistage || '-'}</td>
+                              </tr>
+                              <tr>
+                                <th>Fin Formation</th>
+                                <td>{notes.finstage || '-'}</td>
+                                <th>Rang Fin Formation</th>
+                                <td>{notes.rangfinstage || '-'}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CONSULTATIONS EXTERNES */}
+                  <div className="col-12 col-lg-6 d-flex">
+                    <div className="card shadow-sm border-0 w-100 d-flex flex-column">
+                      <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                        <span>Consultations externes</span>
+                        <span className="badge bg-secondary">{consultationsEleve?.length || 0}</span>
+                      </div>
+
+                      <div className="card-body p-2" style={{overflowY:'auto'}}>
+                        {loadingConsultationsEleve && (
+                          <div className="alert alert-info py-2 mb-2">Chargement…</div>
+                        )}
+                        {errorConsultationsEleve && (
+                          <div className="alert alert-danger py-2 mb-2">{errorConsultationsEleve}</div>
+                        )}
+                        {!loadingConsultationsEleve && !errorConsultationsEleve && consultationsEleve.length === 0 && (
+                          <div className="text-muted">Aucune consultation.</div>
+                        )}
+
+                        {consultationsEleve.length > 0 && (() => {
+                          const rows = consultationsEleve.map((c, idx) => {
+                            const start = getStartField(c);
+                            const end   = getEndField(c);
+                            const nb    = getNbJours(c);
+                            const computed = (end && start) ? dayDiffInclusive(start, end) : null;
+                            const days  = (nb != null && nb !== "") ? Number(nb) : computed;
+                            const endLabel = end ? formatDate(end) : (start ? "Pas encore arrivé" : "-");
+                            return {
+                              key: c.id || idx,
+                              id: c.id,
+                              startLabel: start ? formatDate(start) : "-",
+                              endLabel,
+                              days: end ? (days ?? "-") : "-",
+                              ok: Boolean(end && (days != null) && !Number.isNaN(days)),
+                            };
+                          });
+                          const totalGlobal = rows.reduce((s, r) => s + (r.ok ? Number(r.days) : 0), 0);
+                          const enCours = rows.filter(r => r.endLabel === "Pas encore arrivé").length;
+
+                          return (
+                            <div className="table-responsive">
+                              <table className="table table-sm table-bordered align-middle">
+                                <thead>
+                                  <tr>
+                                    <th style={{whiteSpace:'nowrap', position:'sticky', top:0, background:'#f8f9fa'}}>#</th>
+                                    <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Date départ</th>
+                                    <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Date arrivée</th>
+                                    <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Total (j)</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {rows.map((r, i) => (
+                                    <tr key={r.key}>
+                                      <td>{r.id ?? (i + 1)}</td>
+                                      <td>{r.startLabel}</td>
+                                      <td>{r.endLabel}</td>
+                                      <td>{r.days}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                                <tfoot>
+                                  <tr>
+                                    <th colSpan={3} style={{textAlign:'right'}}>Total global (terminés)</th>
+                                    <th>
+                                      <span className="badge bg-secondary">{totalGlobal}</span>
+                                    </th>
+                                  </tr>
+                                  {enCours > 0 && (
+                                    <tr>
+                                      <td colSpan={4} className="text-muted">
+                                        {enCours} consultation(s) en cours (non comptées).
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tfoot>
+                              </table>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ABSENCES */}
+                  <div className="col-12 col-lg-6 d-flex">
+                    <div className="card shadow-sm border-0 w-100 d-flex flex-column">
+                      <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                        <span>Absences</span>
+                        <span className="badge bg-secondary">{absencesEleve?.length || 0}</span>
+                      </div>
+
+                      <div className="card-body p-2" style={{overflowY:'auto'}}>
+                        {loadingAbsencesEleve && (
+                          <div className="alert alert-info py-2 mb-2">Chargement…</div>
+                        )}
+                        {errorAbsencesEleve && (
+                          <div className="alert alert-danger py-2 mb-2">{errorAbsencesEleve}</div>
+                        )}
+                        {!loadingAbsencesEleve && !errorAbsencesEleve && absencesEleve.length === 0 && (
+                          <div className="text-muted">Aucune absence.</div>
+                        )}
+
+                        {absencesEleve.length > 0 && (() => {
+                          const groupsMap = {};
+                          absencesEleve.forEach((a) => {
+                            const motifRaw = getMotifAbs(a);
+                            const key = normalizeKey(motifRaw || "Sans motif");
+                            const label = (motifRaw && String(motifRaw).trim()) || "Sans motif";
+                            const nbRaw = getNombreAbs(a);
+                            let val = parseNumberFlexible(nbRaw);
+                            if (!Number.isFinite(val)) val = 1;
+                            if (!groupsMap[key]) groupsMap[key] = { label, sum: 0, count: 0 };
+                            groupsMap[key].sum += val;
+                            groupsMap[key].count += 1;
+                          });
+                          const rows = Object.values(groupsMap).sort((a, b) =>
+                            a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
+                          );
+                          const totalGlobal = rows.reduce((acc, r) => acc + r.sum, 0);
+
+                          return (
+                            <div className="table-responsive">
+                              <table className="table table-sm table-bordered align-middle">
+                                <thead>
+                                  <tr>
+                                    <th style={{whiteSpace:'nowrap', position:'sticky', top:0, background:'#f8f9fa'}}>#</th>
+                                    <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Motif</th>
+                                    <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Nombre</th>
+                                    <th style={{position:'sticky', top:0, background:'#f8f9fa'}}>Total</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {rows.map((r, idx) => (
+                                    <tr key={r.label + idx}>
+                                      <td>{idx + 1}</td>
+                                      <td>{r.label}</td>
+                                      <td>{r.count}</td>
+                                      <td>{r.sum}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                                <tfoot>
+                                  <tr>
+                                    <th colSpan={3} style={{textAlign:'right'}}>Total global</th>
+                                    <th><span className="badge bg-secondary">{totalGlobal}</span></th>
+                                  </tr>
+                                </tfoot>
+                              </table>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ABSENCES DES COURS PRÉCÉDENTS (redoublant) */}
+                  {ancAbsences.map((h) => {
+                    const groups = {};
+                    h.absences.forEach((a) => {
+                      const key = normalizeKey(getMotifAbs(a));
+                      const label = String(getMotifAbs(a) || "Sans motif").trim();
+                      const v = parseNumberFlexible(getNombreAbs(a)) ?? 1;
+                      if (!groups[key]) groups[key] = { label, count: 0, sum: 0 };
+                      groups[key].count += 1;
+                      groups[key].sum += v;
+                    });
+                    const rows = Object.values(groups);
+                    const total = rows.reduce((s, r) => s + r.sum, 0);
+
+                    return (
+                      <div className="col-12 col-lg-6 d-flex" key={`anc-${h.cour}`}>
+                        <div className="card shadow-sm w-100 d-flex flex-column h-100"
+                             style={{ border: "2px dashed #f0ad4e" }}>
+                          <div className="card-header fw-semibold d-flex justify-content-between align-items-center"
+                               style={{ background: "#fff3cd", color: "#8a6d3b" }}>
+                            <span>Absences — Cours {h.cour} (redoublement)</span>
+                            <span className="badge bg-warning text-dark">{total} j</span>
+                          </div>
+                          <div className="card-body p-2" style={{ overflowY: "auto" }}>
+                            <small className="text-muted">
+                              Ancien dossier : Inc. {h.numeroIncorporation} · Esc. {h.escadron}/{h.peloton}
+                            </small>
+                            <div className="table-responsive mt-2">
+                              <table className="table table-sm table-bordered align-middle">
+                                <thead>
+                                  <tr><th>#</th><th>Motif</th><th>Nombre</th><th>Total</th></tr>
+                                </thead>
+                                <tbody>
+                                  {rows.map((r, i) => (
+                                    <tr key={i}><td>{i + 1}</td><td>{r.label}</td><td>{r.count}</td><td>{r.sum}</td></tr>
+                                  ))}
+                                </tbody>
+                                <tfoot>
+                                  <tr>
+                                    <th colSpan={3} style={{ textAlign: "right" }}>Total cours {h.cour}</th>
+                                    <th><span className="badge bg-warning text-dark">{total}</span></th>
+                                  </tr>
+                                </tfoot>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* SANCTIONS */}
+                  <div className="col-12 col-lg-6 d-flex">
+                    <div className="card shadow-sm border-0 w-100 d-flex flex-column">
+                      <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                        <span>Sanctions</span>
+                        <div className="d-flex gap-2">
+                          <span className="badge bg-success-subtle text-success border border-success-subtle">
+                            + {(sanctions || []).filter(s => getSanctionType(s) === "positive").length}
+                          </span>
+                          <span className="badge bg-danger-subtle text-danger border border-danger-subtle">
+                            − {(sanctions || []).filter(s => getSanctionType(s) === "negative").length}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="card-body p-2" style={{ overflowY: "auto" }}>
+                        {loadingSanctions && <div className="alert alert-info py-2 mb-2">Chargement…</div>}
+                        {errorSanctions && <div className="alert alert-danger py-2 mb-2">{errorSanctions}</div>}
+                        {!loadingSanctions && !errorSanctions && (!sanctions || sanctions.length === 0) && (
+                          <div className="text-muted">Aucune sanction.</div>
+                        )}
+
+                        {canEditSanctions && (
+                          <div className="mb-2 border rounded p-2">
+                            <div className="row g-2 align-items-end">
+                              <div className="col-4">
+                                <label className="form-label mb-1">Type</label>
+                                <select
+                                  className="form-select form-select-sm"
+                                  value={sanctionForm.type}
+                                  onChange={(e) => setSanctionForm({ ...sanctionForm, type: e.target.value })}
+                                >
+                                  <option value="positive">Positive</option>
+                                  <option value="negative">Négative</option>
+                                </select>
+                              </div>
+
+                              <div className="col-3">
+                                <label className="form-label mb-1">Taux</label>
+                                <input
+                                  type="text"
+                                  className="form-control form-control-sm"
+                                  placeholder="0"
+                                  min="0"
+                                  value={sanctionForm.taux || ""}
+                                  onChange={(e) => setSanctionForm({ ...sanctionForm, taux: e.target.value })}
+                                />
+                              </div>
+
+                              <div className="col-5">
+                                <label className="form-label mb-1">Motif</label>
+                                <input
+                                  className="form-control form-control-sm"
+                                  placeholder="Motif…"
+                                  value={sanctionForm.motif}
+                                  onChange={(e) => setSanctionForm({ ...sanctionForm, motif: e.target.value })}
+                                />
+                              </div>
+
+                              <div className="col-12 d-flex gap-2">
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-primary"
+                                  onClick={handleSaveSanction}
+                                  disabled={!sanctionForm.motif || sanctionForm.motif.trim().length === 0}
+                                  title={
+                                    !sanctionForm.motif?.trim()
+                                      ? "Saisir un motif pour activer"
+                                      : "Enregistrer la sanction"
+                                  }
+                                >
+                                  {sanctionEditingId ? "Mettre à jour" : "Ajouter"}
+                                </button>
+                                {sanctionEditingId && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-secondary"
+                                    onClick={() => {
+                                      setSanctionEditingId(null);
+                                      setSanctionForm({ type: "negative", motif: "", taux: "" });
+                                    }}
+                                  >
+                                    Annuler
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {sanctions && sanctions.length > 0 && (
+                          <div
+                            className="table-responsive"
+                            style={{ maxHeight: "300px", overflowY: "auto" }}
+                          >
+                            <table className="table table-sm table-bordered align-middle mb-0">
+                              <thead>
+                                <tr>
+                                  <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>#</th>
+                                  <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>Type</th>
+                                  <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>Taux</th>
+                                  <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>Motif</th>
+                                  {canEditSanctions && (
+                                    <th style={{ position: "sticky", top: 0, background: "#f8f9fa", zIndex: 1 }}>Actions</th>
+                                  )}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {sanctions.map((s, idx) => {
+                                  const type = getSanctionType(s);
+                                  const motif = s?.motif ?? s?.raison ?? s?.reason ?? "-";
+                                  const taux = s?.taux ?? "-";
+                                  const badge =
+                                    type === "positive" ? (
+                                      <span className="badge bg-success-subtle text-success border border-success-subtle">
+                                        Positive
+                                      </span>
+                                    ) : (
+                                      <span className="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                        Négative
+                                      </span>
+                                    );
+
+                                  return (
+                                    <tr key={s.id || idx}>
+                                      <td>{s.id ?? idx + 1}</td>
+                                      <td>{badge}</td>
+                                      <td>{taux}</td>
+                                      <td
+                                        style={{
+                                          whiteSpace: "pre-wrap",
+                                          wordBreak: "break-word",
+                                          minWidth: "200px",
+                                        }}
+                                      >
+                                        {motif || "-"}
+                                      </td>
+                                      {canEditSanctions && (
+                                        <td>
+                                          <div className="d-flex gap-2">
+                                            <button
+                                              type="button"
+                                              className="btn btn-sm btn-outline-primary"
+                                              onClick={() => handleEditSanction(s)}
+                                            >
+                                              Modifier
+                                            </button>
+                                            <button
+                                              type="button"
+                                              className="btn btn-sm btn-outline-danger"
+                                              onClick={() => handleDeleteSanction(s.id)}
+                                            >
+                                              Supprimer
+                                            </button>
+                                          </div>
+                                        </td>
+                                      )}
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* OBSERVATIONS */}
+                  <div className="col-12 d-flex">
+                    <div className="card shadow-sm border-0 w-100 d-flex flex-column">
+                      <div className="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                        <span>Observations</span>
+                        <span className="badge bg-secondary">{observations?.length || 0}</span>
+                      </div>
+
+                      <div className="card-body p-2" style={{ overflowY: "auto" }}>
+                        {loadingObservations && <div className="alert alert-info py-2 mb-2">Chargement…</div>}
+                        {errorObservations && <div className="alert alert-danger py-2 mb-2">{errorObservations}</div>}
+                        {!loadingObservations && !errorObservations && (!observations || observations.length === 0) && (
+                          <div className="text-muted">Aucune observation.</div>
+                        )}
+
+                        <div className="mb-2 border rounded p-2">
+                          <div className="row g-2 align-items-end">
+                            <div className="col-10">
+                              <label className="form-label mb-1">Observation</label>
+                              <textarea
+                                className="form-control form-control-sm"
+                                rows={2}
+                                placeholder="Saisir une observation…"
+                                value={observationForm.contenu}
+                                onChange={(e) => setObservationForm({ ...observationForm, contenu: e.target.value })}
+                              />
+                            </div>
+                            <div className="col-12 d-flex gap-2">
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-primary"
+                                onClick={handleSaveObservation}
+                                disabled={!observationForm.contenu || observationForm.contenu.trim().length === 0}
+                              >
+                                {observationEditingId ? "Mettre à jour" : "Ajouter"}
+                              </button>
+                              {observationEditingId && (
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-outline-secondary"
+                                  onClick={() => {
+                                    setObservationEditingId(null);
+                                    setObservationForm({ contenu: "" });
+                                  }}
+                                >
+                                  Annuler
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {observations && observations.length > 0 && (
+                          <div className="table-responsive" style={{ maxHeight: "300px", overflowY: "auto" }}>
+                            <table className="table table-sm table-bordered align-middle mb-0">
+                              <thead>
+                                <tr>
+                                  <th style={{ position: "sticky", top: 0, background: "#f8f9fa" }}>Date</th>
+                                  <th style={{ position: "sticky", top: 0, background: "#f8f9fa" }}>Observation</th>
+                                  <th style={{ position: "sticky", top: 0, background: "#f8f9fa" }}>Auteur</th>
+                                  <th style={{ position: "sticky", top: 0, background: "#f8f9fa" }}>Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {observations.map((o, idx) => (
+                                  <tr key={o.id || idx}>
+                                    <td style={{ whiteSpace: "nowrap" }}>{formatDate(o.date)}</td>
+                                    <td style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", minWidth: "250px" }}>
+                                      {o.contenu || "-"}
+                                    </td>
+                                    <td>{o.auteur || "-"}</td>
+                                    <td>
+                                      <div className="d-flex gap-2">
+                                        <button
+                                          type="button"
+                                          className="btn btn-sm btn-outline-primary"
+                                          onClick={() => handleEditObservation(o)}
+                                        >
+                                          Modifier
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="btn btn-sm btn-outline-danger"
+                                          onClick={() => handleDeleteObservation(o.id)}
+                                        >
+                                          Supprimer
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                </div>{/* /row */}
+              </div>{/* /modal-content */}
+            </div>
+          )}
+
+          {showNoteModal && (
+            <div style={modalStyles.overlay} onClick={closeModal}>
+              <div
+                role="dialog"
+                aria-modal="true"
+                style={modalStyles.modal}
+                onClick={e => e.stopPropagation()}
+              >
+                <div style={modalStyles.header}>
+                  <h5 style={{ margin: 0 }}>Liste des Notes Français</h5>
+                  <button style={modalStyles.closeBtn} onClick={closeModal}>&times;</button>
+                </div>
+
+                <div style={modalStyles.body}>
+                  <input
+                    type="text"
+                    placeholder="Rechercher par nom, prénom ou incorporation..."
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      marginBottom: '10px',
+                      borderRadius: '4px',
+                      border: '1px solid #ccc',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '15px' }}>
+                    {["D", "I", "A"].map(cat => (
+                      <div
+                        key={cat}
+                        onClick={() => setNiveauFilter(niveauFilter === cat ? "" : cat)}
+                        style={{
+                          cursor: "pointer",
+                          padding: "8px 16px",
+                          borderRadius: "8px",
+                          border: "1px solid",
+                          borderColor: niveauFilter === cat ? "#0d6efd" : "#ccc",
+                          backgroundColor: niveauFilter === cat ? "#cfe2ff" : "#f8f9fa",
+                          fontWeight: "bold",
+                          userSelect: "none",
+                          minWidth: 100,
+                          textAlign: "center",
+                          transition: "all 0.3s",
+                        }}
+                        title={cat === "D" ? "Débutant" : cat === "I" ? "Intermédiaire" : "Avancé"}
+                      >
+                        {cat === "D" ? "Débutant" : cat === "I" ? "Intermédiaire" : "Avancé"}
+                      </div>
+                    ))}
+                  </div>
+
+                  {loading ? (
+                    <p>Chargement...</p>
+                  ) : (
+                    <div style={{ height: '100%', minHeight: 0 }}>
+                      <DataTable
+                        columns={columns2}
+                        data={filteredNotes}
+                        pagination
+                        highlightOnHover
+                        paginationPerPage={100}
+                        paginationRowsPerPageOptions={[25,50,100,200]}
+                        striped
+                        dense
+                        noHeader
+                        fixedHeader
+                        fixedHeaderScrollHeight="60vh"
+                      />
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                    <button className="btn btn-success" onClick={handleExportExcel2}>
+                      <i className="fa fa-file-excel me-2"></i>
+                      Exporter (.xlsx)
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="text-end mt-3">
+            <span className="fw-semibold">
+              Total : <span className="text-primary">{elevesAAfficher.length}</span> élèves gendarmes
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Tableau observations */}
-      {observations && observations.length > 0 && (
-        <div className="table-responsive" style={{ maxHeight: "300px", overflowY: "auto" }}>
-          <table className="table table-sm table-bordered align-middle mb-0">
-            <thead>
-              <tr>
-                <th style={{ position: "sticky", top: 0, background: "#f8f9fa" }}>Date</th>
-                <th style={{ position: "sticky", top: 0, background: "#f8f9fa" }}>Observation</th>
-                <th style={{ position: "sticky", top: 0, background: "#f8f9fa" }}>Auteur</th>
-                <th style={{ position: "sticky", top: 0, background: "#f8f9fa" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {observations.map((o, idx) => (
-                <tr key={o.id || idx}>
-                  <td style={{ whiteSpace: "nowrap" }}>{formatDate(o.date)}</td>
-                  <td style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", minWidth: "250px" }}>
-                    {o.contenu || "-"}
-                  </td>
-                  <td>{o.auteur || "-"}</td>
-                  <td>
-                    <div className="d-flex gap-2">
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-primary"
-                        onClick={() => handleEditObservation(o)}
-                      >
-                        Modifier
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger"
-                        onClick={() => handleDeleteObservation(o.id)}
-                      >
-                        Supprimer
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {eleveActif && (
+        <ModalModificationEleve
+          show={showModal}
+          onClose={handleCloseModal}
+          eleve={eleveActif}
+          onChange={handleChange}
+          onSave={handleSave}
+          onUpdateSuccess={handleUpdateSuccess}
+        />
       )}
     </div>
-  </div>
-</div>
+  );
+};
 
-
-      </div>{/* /row */}
-    </div>{/* /modal-content */}
-  </div>
-)}
-
-{showNoteModal && (
-  <div style={modalStyles.overlay} onClick={closeModal}>
-    <div
-      role="dialog"
-      aria-modal="true"
-      style={modalStyles.modal}
-      onClick={e => e.stopPropagation()}
-    >
-      <div style={modalStyles.header}>
-        <h5 style={{ margin: 0 }}>Liste des Notes Français</h5>
-        <button style={modalStyles.closeBtn} onClick={closeModal}>&times;</button>
-      </div>
-
-      <div style={modalStyles.body}>
-        {/* Recherche */}
-        <input
-          type="text"
-          placeholder="Rechercher par nom, prénom ou incorporation..."
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          style={{
-            width: '100%',
-            padding: '8px',
-            marginBottom: '10px',
-            borderRadius: '4px',
-            border: '1px solid #ccc',
-            boxSizing: 'border-box'
-          }}
-        />
-
-        {/* Cards filtres niveau */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '15px' }}>
-          {["D", "I", "A"].map(cat => (
-            <div
-              key={cat}
-              onClick={() => setNiveauFilter(niveauFilter === cat ? "" : cat)}
-              style={{
-                cursor: "pointer",
-                padding: "8px 16px",
-                borderRadius: "8px",
-                border: "1px solid",
-                borderColor: niveauFilter === cat ? "#0d6efd" : "#ccc",
-                backgroundColor: niveauFilter === cat ? "#cfe2ff" : "#f8f9fa",
-                fontWeight: "bold",
-                userSelect: "none",
-                minWidth: 100,
-                textAlign: "center",
-                transition: "all 0.3s",
-              }}
-              title={cat === "D" ? "Débutant" : cat === "I" ? "Intermédiaire" : "Avancé"}
-            >
-              {cat === "D" ? "Débutant" : cat === "I" ? "Intermédiaire" : "Avancé"}
-            </div>
-          ))}
-        </div>
-
-        {loading ? (
-          <p>Chargement...</p>
-        ) : (
-          <div style={{ height: '100%', minHeight: 0 }}>
-            <DataTable
-              columns={columns2}
-              data={filteredNotes}
-              pagination
-              highlightOnHover
-              paginationPerPage={100}                   // <- 100 lignes par page (par défaut)
-              paginationRowsPerPageOptions={[25,50,100,200]} // <- options au choix
-              striped
-              dense
-              noHeader
-              // si tu utilises react-data-table-component, ça fixe le header et gère le scroll interne :
-              fixedHeader
-              fixedHeaderScrollHeight="60vh"
-            />
-          </div>
-        )}
-
-        {/* Bouton Exporter */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
-          <button className="btn btn-success" onClick={handleExportExcel2}>
-            <i className="fa fa-file-excel me-2"></i>
-            Exporter (.xlsx)
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
-
-
-
-
-            <div className="text-end mt-3">
-              <span className="fw-semibold">
-                Total : <span className="text-primary">{elevesAAfficher.length}</span> élèves gendarmes
-              </span>
-            </div>
-          </div>
-        </div>
-
-                            {eleveActif && (
-                              <ModalModificationEleve
-                                show={showModal}
-                                onClose={handleCloseModal}
-                                eleve={eleveActif}
-                                onChange={handleChange}
-                                onSave={handleSave}
-                                onUpdateSuccess={handleUpdateSuccess}
-
-                              />
-                            )}
-                            
-                          </div>
-                            );
-                          };
-                                          const customStyles = {
-                                            headCells: {
-                                              style: {
-                                                fontSize: '17px', // Taille du texte des en-têtes
-                                                fontWeight: 'bold',
-                                              },
-                                            },
-                                            cells: {
-                                              style: {
-                                                fontSize: '17px', // Taille du texte des cellules
-                                              },
-                                            },
-                                          };
-
-
+const customStyles = {
+  headCells: {
+    style: {
+      fontSize: '17px',
+      fontWeight: 'bold',
+    },
+  },
+  cells: {
+    style: {
+      fontSize: '17px',
+    },
+  },
+};
 
 export default ListeElevePge;

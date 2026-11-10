@@ -1861,7 +1861,7 @@ const handleExportConsultationsPDF = (joursParEleve, dateServeur, joursSup = 0) 
                   
 
                  <div className="container-fluid mt-4 px-0">
-  <div className="bg-light p-3 rounded shadow-sm mb-4 text-center">
+                     <div className="bg-light p-3 rounded shadow-sm mb-4 text-center">
                     <h5 className="fw-bold m-0">
                       <i className="fa fa-flag text-danger me-2"></i>
                       Situation de Prise d'Arme
@@ -1893,7 +1893,7 @@ const handleExportConsultationsPDF = (joursParEleve, dateServeur, joursSup = 0) 
                           <div className="col-md-6">
                             <label className="form-label">Numéro d'incorporation</label>
                             <input
-                              type="number"
+                              type="text"
                               className="form-control"
                               value={numIncorp}
                               onChange={(e) => setNumIncorp(e.target.value)}
