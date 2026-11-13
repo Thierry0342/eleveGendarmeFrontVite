@@ -214,7 +214,7 @@ export function construireFichesPresence(salles) {
     const eleves = [...(salle.eleves || [])].sort(compareIncorporation);
 
     children.push(
-      para(run(`FICHE DE PRESENCE SALLE ${libelle}`, { bold: true, size: 24 }), {
+      para(run(`FEUILLE D’ÉMARGEMENT – REMISE DES COPIES APRÈS ÉPREUVE ${libelle}`, { bold: true, size: 24 }), {
         align: C,
         pageBreakBefore: idx > 0,
       }),
